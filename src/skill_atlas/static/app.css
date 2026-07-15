@@ -559,3 +559,151 @@ a:focus-visible {
         transition: none !important;
     }
 }
+
+/* --- рекомендации --- */
+
+.verdict {
+    padding: 18px 0 6px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.verdict-title {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+    width: 100%;
+}
+
+.verdict-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 6px 0 0;
+    max-width: 68ch;
+}
+
+.conf,
+.basis {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 100px;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+}
+
+/* Уверенность — единственное место, где цвет несёт смысл, а не украшает. */
+.conf[data-level="high"] {
+    border-color: var(--text);
+    color: var(--text);
+}
+
+.conf[data-level="low"] {
+    border-style: dashed;
+    color: var(--faint);
+}
+
+.sugg {
+    margin: 14px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 68ch;
+}
+
+.sugg li {
+    margin-bottom: 4px;
+}
+
+.pick {
+    border-top: 1px solid var(--line);
+    padding: 22px 0;
+    max-width: 74ch;
+}
+
+.pick-rank {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin-bottom: 8px;
+}
+
+.pick-best .pick-rank {
+    color: var(--text);
+}
+
+.pick h2 {
+    font-family: var(--mono);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+    word-break: break-all;
+}
+
+.pick h2 a {
+    text-decoration: none;
+}
+
+.pick h2 a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.pick-why {
+    margin: 0 0 10px;
+}
+
+.pick-lim {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.pick-lim b {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.chain,
+.nope {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.chain li,
+.nope li {
+    margin-bottom: 8px;
+}
+
+.chain a,
+.nope a {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+}
+
+.pick-no {
+    padding-bottom: 56px;
+}
+
+.navlink {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--line-strong);
+}
+
+.navlink:hover {
+    color: var(--text);
+}

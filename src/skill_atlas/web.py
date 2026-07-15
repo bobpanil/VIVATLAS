@@ -7,9 +7,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
-from skill_atlas.ai import build_embedding_model
+from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.db import session_scope
 from skill_atlas.models import Artifact, ArtifactTag, TagSuppression
+from skill_atlas.recommender import NO_MATCH_THRESHOLD
+from skill_atlas.recommender import recommend as do_recommend
 from skill_atlas.search import Mode
 from skill_atlas.search import search as do_search
 
@@ -34,7 +36,20 @@ def type_name(slug: str) -> str:
     return TYPE_NAMES.get(slug, slug)
 
 
+BASIS_NAMES = {
+    "documentation": "прямо сказано в описании",
+    "tags": "выведено по тегам",
+    "usage": "по истории использования",
+    "ai-inference": "догадка по смыслу",
+}
+
+
+def basis_name(slug: str) -> str:
+    return BASIS_NAMES.get(slug, slug or "не указано")
+
+
 templates.env.globals["type_name"] = type_name
+templates.env.globals["basis_name"] = basis_name
 
 
 def preview_url(artifact: Artifact) -> str | None:
@@ -151,3 +166,35 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "counts": _counts(session),
             },
         )
+
+
+@router.get("/recommend", response_class=HTMLResponse)
+async def recommend_page(request: Request, task: str = "") -> HTMLResponse:
+    result = None
+    embedding_model = text_model = None
+    try:
+        if task.strip():
+            embedding_model = build_embedding_model()
+            text_model = build_text_model()
+            with session_scope() as session:
+                result = await do_recommend(session, task, embedding_model, text_model)
+                counts = _counts(session)
+        else:
+            with session_scope() as session:
+                counts = _counts(session)
+
+        return templates.TemplateResponse(
+            request,
+            "recommend.html",
+            {
+                "r": result,
+                "task": task,
+                "counts": counts,
+                "threshold": NO_MATCH_THRESHOLD,
+            },
+        )
+    finally:
+        if embedding_model:
+            await embedding_model.aclose()
+        if text_model:
+            await text_model.aclose()

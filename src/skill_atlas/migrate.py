@@ -40,6 +40,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS artifacts_fts USING fts5(
 """
 
 
+def create_fts_table(conn) -> None:
+    """Создать таблицу поиска по словам.
+
+    Отдельно от ensure_schema, чтобы тесты поднимали ту же схему, что и боевая
+    база: create_all виртуальные таблицы не создаёт, и без этого поиск по
+    словам падает на пустом месте.
+    """
+    conn.execute(text(_FTS_SQL))
+
+
 def _fts_is_contentless(conn) -> bool:
     row = conn.execute(
         text("SELECT sql FROM sqlite_master WHERE type='table' AND name='artifacts_fts'")

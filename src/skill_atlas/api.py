@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 from skill_atlas.ai import build_embedding_model
 from skill_atlas.db import session_scope
+from skill_atlas.mcp_server import http_app as mcp_http_app
 from skill_atlas.models import Artifact, ArtifactTag, Repository, ScanRun, Tag, TagSuppression
 from skill_atlas.search import Mode
 from skill_atlas.search import search as do_search
@@ -16,6 +17,10 @@ from skill_atlas.web import router as web_router
 app = FastAPI(title="Skill Atlas", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 app.include_router(web_router)
+
+# MCP для ChatGPT. Отдельным приложением: у него свой жизненный цикл, и
+# смешивать его с обычными страницами нельзя.
+app.mount("/mcp-server", mcp_http_app())
 
 
 @app.get("/health")

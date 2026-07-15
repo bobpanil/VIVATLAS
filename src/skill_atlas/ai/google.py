@@ -23,16 +23,19 @@ class _GoogleClient:
         if not api_key:
             raise GoogleAIError("Не задан GOOGLE_API_KEY — впишите ключ в .env")
         self._api_key = api_key
-        self._client = httpx.AsyncClient(base_url=_BASE, timeout=timeout)
+        # Ключ идёт заголовком, а не параметром в адресе (?key=...). Google
+        # принимает оба способа, но httpx пишет адреса в лог целиком — и ключ
+        # утекал бы в каждую строчку лога. Заголовки в лог не попадают.
+        self._client = httpx.AsyncClient(
+            base_url=_BASE,
+            timeout=timeout,
+            headers={"x-goog-api-key": api_key},
+        )
 
     async def _post(self, model: str, method: str, payload: dict) -> dict:
         delay = 2.0
         for attempt in range(_MAX_RETRIES):
-            response = await self._client.post(
-                f"/models/{model}:{method}",
-                params={"key": self._api_key},
-                json=payload,
-            )
+            response = await self._client.post(f"/models/{model}:{method}", json=payload)
             if response.status_code in (429, 503):
                 if attempt == _MAX_RETRIES - 1:
                     raise GoogleAIError(

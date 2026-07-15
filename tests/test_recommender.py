@@ -180,9 +180,7 @@ async def test_only_two_alternatives_kept(session):
     text = FakeText(
         {
             "best": {"id": ids[0], "why": "ок", "limitations": "нет"},
-            "alternatives": [
-                {"id": i, "why": "x", "limitations": "y"} for i in ids[1:] + ids[1:]
-            ],
+            "alternatives": [{"id": i, "why": "x", "limitations": "y"} for i in ids[1:] + ids[1:]],
             "rejected": [],
             "chain": [],
             "confidence": 0.9,

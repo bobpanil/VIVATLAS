@@ -14,6 +14,7 @@ dependencies = [
     "typer>=0.15",
     "numpy>=2.0",
     "jinja2>=3.1",
+    "mcp>=1.2",
 ]
 
 [project.optional-dependencies]

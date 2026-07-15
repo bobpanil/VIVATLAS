@@ -119,6 +119,18 @@ def serve(
     uvicorn.run("skill_atlas.api:app", host=host, port=port, log_level="warning")
 
 
+@app.command("mcp")
+def mcp_stdio() -> None:
+    """Запустить MCP-сервер для Claude Code (stdio)."""
+    # Логи глушим: в stdio-режиме stdout это канал протокола, любая строчка
+    # в нём ломает связь.
+    logging.getLogger().handlers.clear()
+    logging.getLogger().addHandler(logging.NullHandler())
+    from skill_atlas.mcp_server import run_stdio
+
+    run_stdio()
+
+
 @app.command("reindex-words")
 def reindex_words() -> None:
     """Пересобрать таблицу поиска по словам."""

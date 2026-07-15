@@ -1,8 +1,12 @@
 """Gitea."""
 
+import logging
+
 import httpx
 
 from skill_atlas.providers.base import RepoRef
+
+log = logging.getLogger(__name__)
 
 # Инстанс отвечает 403 на запросы без узнаваемого User-Agent — проверено на
 # git.example.com. Без этого заголовка не работает ни один запрос.
@@ -55,6 +59,22 @@ class GiteaProvider:
         response.raise_for_status()
         return response.content
 
+    async def blob_shas(self, repo: RepoRef, ref: str) -> dict[str, str]:
+        """Слепки всех файлов: путь -> sha. Одним запросом.
+
+        Слепок git считается от содержимого, поэтому одинаковый файл здесь и на
+        GitHub даёт одинаковый sha — сравнивать можно напрямую, ничего не качая.
+        """
+        response = await self._client.get(
+            f"/repos/{repo.owner}/{repo.name}/git/trees/{ref}",
+            params={"recursive": "true", "per_page": 1000},
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data.get("truncated"):
+            log.warning("%s: список файлов обрезан, часть путей не увидим", repo.full_name)
+        return {t["path"]: t["sha"] for t in data.get("tree", []) if t["type"] == "blob"}
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
@@ -71,6 +91,7 @@ def _to_repo_ref(item: dict) -> RepoRef:
         html_url=item.get("html_url", ""),
         clone_url=item.get("clone_url", ""),
         size_kb=int(item.get("size") or 0),
+        original_url=item.get("original_url") or "",
         description=item.get("description") or "",
         updated_at=item.get("updated_at"),
     )

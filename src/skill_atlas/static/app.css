@@ -707,3 +707,29 @@ a:focus-visible {
 .navlink:hover {
     color: var(--text);
 }
+
+/* --- источник --- */
+
+.up-status {
+    font-family: var(--mono);
+    font-size: 12px;
+    margin: 0 0 10px;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+    display: inline-block;
+}
+
+/* Единственное состояние, требующее действия — оно и выделено. */
+.up-status[data-st="update-available"] {
+    border-color: var(--text);
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Правил ты — трогать нельзя. Пунктир как у догадок: тут тоже "осторожно". */
+.up-status[data-st="locally-modified"],
+.up-status[data-st="diverged"] {
+    border-style: dashed;
+}

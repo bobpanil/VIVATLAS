@@ -56,6 +56,8 @@ class Repository(Base):
     size_kb: Mapped[int] = mapped_column(Integer, default=0)
     is_archived: Mapped[bool] = mapped_column(default=False)
     is_empty: Mapped[bool] = mapped_column(default=False)
+    # Gitea заполняет, если репозиторий привезён откуда-то.
+    original_url: Mapped[str] = mapped_column(String(512), default="")
 
     remote_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_scanned_commit: Mapped[str | None] = mapped_column(String(64))
@@ -130,6 +132,41 @@ class Embedding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (UniqueConstraint("artifact_id", "model", name="uq_embedding"),)
+
+
+class UpstreamLink(Base):
+    """Откуда взят инструмент и как он соотносится с источником.
+
+    Ключевое здесь — baseline_*: слепки на момент, когда мы впервые увидели
+    копию и источник. Без них "файлы разные" ничего не значит — непонятно, то
+    ли вышла новая версия, то ли пользователь сам поправил.
+    """
+
+    __tablename__ = "upstream_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(ForeignKey("artifacts.id"), unique=True)
+
+    kind: Mapped[str] = mapped_column(String(32))  # github-file | gitea-mirror
+    upstream_repo: Mapped[str] = mapped_column(String(256))
+    upstream_path: Mapped[str] = mapped_column(String(512), default="")
+    upstream_url: Mapped[str] = mapped_column(String(512), default="")
+    discovered_by: Mapped[str] = mapped_column(String(64), default="")
+
+    # Отметка: как всё выглядело, когда копия и источник совпадали.
+    baseline_local_sha: Mapped[str] = mapped_column(String(64), default="")
+    baseline_upstream_sha: Mapped[str] = mapped_column(String(64), default="")
+    baseline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    last_local_sha: Mapped[str] = mapped_column(String(64), default="")
+    last_upstream_sha: Mapped[str] = mapped_column(String(64), default="")
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(32), default="unknown")
+    check_error: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    artifact: Mapped["Artifact"] = relationship()
 
 
 class Tag(Base):

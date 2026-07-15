@@ -23,6 +23,7 @@ class RepoRef(BaseModel):
     html_url: str
     clone_url: str
     size_kb: int
+    original_url: str = ""  # откуда привезли, если Gitea знает
     description: str = ""
     updated_at: datetime | None = None
 
@@ -51,6 +52,10 @@ class GitProvider(Protocol):
         Качаем архивом, а не файлами по одному: на сотнях репозиториев
         поштучное чтение упирается в лимиты запросов.
         """
+        ...
+
+    async def blob_shas(self, repo: RepoRef, ref: str) -> dict[str, str]:
+        """Слепки всех файлов: путь -> sha. Для сравнения с источником."""
         ...
 
     async def aclose(self) -> None: ...

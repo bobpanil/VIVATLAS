@@ -64,6 +64,21 @@
             {% endif %}
         </div>
 
+        {% if upstream %}
+        <div class="box">
+            <h3>Источник</h3>
+            <p class="up-status" data-st="{{ upstream.status }}">{{ status_name(upstream.status) }}</p>
+            <dl class="facts">
+                <dt>откуда</dt><dd><a href="{{ upstream.upstream_url }}">{{ upstream.upstream_repo }}</a></dd>
+                {% if upstream.upstream_path %}<dt>файл</dt><dd>{{ upstream.upstream_path }}</dd>{% endif %}
+                <dt>как нашли</dt><dd>{{ upstream.discovered_by }}</dd>
+                {% if upstream.baseline_at %}<dt>отметка</dt><dd>{{ upstream.baseline_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
+                {% if upstream.last_checked_at %}<dt>проверено</dt><dd>{{ upstream.last_checked_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
+            </dl>
+            {% if upstream.check_error %}<p class="warn">{{ upstream.check_error }}</p>{% endif %}
+        </div>
+        {% endif %}
+
         <div class="box">
             <h3>Откуда</h3>
             <dl class="facts">

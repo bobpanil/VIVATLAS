@@ -16,6 +16,7 @@ from skill_atlas.detector import detect
 from skill_atlas.models import Artifact, Repository
 from skill_atlas.providers.base import GitProvider, RepoRef
 from skill_atlas.summarizer import summarize
+from skill_atlas.upstream_sync import discover_for_artifact
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +94,12 @@ async def index_repository(
 
     row.last_scanned_commit = head
     row.last_scanned_at = datetime.now(UTC)
+
+    # Источник ищем здесь, а не потом: сейчас README целиком в руках, а в
+    # doc_text он обрезан на 24 тысячах знаков — строчка Source стоит в самом
+    # конце и в обрезку не попадает.
+    session.flush()  # нужен artifact.id
+    discover_for_artifact(session, artifact, contents, original_url=row.original_url or "")
 
     if text_model is not None:
         try:

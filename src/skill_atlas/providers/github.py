@@ -30,5 +30,8 @@ class GitHubProvider:
     async def download_archive(self, repo: RepoRef, ref: str) -> bytes:
         raise NotImplementedError
 
+    async def blob_shas(self, repo: RepoRef, ref: str) -> dict[str, str]:
+        raise NotImplementedError
+
     async def aclose(self) -> None:
         raise NotImplementedError

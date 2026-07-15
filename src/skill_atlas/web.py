@@ -9,11 +9,12 @@ from sqlalchemy import func, select
 
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.db import session_scope
-from skill_atlas.models import Artifact, ArtifactTag, TagSuppression
+from skill_atlas.models import Artifact, ArtifactTag, TagSuppression, UpstreamLink
 from skill_atlas.recommender import NO_MATCH_THRESHOLD
 from skill_atlas.recommender import recommend as do_recommend
 from skill_atlas.search import Mode
 from skill_atlas.search import search as do_search
+from skill_atlas.upstream import STATUS_NAMES
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
@@ -50,6 +51,7 @@ def basis_name(slug: str) -> str:
 
 templates.env.globals["type_name"] = type_name
 templates.env.globals["basis_name"] = basis_name
+templates.env.globals["status_name"] = lambda s: STATUS_NAMES.get(s, s)
 
 
 def preview_url(artifact: Artifact) -> str | None:
@@ -154,6 +156,9 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 select(TagSuppression).where(TagSuppression.artifact_id == artifact_id)
             )
         ]
+        upstream = session.scalar(
+            select(UpstreamLink).where(UpstreamLink.artifact_id == artifact_id)
+        )
 
         return templates.TemplateResponse(
             request,
@@ -162,6 +167,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "a": a,
                 "tags": tags,
                 "suppressed": suppressed,
+                "upstream": upstream,
                 "preview_url": preview_url(a),
                 "counts": _counts(session),
             },

@@ -20,6 +20,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "artifacts": {
         "file_paths": "TEXT DEFAULT ''",
     },
+    "repositories": {
+        "original_url": "VARCHAR(512) DEFAULT ''",
+    },
 }
 
 # Полнотекстовый поиск. unicode61 разбирает и русский, и английский;

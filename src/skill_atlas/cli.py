@@ -18,6 +18,8 @@ from skill_atlas.scanner import get_or_create_source, scan_source
 from skill_atlas.search import Mode
 from skill_atlas.search import search as do_search
 from skill_atlas.tagger import tag_artifact
+from skill_atlas.upstream import UpstreamChecker
+from skill_atlas.upstream_sync import check_all
 
 app = typer.Typer(help="Skill Atlas")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -103,6 +105,31 @@ def tag(no_ai: bool = typer.Option(False, help="Только теги по пр�
         typer.echo(f"  Отклонено запретом : {totals['rejected']}")
         typer.echo(f"  Слабых (не ставим) : {totals['weak']}")
         typer.echo(f"  Ошибок             : {failed}")
+
+    asyncio.run(_run())
+
+
+@app.command("upstream")
+def upstream_cmd() -> None:
+    """Проверить, не вышли ли новые версии у источников."""
+
+    async def _run() -> None:
+        provider = build_provider("gitea")
+        checker = UpstreamChecker(token=settings.github_token)
+        try:
+            with session_scope() as session:
+                result = await check_all(session, provider, checker)
+        finally:
+            await provider.aclose()
+            await checker.aclose()
+
+        typer.echo("")
+        typer.echo(f"  Проверено              : {result.checked}")
+        typer.echo(f"  Совпадает с источником : {result.in_sync}")
+        typer.echo(f"  ВЫШЛА НОВАЯ ВЕРСИЯ     : {result.update_available}")
+        typer.echo(f"  Вы правили             : {result.locally_modified}")
+        typer.echo(f"  Разошлось с обеих      : {result.diverged}")
+        typer.echo(f"  Ошибок                 : {result.failed}")
 
     asyncio.run(_run())
 

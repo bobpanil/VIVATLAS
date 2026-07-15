@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -85,6 +86,7 @@ async def index_repository(
     artifact.preview_path = detection.preview_path
     artifact.doc_text = detection.doc_text
     artifact.file_count = len(contents.files)
+    artifact.file_paths = json.dumps(contents.paths, ensure_ascii=False)
     artifact.source_commit = head
     artifact.content_hash = content_hash
     artifact.updated_at = datetime.now(UTC)

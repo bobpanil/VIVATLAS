@@ -1,7 +1,6 @@
-from tests.test_archive import make_tar
-
 from skill_atlas.archive import read_archive
 from skill_atlas.detector import detect
+from tests.test_archive import make_tar
 
 
 def d(files: dict[str, bytes]):
@@ -80,3 +79,30 @@ def test_doc_text_includes_anchor_and_readme():
 def test_reasons_are_recorded():
     r = d({"SKILL.md": b"# x"})
     assert r.reasons and "SKILL.md" in r.reasons[0]
+
+
+def test_docs_are_found_even_without_readme():
+    # Реальный случай: skills-lib/crgr-security-scanners. Ни SKILL.md, ни
+    # README.md — но документация есть, просто названа иначе. Раньше карточка
+    # выходила пустой и по смыслу не искалась.
+    r = d(
+        {
+            "SECURITY_SCANNERS_INSTALL.md": b"# Security scanners\nSemgrep, gitleaks, CodeQL",
+            "CLAUDE_INSTALL_PROMPT.txt": b"Install the scanners",
+            ".github/workflows/semgrep.yml": b"on: push",
+        }
+    )
+    assert "Semgrep" in r.doc_text
+    assert r.doc_text.strip() != ""
+
+
+def test_license_is_not_treated_as_documentation():
+    r = d({"LICENSE.md": b"MIT License blah", "NOTES.md": b"Real content here"})
+    assert "Real content here" in r.doc_text
+    assert "MIT License" not in r.doc_text
+
+
+def test_readme_still_wins_over_other_files():
+    r = d({"README.md": b"README CONTENT", "OTHER.md": b"OTHER CONTENT"})
+    assert "README CONTENT" in r.doc_text
+    assert "OTHER CONTENT" not in r.doc_text

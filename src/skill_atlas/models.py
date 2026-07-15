@@ -2,7 +2,15 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -83,6 +91,7 @@ class Artifact(Base):
     preview_path: Mapped[str | None] = mapped_column(String(512))
     doc_text: Mapped[str] = mapped_column(Text, default="")
     file_count: Mapped[int] = mapped_column(Integer, default=0)
+    file_paths: Mapped[str] = mapped_column(Text, default="")  # JSON-список путей
 
     summary_short: Mapped[str] = mapped_column(Text, default="")
     summary_normal: Mapped[str] = mapped_column(Text, default="")
@@ -100,6 +109,86 @@ class Artifact(Base):
     )
 
     repository: Mapped[Repository] = relationship()
+
+
+class Embedding(Base):
+    """Карточка в виде чисел — для поиска по смыслу.
+
+    Модель и размерность хранятся в каждой строке: числа от разных моделей
+    сравнивать нельзя, поэтому при смене модели строки не переписываются, а
+    добавляются новые.
+    """
+
+    __tablename__ = "embeddings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(ForeignKey("artifacts.id"))
+    model: Mapped[str] = mapped_column(String(64))
+    dim: Mapped[int] = mapped_column(Integer)
+    vector: Mapped[bytes] = mapped_column(LargeBinary)
+    source_hash: Mapped[str] = mapped_column(String(64))  # текст не менялся — не пересчитываем
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (UniqueConstraint("artifact_id", "model", name="uq_embedding"),)
+
+
+class Tag(Base):
+    """Словарь тегов."""
+
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True)
+    label: Mapped[str] = mapped_column(String(128))
+    category: Mapped[str] = mapped_column(String(32), default="other")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ArtifactTag(Base):
+    """Тег на карточке.
+
+    source говорит, откуда он взялся:
+      derived — вывели из пути, имени, файлов. Правило, всегда одинаково.
+      ai      — предложила модель.
+      manual  — поставил человек. Такие никогда не перезаписываются.
+    """
+
+    __tablename__ = "artifact_tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(ForeignKey("artifacts.id"))
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id"))
+
+    source: Mapped[str] = mapped_column(String(16))
+    confidence: Mapped[float] = mapped_column(default=1.0)
+    origin: Mapped[str] = mapped_column(String(64), default="")  # правило или модель
+    manually_confirmed: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    tag: Mapped[Tag] = relationship()
+
+    __table_args__ = (UniqueConstraint("artifact_id", "tag_id", name="uq_artifact_tag"),)
+
+
+class TagSuppression(Base):
+    """Запрет тега на карточке.
+
+    Пользователь удалил автотег — сюда пишется запись, и тег больше никогда не
+    вернётся при пересканировании. Без этой таблицы удаление было бы
+    бессмысленным: следующий прогон поставил бы тег обратно.
+    """
+
+    __tablename__ = "tag_suppressions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(ForeignKey("artifacts.id"))
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id"))
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    tag: Mapped[Tag] = relationship()
+
+    __table_args__ = (UniqueConstraint("artifact_id", "tag_id", name="uq_suppression"),)
 
 
 class ScanRun(Base):

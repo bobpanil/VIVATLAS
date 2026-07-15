@@ -70,6 +70,11 @@ def detect(contents: RepoContents) -> Detection:
         reasons.append("только README, тип неочевиден")
         return _simple(contents, "unknown", 0.3, reasons)
 
+    if _fallback_docs(contents):
+        # Тип не опознали, но читать есть что — описание всё равно выйдет.
+        reasons.append("документация есть, но тип неочевиден")
+        return _simple(contents, "unknown", 0.3, reasons)
+
     reasons.append("опознать не по чему")
     return Detection("unknown", 0.1, None, reasons=reasons)
 
@@ -112,16 +117,53 @@ def _find_preview(contents: RepoContents) -> str | None:
 
 
 def _collect_doc(contents: RepoContents, anchor_path: str | None) -> str:
-    """Текст для описания и поиска: опорный файл, при нехватке — плюс README."""
+    """Текст для описания и поиска.
+
+    Порядок: опорный файл, README, а если их нет — любая документация, какая
+    найдётся. Последний шаг не для красоты: у skills-lib/crgr-security-scanners
+    нет ни SKILL.md, ни README.md, но есть SECURITY_SCANNERS_INSTALL.md. Без
+    этого шага карточка выходила с описанием "документация отсутствует", и по
+    смыслу её было не найти.
+    """
     chunks: list[str] = []
+    used: set[str] = set()
+
     if anchor_path:
         anchor = contents.get(anchor_path)
         if anchor and anchor.text:
             chunks.append(anchor.text)
+            used.add(anchor.path)
+
     readme = contents.get("README.md")
-    if readme and readme.text and readme.path != anchor_path:
+    if readme and readme.text and readme.path not in used:
         chunks.append(readme.text)
+        used.add(readme.path)
+
+    if not chunks:
+        for f in _fallback_docs(contents):
+            if f.path not in used:
+                chunks.append(f"# {f.path}\n\n{f.text}")
+                used.add(f.path)
+
     return _trim("\n\n---\n\n".join(chunks))
+
+
+# Служебное, за документацию не считаем.
+_NOT_DOCS = ("license", "changelog", "contributing", "code_of_conduct", "security.md")
+
+
+def _fallback_docs(contents: RepoContents, limit: int = 3) -> list:
+    """Любые текстовые файлы, похожие на документацию. Самые крупные вперёд."""
+    candidates = [
+        f
+        for f in contents.files
+        if f.text
+        and f.path.lower().endswith((".md", ".txt"))
+        and "/" not in f.path  # только корень: вложенное — обычно не про суть
+        and not any(skip in f.path.lower() for skip in _NOT_DOCS)
+    ]
+    candidates.sort(key=lambda f: -len(f.text or ""))
+    return candidates[:limit]
 
 
 def _trim(text: str, limit: int = 24_000) -> str:

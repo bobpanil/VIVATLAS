@@ -4,14 +4,20 @@ import asyncio
 import logging
 
 import typer
+from sqlalchemy import select
 
-from skill_atlas.ai import build_text_model
+from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.config import settings
 from skill_atlas.db import engine, session_scope
+from skill_atlas.embeddings import embed_artifact
 from skill_atlas.indexer import index_all
-from skill_atlas.models import Base
+from skill_atlas.migrate import ensure_schema, rebuild_fts
+from skill_atlas.models import Artifact, Base
 from skill_atlas.providers import build_provider
 from skill_atlas.scanner import get_or_create_source, scan_source
+from skill_atlas.search import Mode
+from skill_atlas.search import search as do_search
+from skill_atlas.tagger import tag_artifact
 
 app = typer.Typer(help="Skill Atlas")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -19,9 +25,121 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 @app.command("init-db")
 def init_db() -> None:
-    """Создать таблицы."""
+    """Создать или обновить таблицы."""
     Base.metadata.create_all(engine)
+    for step in ensure_schema():
+        typer.echo(f"  {step}")
     typer.echo(f"База готова: {settings.database_url}")
+
+
+@app.command("embed")
+def embed(force: bool = typer.Option(False, help="Пересчитать все")) -> None:
+    """Превратить карточки в числа для поиска по смыслу."""
+
+    async def _run() -> None:
+        model = build_embedding_model()
+        created = unchanged = failed = 0
+        try:
+            with session_scope() as session:
+                arts = session.scalars(select(Artifact)).all()
+                for i, art in enumerate(arts, 1):
+                    try:
+                        outcome = await embed_artifact(session, model, art, force=force)
+                        session.commit()
+                        if outcome == "unchanged":
+                            unchanged += 1
+                        else:
+                            created += 1
+                        if i % 20 == 0:
+                            typer.echo(f"  {i}/{len(arts)}")
+                    except Exception as exc:
+                        session.rollback()
+                        failed += 1
+                        typer.echo(f"  {art.name}: ОШИБКА {exc}")
+                    await asyncio.sleep(settings.llm_delay_seconds)
+        finally:
+            await model.aclose()
+
+        typer.echo("")
+        typer.echo(f"  Посчитано     : {created}")
+        typer.echo(f"  Не изменилось : {unchanged}")
+        typer.echo(f"  Ошибок        : {failed}")
+
+    asyncio.run(_run())
+
+
+@app.command("tag")
+def tag(no_ai: bool = typer.Option(False, help="Только теги по правилам")) -> None:
+    """Расставить теги."""
+
+    async def _run() -> None:
+        model = None if no_ai else build_text_model()
+        totals = {"derived": 0, "ai": 0, "rejected": 0, "weak": 0}
+        failed = 0
+        try:
+            with session_scope() as session:
+                arts = session.scalars(select(Artifact)).all()
+                for i, art in enumerate(arts, 1):
+                    try:
+                        stats = await tag_artifact(session, art, model)
+                        session.commit()
+                        for k, v in stats.items():
+                            totals[k] += v
+                        if i % 20 == 0:
+                            typer.echo(f"  {i}/{len(arts)}")
+                    except Exception as exc:
+                        session.rollback()
+                        failed += 1
+                        typer.echo(f"  {art.name}: ОШИБКА {exc}")
+                    if model:
+                        await asyncio.sleep(settings.llm_delay_seconds)
+        finally:
+            if model:
+                await model.aclose()
+
+        typer.echo("")
+        typer.echo(f"  По правилам        : {totals['derived']}")
+        typer.echo(f"  От модели          : {totals['ai']}")
+        typer.echo(f"  Отклонено запретом : {totals['rejected']}")
+        typer.echo(f"  Слабых (не ставим) : {totals['weak']}")
+        typer.echo(f"  Ошибок             : {failed}")
+
+    asyncio.run(_run())
+
+
+@app.command("reindex-words")
+def reindex_words() -> None:
+    """Пересобрать таблицу поиска по словам."""
+    count = rebuild_fts()
+    typer.echo(f"В поиске по словам: {count} карточек")
+
+
+@app.command("search")
+def search_cmd(
+    query: str,
+    mode: str = typer.Option("both", help="words | meaning | both"),
+    limit: int = typer.Option(5),
+) -> None:
+    """Найти инструмент."""
+
+    async def _run() -> None:
+        model = build_embedding_model() if mode in ("meaning", "both") else None
+        try:
+            with session_scope() as session:
+                hits = await do_search(session, query, model, mode=Mode(mode), limit=limit)
+                if not hits:
+                    typer.echo("Ничего не нашлось")
+                    return
+                for i, h in enumerate(hits, 1):
+                    a = h.artifact
+                    typer.echo(f"\n{i}. {a.repository.full_name}  [{a.artifact_type}]")
+                    typer.echo(f"   {a.summary_short}")
+                    typer.echo(f"   почему: {', '.join(h.reasons)}   оценка: {h.score:.4f}")
+        finally:
+            if model:
+                await model.aclose()
+
+    asyncio.run(_run())
 
 
 @app.command("scan")

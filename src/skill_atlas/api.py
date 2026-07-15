@@ -3,8 +3,12 @@
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import func, select
 
+from skill_atlas.ai import build_embedding_model
 from skill_atlas.db import session_scope
-from skill_atlas.models import Artifact, Repository, ScanRun
+from skill_atlas.models import Artifact, ArtifactTag, Repository, ScanRun, Tag, TagSuppression
+from skill_atlas.search import Mode
+from skill_atlas.search import search as do_search
+from skill_atlas.tagger import add_manual_tag, remove_tag
 
 app = FastAPI(title="Skill Atlas", version="0.1.0")
 
@@ -75,6 +79,100 @@ def get_artifact(artifact_id: int) -> dict:
             "summary_error": a.summary_error,
             "source_commit": a.source_commit,
             "updated_at": a.updated_at,
+        }
+
+
+@app.get("/api/search")
+async def search_endpoint(
+    q: str,
+    mode: Mode = Mode.BOTH,
+    limit: int = 10,
+    type: str | None = None,
+) -> dict:
+    model = build_embedding_model() if mode in (Mode.MEANING, Mode.BOTH) else None
+    try:
+        with session_scope() as session:
+            hits = await do_search(session, q, model, mode=mode, limit=limit, artifact_type=type)
+            return {
+                "query": q,
+                "mode": mode,
+                "total": len(hits),
+                "items": [
+                    {
+                        "id": h.artifact_id,
+                        "name": h.artifact.name,
+                        "repository": h.artifact.repository.full_name,
+                        "type": h.artifact.artifact_type,
+                        "summary_short": h.artifact.summary_short,
+                        "score": round(h.score, 5),
+                        "reasons": h.reasons,
+                    }
+                    for h in hits
+                ],
+            }
+    finally:
+        if model:
+            await model.aclose()
+
+
+@app.get("/api/artifacts/{artifact_id}/tags")
+def artifact_tags(artifact_id: int) -> dict:
+    with session_scope() as session:
+        if session.get(Artifact, artifact_id) is None:
+            raise HTTPException(404, "карточка не найдена")
+        links = session.scalars(
+            select(ArtifactTag).where(ArtifactTag.artifact_id == artifact_id)
+        ).all()
+        banned = session.scalars(
+            select(TagSuppression).where(TagSuppression.artifact_id == artifact_id)
+        ).all()
+        return {
+            "tags": [
+                {
+                    "slug": link.tag.slug,
+                    "category": link.tag.category,
+                    "source": link.source,
+                    "confidence": link.confidence,
+                    "origin": link.origin,
+                    "manually_confirmed": link.manually_confirmed,
+                }
+                for link in links
+            ],
+            "suppressed": [{"slug": b.tag.slug, "reason": b.reason} for b in banned],
+        }
+
+
+@app.post("/api/artifacts/{artifact_id}/tags/{slug}")
+def add_tag_endpoint(artifact_id: int, slug: str) -> dict:
+    with session_scope() as session:
+        if session.get(Artifact, artifact_id) is None:
+            raise HTTPException(404, "карточка не найдена")
+        tag = add_manual_tag(session, artifact_id, slug)
+        return {"ok": True, "slug": tag.slug, "source": "manual"}
+
+
+@app.delete("/api/artifacts/{artifact_id}/tags/{slug}")
+def remove_tag_endpoint(artifact_id: int, slug: str, reason: str = "") -> dict:
+    """Удаляет тег и запрещает его возвращение при следующем сканировании."""
+    with session_scope() as session:
+        if session.get(Artifact, artifact_id) is None:
+            raise HTTPException(404, "карточка не найдена")
+        remove_tag(session, artifact_id, slug, reason=reason)
+        return {"ok": True, "slug": slug, "suppressed": True}
+
+
+@app.get("/api/tags")
+def list_tags() -> dict:
+    with session_scope() as session:
+        rows = session.execute(
+            select(Tag.slug, Tag.category, func.count(ArtifactTag.id))
+            .join(ArtifactTag, ArtifactTag.tag_id == Tag.id)
+            .group_by(Tag.id)
+            .order_by(func.count(ArtifactTag.id).desc())
+        ).all()
+        return {
+            "total": len(rows),
+            "items": [{"slug": s, "category": c, "count": n} for s, c, n in rows],
         }
 
 

@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 
+{% macro chip(label, count, params, current) %}
+<a class="filter" href="/?{{ params|urlencode }}" {% if current %}aria-current="true"{% endif %}>{{ label }} <b>{{ count }}</b></a>
+{% endmacro %}
+
 {% block content %}
 <div class="searchbar">
     <form class="searchform" action="/" method="get" role="search">
         <input type="search" name="q" value="{{ q }}" autocomplete="off"
                placeholder="Что нужно сделать? Например: фирменные цвета и шрифты"
                aria-label="Поиск инструмента">
-        {% if type %}<input type="hidden" name="type" value="{{ type }}">{% endif %}
+        {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
         <button type="submit">Найти</button>
     </form>
     {% if q %}
@@ -16,14 +20,55 @@
     {% endif %}
 </div>
 
-<nav class="filters" aria-label="Фильтр по типу">
-    <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
-       {% if not type %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
-    {% for t, n in counts.by_type %}
-    <a class="filter" href="/?type={{ t|urlencode }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-       {% if type == t %}aria-current="true"{% endif %}>{{ type_name(t) }} <b>{{ n }}</b></a>
-    {% endfor %}
-</nav>
+<div class="fbar">
+    <nav class="filters" aria-label="Тип">
+        <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
+           {% if not f.active() %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+        {% for t in types %}
+        {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
+        {% endfor %}
+    </nav>
+
+    {% if statuses %}
+    <nav class="filters" aria-label="Источник">
+        <span class="fgroup">источник</span>
+        {% for st in statuses %}
+        {{ chip(st.label, st.count, f.as_query(status=st.value if f.status != st.value else "") | combine(q=q), f.status == st.value) }}
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    {% if periods %}
+    <nav class="filters" aria-label="Когда трогали">
+        <span class="fgroup">трогали</span>
+        {% for p in periods %}
+        {{ chip(p.label, p.count, f.as_query(days=p.value if f.days != p.value else "") | combine(q=q), f.days == p.value) }}
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    {# Теговых групп много, и развёрнутыми они занимают весь первый экран.
+       Прячем под details — это штатная разметка, работает без JS. Если фильтр
+       по тегу уже выбран, блок открыт: иначе непонятно, почему мало карточек. #}
+    <details class="fmore" {% if f.tag %}open{% endif %}>
+        <summary>по назначению, платформе, языку{% if f.tag %} — выбрано: {{ f.tag }}{% endif %}</summary>
+        {% for g in tag_groups %}
+        <nav class="filters" aria-label="{{ g.title }}">
+            <span class="fgroup">{{ g.title }}</span>
+            {% for o in g.options %}
+            {{ chip(o.label, o.count, f.as_query(tag=o.value if f.tag != o.value else "") | combine(q=q), f.tag == o.value) }}
+            {% endfor %}
+        </nav>
+        {% endfor %}
+    </details>
+
+    {% if f.active() %}
+    <p class="fclear">
+        Отобрано: <b>{{ items|length }}</b> ·
+        <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">снять все фильтры</a>
+    </p>
+    {% endif %}
+</div>
 
 {% if items %}
 <div class="grid">
@@ -32,7 +77,10 @@
         {% if it.preview_url %}
         <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
         {% else %}
-        <div class="thumb-text"><span>{{ it.name }}</span></div>
+        <div class="thumb-text" data-type="{{ it.type }}">
+            <span>{{ it.name }}</span>
+            <em>{{ type_name(it.type) }}</em>
+        </div>
         {% endif %}
         <div class="card-body">
             <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
@@ -48,8 +96,12 @@
 {% else %}
 <div class="empty">
     <b>Ничего не нашлось</b>
-    {% if q %}
-    По запросу «{{ q }}» подходящего инструмента нет. Это не ошибка поиска — возможно, такого у вас правда не заведено. Попробуйте описать задачу другими словами или посмотрите все карточки.
+    {% if q and f.active() %}
+    По запросу «{{ q }}» с такими фильтрами ничего нет. Попробуйте <a href="/?q={{ q|urlencode }}">снять фильтры</a>.
+    {% elif q %}
+    По запросу «{{ q }}» подходящего инструмента нет. Это не ошибка поиска — возможно, такого у вас правда не заведено.
+    {% elif f.active() %}
+    С такими фильтрами ничего нет. <a href="/">Снять всё</a>.
     {% else %}
     Каталог пуст. Запустите сканирование: <code>skill-atlas scan</code>, затем <code>skill-atlas index</code>.
     {% endif %}

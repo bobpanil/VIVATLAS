@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
 from skill_atlas import changes as ch
+from skill_atlas import filters as flt
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.db import session_scope
 from skill_atlas.models import Artifact, ArtifactTag, TagSuppression, UpstreamLink
@@ -57,6 +58,16 @@ templates.env.globals["kind_name"] = lambda k: ch.KIND_NAMES.get(k, k)
 templates.env.globals["kind_mark"] = lambda k: ch.KIND_MARKS.get(k, "·")
 
 
+def _combine(params: dict, **extra) -> dict:
+    """Добавить к набору фильтров ещё что-то (обычно поисковый запрос)."""
+    out = dict(params)
+    out.update({k: v for k, v in extra.items() if v})
+    return out
+
+
+templates.env.filters["combine"] = _combine
+
+
 def preview_url(artifact: Artifact) -> str | None:
     """Превью берём прямо из Gitea — репозитории открытые, проксировать незачем."""
     if not artifact.preview_path or not artifact.repository.html_url:
@@ -79,53 +90,64 @@ def _counts(session) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request, q: str = "", type: str = "") -> HTMLResponse:
+async def index(
+    request: Request,
+    q: str = "",
+    type: str = "",
+    tag: str = "",
+    days: str = "",
+    status: str = "",
+    owner: str = "",
+) -> HTMLResponse:
+    f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner)
     model = build_embedding_model() if q else None
     try:
         with session_scope() as session:
             counts = _counts(session)
 
             if q:
-                hits = await do_search(
-                    session, q, model, mode=Mode.BOTH, limit=60, artifact_type=type or None
-                )
-                items = [
-                    {
-                        "id": h.artifact.id,
-                        "name": h.artifact.name,
-                        "owner": h.artifact.repository.owner,
-                        "type": h.artifact.artifact_type,
-                        "summary_short": h.artifact.summary_short,
-                        "preview_url": preview_url(h.artifact),
-                        "reasons": h.reasons,
-                    }
-                    for h in hits
+                # Поиск уже отобрал по смыслу — фильтры применяем к его выдаче,
+                # а не к базе: иначе порядок по близости потеряется.
+                hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
+                allowed = {a for a in session.scalars(flt.apply(select(Artifact.id), f))}
+                items = [_card(h.artifact, h.reasons) for h in hits if h.artifact.id in allowed][
+                    :60
                 ]
             else:
-                query = select(Artifact).order_by(Artifact.name)
-                if type:
-                    query = query.where(Artifact.artifact_type == type)
-                items = [
-                    {
-                        "id": a.id,
-                        "name": a.name,
-                        "owner": a.repository.owner,
-                        "type": a.artifact_type,
-                        "summary_short": a.summary_short,
-                        "preview_url": preview_url(a),
-                        "reasons": [],
-                    }
-                    for a in session.scalars(query)
-                ]
+                query = flt.apply(select(Artifact), f).order_by(Artifact.name)
+                items = [_card(a, []) for a in session.scalars(query)]
 
             return templates.TemplateResponse(
                 request,
                 "index.html",
-                {"items": items, "q": q, "type": type, "counts": counts},
+                {
+                    "items": items,
+                    "q": q,
+                    "f": f,
+                    "counts": counts,
+                    "types": flt.type_options(session),
+                    "owners": flt.owner_options(session),
+                    "tag_groups": flt.tag_groups(session),
+                    "periods": flt.period_options(session),
+                    "statuses": flt.status_options(session),
+                    "period_names": {k: v[0] for k, v in flt.PERIODS.items()},
+                },
             )
     finally:
         if model:
             await model.aclose()
+
+
+def _card(a: Artifact, reasons: list[str]) -> dict:
+    return {
+        "id": a.id,
+        "name": a.name,
+        "owner": a.repository.owner,
+        "type": a.artifact_type,
+        "summary_short": a.summary_short,
+        "preview_url": preview_url(a),
+        "reasons": reasons,
+    }
 
 
 @router.get("/a/{artifact_id}", response_class=HTMLResponse)

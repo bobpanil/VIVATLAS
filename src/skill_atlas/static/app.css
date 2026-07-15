@@ -801,3 +801,102 @@ a:focus-visible {
     flex: none;
     white-space: nowrap;
 }
+
+/* --- панель фильтров --- */
+
+.fbar {
+    padding-bottom: 18px;
+}
+
+.fbar .filters {
+    padding-bottom: 7px;
+    align-items: baseline;
+}
+
+/* Подпись группы — не кнопка, поэтому набрана иначе и не кликается. */
+.fgroup {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--faint);
+    min-width: 74px;
+    flex: none;
+}
+
+.fclear {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+
+.fclear b {
+    font-family: var(--mono);
+    color: var(--text);
+}
+
+/* Плитка без превью: показываем идентификатор и тип. Придумывать картинку
+   нечестно — у скиллов её просто нет, проверено: 1 из 26. */
+.thumb-text {
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.thumb-text em {
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--line-strong);
+}
+
+@media (max-width: 860px) {
+    .fgroup {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+.fmore {
+    margin-top: 4px;
+}
+
+.fmore summary {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 5px 0;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px dotted var(--line-strong);
+    width: fit-content;
+}
+
+.fmore summary::-webkit-details-marker {
+    display: none;
+}
+
+.fmore summary::before {
+    content: "+";
+    font-weight: 700;
+    color: var(--faint);
+}
+
+.fmore[open] summary::before {
+    content: "−";
+}
+
+.fmore summary:hover {
+    color: var(--text);
+}
+
+.fmore[open] > .filters:first-of-type {
+    padding-top: 10px;
+}

@@ -1,4 +1,8 @@
+import pytest
+
 from skill_atlas.finder import (
+    Candidate,
+    Finder,
     classify,
     extract_bare_repos,
     extract_repos,
@@ -118,3 +122,86 @@ def test_same_repo_written_differently_is_one_repo():
     # Для GitHub регистр во владельце не важен — репозиторий один.
     text = "github.com/VoltAgent/voltagent и github.com/voltagent/voltagent"
     assert extract_repos(text) == ["VoltAgent/voltagent"]
+
+
+def test_og_values_are_unescaped():
+    # Настоящий случай, стоил 403: в разметке & всегда пишется как &amp;.
+    # Оставить как есть — сломать подпись в ссылке на видео.
+    html = '<meta property="og:video" content="https://v.fbcdn.net/x.mp4?oh=aa&amp;oe=6A5D9DE9">'
+    assert parse_og(html)["video"] == "https://v.fbcdn.net/x.mp4?oh=aa&oe=6A5D9DE9"
+
+
+def test_og_title_is_unescaped_too():
+    html = '<meta property="og:title" content="&quot;Скил&quot; для Claude &amp; Cursor">'
+    assert parse_og(html)["title"] == '"Скил" для Claude & Cursor'
+
+
+# --- модели верим только на слово, а слово проверяем ---
+
+
+class FakeModel:
+    def __init__(self, **data):
+        self.data = {
+            "heard": "",
+            "tool_name": "",
+            "github_repo": "",
+            "keywords": "",
+            "stars_mentioned": 0,
+            **data,
+        }
+
+    async def generate_json(self, prompt, schema):
+        return self.data
+
+    async def generate_json_with_media(self, prompt, schema, mime_type, data_base64):
+        return self.data
+
+    async def aclose(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_invented_address_is_thrown_away(monkeypatch):
+    # Настоящий случай: послушав рилс, модель выдала skills/last-30-day.
+    # Такого репозитория нет — а мы бы предложили его тащить.
+    finder = Finder()
+
+    async def nothing_exists(repo):
+        return False
+
+    async def search(result):
+        result.candidates.append(
+            Candidate(repo="mvanhorn/last30days-skill", url="", stars=52316, why="нашлось")
+        )
+
+    monkeypatch.setattr(finder, "_exists", nothing_exists)
+    monkeypatch.setattr(finder, "_search", search)
+
+    result = await finder.find(
+        "скил про новости за 30 дней",
+        FakeModel(github_repo="skills/last-30-day", tool_name="last-30-days-skill"),
+    )
+    assert [c.repo for c in result.candidates] == ["mvanhorn/last30days-skill"]
+    assert any("не верим" in n for n in result.notes)
+    await finder.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_address_from_the_model_is_used(monkeypatch):
+    finder = Finder()
+
+    async def everything_exists(repo):
+        return True
+
+    async def describe(repo, why, exact=False):
+        return Candidate(repo=repo, url=f"https://github.com/{repo}", why=why, exact=exact)
+
+    monkeypatch.setattr(finder, "_exists", everything_exists)
+    monkeypatch.setattr(finder, "_describe", describe)
+
+    result = await finder.find(
+        "тот самый скил", FakeModel(github_repo="DeusData/codebase-memory-mcp")
+    )
+    assert [c.repo for c in result.candidates] == ["DeusData/codebase-memory-mcp"]
+    assert result.candidates[0].exact
+    await finder.aclose()

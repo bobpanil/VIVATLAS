@@ -21,6 +21,7 @@ import logging
 import mimetypes
 import re
 from dataclasses import dataclass, field
+from html import unescape
 from pathlib import Path
 
 import httpx
@@ -167,10 +168,18 @@ def extract_bare_repos(text: str, limit: int = 3) -> list[str]:
     return out[:limit]
 
 
-def parse_og(html: str) -> dict[str, str]:
-    tags = {k.lower(): v for k, v in _OG.findall(html)}
-    for v, k in _OG_ALT.findall(html):
-        tags.setdefault(k.lower(), v)
+def parse_og(page: str) -> dict[str, str]:
+    """Теги og: со страницы, уже расшифрованные.
+
+    Расшифровка обязательна, и это не косметика. В теге ссылка на видео
+    записана как ...&amp;oe=6A5D9DE9&amp;... — в разметке & пишется так всегда.
+    Если оставить как есть, в ссылке ломается подпись, и Facebook отвечает 403
+    на совершенно правильную ссылку. Проверено на живом рилсе: без расшифровки
+    403, с ней — 1.47 МБ mp4.
+    """
+    tags = {k.lower(): unescape(v) for k, v in _OG.findall(page)}
+    for v, k in _OG_ALT.findall(page):
+        tags.setdefault(k.lower(), unescape(v))
     return tags
 
 
@@ -261,10 +270,45 @@ class Finder:
             return
 
         result.notes.append("на странице нет ссылок на GitHub — придётся искать по смыслу")
-        if og.get("video") and model is not None:
-            result.notes.append("на странице есть видео — можно послушать звук")
+
+        # Рилс: ссылок на странице нет, весь смысл — в звуке. Название на слух
+        # распознаётся неточно, поэтому дальше всё равно поиск и выбор руками.
+        video = og.get("video") or og.get("video:url") or og.get("video:secure_url")
+        if video and model is not None:
+            data = await self._download(video, result)
+            if data:
+                result.notes.append(f"слушаю ролик, {len(data) / 1024 / 1024:.1f} МБ")
+                await self._ask(
+                    model,
+                    "Послушай звук этого ролика. Текст на экране тоже прочитай, если он есть.",
+                    result,
+                    media=("video/mp4", data),
+                )
+                return
+
         if result.heard and model is not None:
             await self._ask(model, f"Текст со страницы:\n\n{result.heard[:1500]}", result)
+
+    async def _download(self, url: str, result: FindResult) -> bytes | None:
+        """Скачать ролик. Великоватые не берём: модель их всё равно не примет."""
+        try:
+            async with self._web.stream("GET", url, headers={"User-Agent": _UA_MOBILE}) as response:
+                if response.status_code != 200:
+                    result.notes.append(f"ролик не отдался: HTTP {response.status_code}")
+                    return None
+                chunks, size = [], 0
+                async for chunk in response.aiter_bytes():
+                    size += len(chunk)
+                    if size > MAX_MEDIA_BYTES:
+                        result.notes.append(
+                            f"ролик больше {MAX_MEDIA_BYTES // 1_000_000} МБ — не тяну"
+                        )
+                        return None
+                    chunks.append(chunk)
+                return b"".join(chunks)
+        except Exception as exc:
+            result.notes.append(f"ролик не скачался: {exc}")
+            return None
 
     async def _from_media(
         self, path: str, kind: str, result: FindResult, model: TextModel | None
@@ -336,9 +380,16 @@ class Finder:
         for repo in extract_repos(result.heard):
             sure.append((repo, "ссылка видна целиком"))
 
+        # Проверяем у GitHub всё, что назвала модель. Запрет "не выдумывай
+        # адрес" она соблюдает не всегда: на живом рилсе выдала skills/last-30-day
+        # — такого репозитория нет, а мы бы предложили его тащить. Просить
+        # модель не врать можно, полагаться на это — нельзя.
         known = {c.repo.lower() for c in result.candidates}
         for repo, why in sure[:3]:
             if repo.lower() in known:
+                continue
+            if not await self._exists(repo):
+                result.notes.append(f"модель назвала {repo}, но такого нет — не верим")
                 continue
             result.candidates.append(await self._describe(repo, why, True))
             known.add(repo.lower())

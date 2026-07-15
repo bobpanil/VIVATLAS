@@ -75,6 +75,9 @@
                 {% if upstream.baseline_at %}<dt>отметка</dt><dd>{{ upstream.baseline_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
                 {% if upstream.last_checked_at %}<dt>проверено</dt><dd>{{ upstream.last_checked_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
             </dl>
+            {% if upstream.status == 'update-available' %}
+            <p class="legend">Поставить новую версию:<br><code>skill-atlas update {{ a.name }}</code></p>
+            {% endif %}
             {% if upstream.check_error %}<p class="warn">{{ upstream.check_error }}</p>{% endif %}
         </div>
         {% endif %}

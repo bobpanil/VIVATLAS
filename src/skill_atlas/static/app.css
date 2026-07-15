@@ -521,6 +521,18 @@ a:focus-visible {
     margin: 10px 0 0;
 }
 
+/* Команда на карточке — её сюда пришли скопировать, а не прочитать. */
+.legend code {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    display: inline-block;
+    margin-top: 3px;
+    user-select: all;
+}
+
 .legend span {
     display: inline-block;
     width: 9px;

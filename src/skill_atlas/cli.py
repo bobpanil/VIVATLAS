@@ -16,12 +16,13 @@ from skill_atlas.import_run import execute, record_upstream
 from skill_atlas.importer import GitHubFetcher, ImportError_, plan_import
 from skill_atlas.indexer import index_all, index_repository
 from skill_atlas.migrate import ensure_schema, rebuild_fts
-from skill_atlas.models import Artifact, Base, Repository
+from skill_atlas.models import Artifact, Base, Repository, UpstreamLink
 from skill_atlas.providers import build_provider
 from skill_atlas.scanner import get_or_create_source, scan_source
 from skill_atlas.search import Mode, index_artifact_for_words
 from skill_atlas.search import search as do_search
 from skill_atlas.tagger import tag_artifact
+from skill_atlas.updater import UpdateRefused, apply_update, plan_update
 from skill_atlas.upstream import UpstreamChecker
 from skill_atlas.upstream_sync import check_all
 
@@ -249,6 +250,120 @@ def import_cmd(
             await provider.aclose()
             await text_model.aclose()
             await embed_model.aclose()
+
+    asyncio.run(_run())
+
+
+@app.command("update")
+def update_cmd(
+    name: str = typer.Argument("", help="Имя карточки. Пусто — все, где вышла новая версия."),
+    yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
+) -> None:
+    """Поставить новую версию из источника вместо старой.
+
+    Обновляет только то, что вы не трогали. Если копию правили — откажется и
+    скажет почему: перезапись затёрла бы вашу правку молча.
+
+    Без --yes только показывает, что будет сделано.
+    """
+
+    async def _run() -> None:
+        provider = build_provider("gitea")
+        checker = UpstreamChecker(token=settings.github_token)
+        text_model = build_text_model() if settings.google_api_key else None
+        embed_model = build_embedding_model() if settings.google_api_key else None
+        try:
+            with session_scope() as session:
+                q = select(UpstreamLink).join(Artifact)
+                if name:
+                    q = q.where(Artifact.name == name)
+                else:
+                    q = q.where(UpstreamLink.status == "update-available")
+                links = list(session.scalars(q).all())
+
+                if not links:
+                    typer.echo("")
+                    if name:
+                        typer.echo(f"  Карточка «{name}» не найдена или у неё не записан источник.")
+                    else:
+                        typer.echo("  Обновлять нечего. Сначала: skill-atlas upstream")
+                    return
+
+                plans, refused = [], []
+                for link in links:
+                    try:
+                        plans.append(await plan_update(session, provider, checker, link))
+                    except UpdateRefused as exc:
+                        refused.append((link.artifact.name, str(exc)))
+                    except Exception as exc:
+                        refused.append((link.artifact.name, f"не проверилось: {exc}"))
+
+                typer.echo("")
+                for who, why in refused:
+                    typer.echo(f"  — {who}: {why}")
+
+                if not plans:
+                    return
+
+                typer.echo("")
+                typer.echo("  ЧТО БУДЕТ ЗАМЕНЕНО")
+                for p in plans:
+                    typer.echo(f"    {p.repo_full_name} · {p.path} ({p.size_kb:.0f} КБ)")
+                    typer.echo(f"       откуда: github.com/{p.upstream_repo}/{p.upstream_path}")
+                    typer.echo(f"       было {p.old_sha[:8]} -> станет {p.new_sha[:8]}")
+
+                if not yes:
+                    typer.echo("")
+                    typer.echo("  Ничего не сделано. Повторите с --yes, чтобы выполнить.")
+                    return
+
+                if not settings.gitea_token:
+                    typer.echo("")
+                    typer.echo("  Нет GITEA_TOKEN — писать нечем. Впишите токен в .env")
+                    raise typer.Exit(1)
+
+                done = 0
+                for p in plans:
+                    link = session.get(UpstreamLink, p.link_id)
+                    try:
+                        await apply_update(session, provider, checker, p)
+                        session.commit()
+                        done += 1
+                        typer.echo(f"  Готово: {p.repo_full_name} · {p.path}")
+                    except Exception as exc:
+                        session.rollback()
+                        typer.echo(f"  ОШИБКА: {p.repo_full_name}: {exc}")
+                        continue
+
+                    # Файл сменился — значит описание, теги и поиск устарели.
+                    if text_model is None or embed_model is None:
+                        typer.echo("     карточку не пересобрал: нет GOOGLE_API_KEY")
+                        continue
+                    try:
+                        repo = link.artifact.repository
+                        await index_repository(session, provider, text_model, repo, force=True)
+                        session.commit()
+                        art = session.scalar(
+                            select(Artifact).where(Artifact.repository_id == repo.id)
+                        )
+                        await embed_artifact(session, embed_model, art)
+                        await tag_artifact(session, art, text_model)
+                        index_artifact_for_words(session, art)
+                        session.commit()
+                        typer.echo(f"     карточка пересобрана: {art.summary_short[:60]}")
+                    except Exception as exc:
+                        session.rollback()
+                        typer.echo(f"     файл обновлён, но карточка не пересобралась: {exc}")
+
+                typer.echo("")
+                typer.echo(f"  Обновлено: {done} из {len(plans)}")
+        finally:
+            await provider.aclose()
+            await checker.aclose()
+            if text_model is not None:
+                await text_model.aclose()
+            if embed_model is not None:
+                await embed_model.aclose()
 
     asyncio.run(_run())
 

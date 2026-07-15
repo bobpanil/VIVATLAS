@@ -131,6 +131,23 @@ class UpstreamChecker:
         self._cache[repo] = shas
         return shas
 
+    async def blob(self, repo: str, sha: str) -> bytes:
+        """Содержимое файла по его слепку.
+
+        Именно по слепку, а не по пути в ветке: слепок мы уже сравнили и знаем,
+        что новая версия — это он. Пока мы ходим за содержимым, в ветку может
+        прилететь ещё коммит, и по пути приехало бы не то, что мы показали
+        человеку.
+        """
+        import base64
+
+        response = await self._client.get(f"https://api.github.com/repos/{repo}/git/blobs/{sha}")
+        response.raise_for_status()
+        data = response.json()
+        if data.get("encoding") != "base64":
+            raise RuntimeError(f"{repo}@{sha[:8]}: неожиданная упаковка {data.get('encoding')}")
+        return base64.b64decode(data["content"])
+
     async def head_sha(self, repo: str) -> str:
         """Последний коммит — для зеркал, где сравниваем целиком."""
         response = await self._client.get(f"https://api.github.com/repos/{repo}")

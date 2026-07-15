@@ -126,6 +126,38 @@ class GiteaProvider:
         response.raise_for_status()
         return response.json()
 
+    async def update_file(
+        self,
+        owner: str,
+        name: str,
+        path: str,
+        content: bytes,
+        message: str,
+        sha: str,
+        branch: str = "main",
+    ) -> dict:
+        """Заменить содержимое файла, который уже есть.
+
+        Слепок старого файла обязателен. Это не формальность: Gitea сверит его
+        с тем, что лежит на самом деле, и откажет, если файл успели поправить
+        после нашей проверки. Иначе мы бы молча затёрли чужую правку.
+        """
+        import base64
+
+        if not sha:
+            raise RuntimeError("нечем заменять: не знаем слепок старого файла")
+        response = await self._client.put(
+            f"/repos/{owner}/{name}/contents/{path}",
+            json={
+                "content": base64.b64encode(content).decode(),
+                "message": message,
+                "branch": branch,
+                "sha": sha,
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
     async def delete_repo(self, owner: str, name: str) -> None:
         """Только для отката неудачного импорта. Больше нигде не зовётся."""
         response = await self._client.delete(f"/repos/{owner}/{name}")

@@ -228,6 +228,29 @@ class TagSuppression(Base):
     __table_args__ = (UniqueConstraint("artifact_id", "tag_id", name="uq_suppression"),)
 
 
+class Change(Base):
+    """Одно событие: что-то появилось, изменилось или пропало.
+
+    Пишется в момент, когда замечено, а не вычисляется задним числом. После
+    удаления репозитория узнать, что он был, будет уже неоткуда.
+    """
+
+    __tablename__ = "changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16))  # added|updated|removed|renamed
+    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.id"))
+    artifact_id: Mapped[int | None] = mapped_column(ForeignKey("artifacts.id"))
+    scan_run_id: Mapped[int | None] = mapped_column(ForeignKey("scan_runs.id"))
+
+    title: Mapped[str] = mapped_column(String(512), default="")
+    details: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    repository: Mapped[Repository] = relationship()
+    artifact: Mapped["Artifact | None"] = relationship()
+
+
 class ScanRun(Base):
     """Одно сканирование: когда, сколько нашли, что пропустили."""
 

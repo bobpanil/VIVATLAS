@@ -71,6 +71,8 @@ async def test_all_tools_are_registered():
         "list_artifacts",
         "list_tags",
         "catalog_overview",
+        "list_recent_changes",
+        "find_stale_artifacts",
     }
 
 

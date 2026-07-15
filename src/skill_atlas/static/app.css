@@ -733,3 +733,71 @@ a:focus-visible {
 .up-status[data-st="diverged"] {
     border-style: dashed;
 }
+
+/* --- лента изменений --- */
+
+.page-h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 0;
+}
+
+.feed {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 56px;
+}
+
+.ev {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 11px 0;
+    border-top: 1px solid var(--line);
+}
+
+/* Знак несёт смысл, поэтому он единственный тут выделен формой. */
+.ev-mark {
+    font-family: var(--mono);
+    font-size: 13px;
+    width: 20px;
+    flex: none;
+    text-align: center;
+    color: var(--faint);
+}
+
+.ev-mark[data-k="added"] { color: var(--text); font-weight: 700; }
+.ev-mark[data-k="removed"] { color: var(--text); }
+.ev-mark[data-k="stale"] { color: var(--text); font-weight: 700; }
+
+.ev-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+}
+
+.ev-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    word-break: break-all;
+}
+
+.ev-det {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.ev-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    flex: none;
+    white-space: nowrap;
+}

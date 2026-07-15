@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
+from skill_atlas import changes as ch
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.db import session_scope
 from skill_atlas.models import Artifact, ArtifactTag, TagSuppression, UpstreamLink
@@ -52,6 +53,8 @@ def basis_name(slug: str) -> str:
 templates.env.globals["type_name"] = type_name
 templates.env.globals["basis_name"] = basis_name
 templates.env.globals["status_name"] = lambda s: STATUS_NAMES.get(s, s)
+templates.env.globals["kind_name"] = lambda k: ch.KIND_NAMES.get(k, k)
+templates.env.globals["kind_mark"] = lambda k: ch.KIND_MARKS.get(k, "·")
 
 
 def preview_url(artifact: Artifact) -> str | None:
@@ -204,3 +207,35 @@ async def recommend_page(request: Request, task: str = "") -> HTMLResponse:
             await embedding_model.aclose()
         if text_model:
             await text_model.aclose()
+
+
+@router.get("/changes", response_class=HTMLResponse)
+def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLResponse:
+    with session_scope() as session:
+        stale_mode = bool(stale)
+        stale_items = ch.stale(session) if stale_mode else []
+        oldest, newest = ch.oldest_and_newest(session)
+
+        by_kind = {}
+        for k in ("added", "updated", "removed", "renamed"):
+            n = len(ch.recent(session, limit=9999, kind=k))
+            if n:
+                by_kind[k] = n
+
+        return templates.TemplateResponse(
+            request,
+            "changes.html",
+            {
+                "items": ch.recent(session, limit=100, kind=kind) if not stale_mode else [],
+                "kind": kind,
+                "counts_by_kind": by_kind,
+                "total": sum(by_kind.values()),
+                "stale_mode": stale_mode,
+                "stale_items": stale_items,
+                "stale_count": len(ch.stale(session)),
+                "stale_days": ch.STALE_DAYS,
+                "oldest": oldest,
+                "newest": newest,
+                "counts": _counts(session),
+            },
+        )

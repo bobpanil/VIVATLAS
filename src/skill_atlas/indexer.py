@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from skill_atlas import changes
 from skill_atlas.ai.base import TextModel
 from skill_atlas.archive import read_archive
 from skill_atlas.detector import detect
@@ -78,6 +79,10 @@ async def index_repository(
         outcome = "created"
     else:
         outcome = "updated"
+    # Содержимое правда поменялось, или мы просто пересобираем? Событие пишем
+    # только в первом случае, иначе каждый прогон с --force плодил бы враньё.
+    content_changed = artifact.content_hash not in (None, content_hash)
+    previous_type = artifact.artifact_type
 
     artifact.name = row.name
     artifact.artifact_type = detection.artifact_type
@@ -100,6 +105,28 @@ async def index_repository(
     # конце и в обрезку не попадает.
     session.flush()  # нужен artifact.id
     discover_for_artifact(session, artifact, contents, original_url=row.original_url or "")
+
+    if outcome == "created":
+        changes.record(
+            session,
+            "added",
+            repository_id=row.id,
+            artifact_id=artifact.id,
+            title=row.full_name,
+            details=f"тип: {detection.artifact_type}",
+        )
+    elif content_changed:
+        what = "содержимое обновилось"
+        if previous_type and previous_type != detection.artifact_type:
+            what += f"; тип сменился: {previous_type} -> {detection.artifact_type}"
+        changes.record(
+            session,
+            "updated",
+            repository_id=row.id,
+            artifact_id=artifact.id,
+            title=row.full_name,
+            details=what,
+        )
 
     if text_model is not None:
         try:

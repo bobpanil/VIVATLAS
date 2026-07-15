@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from skill_atlas import changes
 from skill_atlas.models import Repository, ScanRun, Source
 from skill_atlas.providers.base import GitProvider, RepoRef
 
@@ -79,10 +80,30 @@ async def scan_source(session: Session, provider: GitProvider, source: Source) -
         for repo in allowed:
             row = existing.get(repo.external_id)
             if row is None:
-                session.add(_new_row(source.id, repo, now))
+                new_row = _new_row(source.id, repo, now)
+                session.add(new_row)
+                session.flush()
+                changes.record(
+                    session,
+                    "added",
+                    repository_id=new_row.id,
+                    title=repo.full_name,
+                    details=repo.description,
+                    scan_run_id=run.id,
+                )
                 result.added += 1
             else:
+                old_name = row.full_name
                 _update_row(row, repo, now)
+                if old_name != repo.full_name:
+                    changes.record(
+                        session,
+                        "renamed",
+                        repository_id=row.id,
+                        title=repo.full_name,
+                        details=f"было: {old_name}",
+                        scan_run_id=run.id,
+                    )
                 result.updated += 1
 
         # Пропал из выдачи — помечаем, но не удаляем: историю не теряем.
@@ -90,6 +111,14 @@ async def scan_source(session: Session, provider: GitProvider, source: Source) -
         for external_id, row in existing.items():
             if external_id not in allowed_ids and row.gone_at is None:
                 row.gone_at = now
+                changes.record(
+                    session,
+                    "removed",
+                    repository_id=row.id,
+                    title=row.full_name,
+                    details="пропал из выдачи хостинга: удалён или закрыт",
+                    scan_run_id=run.id,
+                )
                 result.gone += 1
 
         run.status = "success"

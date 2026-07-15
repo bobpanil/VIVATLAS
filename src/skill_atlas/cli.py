@@ -6,6 +6,7 @@ import logging
 import typer
 from sqlalchemy import select
 
+from skill_atlas import changes as ch
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.config import settings
 from skill_atlas.db import engine, session_scope
@@ -107,6 +108,37 @@ def tag(no_ai: bool = typer.Option(False, help="Только теги по пр�
         typer.echo(f"  Ошибок             : {failed}")
 
     asyncio.run(_run())
+
+
+@app.command("changes")
+def changes_cmd(
+    days: int = typer.Option(30, help="За сколько дней"),
+    stale: bool = typer.Option(False, help="Показать протухшее"),
+) -> None:
+    """Что появилось, изменилось, пропало и что залежалось."""
+    with session_scope() as session:
+        if stale:
+            items = ch.stale(session)
+            oldest, newest = ch.oldest_and_newest(session)
+            if not items:
+                typer.echo(f"Ничего не залежалось дольше {ch.STALE_DAYS} дней.")
+                typer.echo(f"Самому старому: {oldest} дн., самому свежему: {newest} дн.")
+                return
+            for it in items:
+                typer.echo(f"  !  {it.artifact.repository.full_name:44s} {it.reason}")
+            return
+
+        events = ch.since(session, days=days)
+        if not events:
+            typer.echo(f"За {days} дней ничего не происходило.")
+            return
+        for c in events:
+            mark = ch.KIND_MARKS.get(c.kind, "·")
+            when = c.created_at.strftime("%d.%m %H:%M")
+            typer.echo(f"  {mark}  {when}  {c.title:40s} {c.details[:50]}")
+        typer.echo("")
+        for k, n in ch.summary(session, days=days).items():
+            typer.echo(f"  {ch.KIND_NAMES.get(k, k)}: {n}")
 
 
 @app.command("upstream")

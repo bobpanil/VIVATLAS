@@ -16,6 +16,7 @@ import logging
 from mcp.server.fastmcp import FastMCP
 from sqlalchemy import func, select
 
+from skill_atlas import changes as ch
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.db import session_scope
 from skill_atlas.models import Artifact, ArtifactTag, Repository, Tag
@@ -248,6 +249,64 @@ def catalog_overview() -> dict:
             "by_type": {t: c for t, c in by_type},
             "by_owner": {o: c for o, c in by_owner},
             "note": "Только открытые репозитории. Приватные не сканируются.",
+        }
+
+
+@mcp.tool()
+def list_recent_changes(days: int = 30, kind: str = "") -> dict:
+    """Что появилось, изменилось или пропало за последнее время.
+
+    days: за сколько дней
+    kind: added | updated | removed | renamed — или пусто
+    """
+    with session_scope() as session:
+        events = ch.since(session, days=days)
+        if kind:
+            events = [e for e in events if e.kind == kind]
+        return {
+            "days": days,
+            "total": len(events),
+            "summary": ch.summary(session, days=days),
+            "items": [
+                {
+                    "kind": e.kind,
+                    "name": e.title,
+                    "details": e.details,
+                    "when": e.created_at.isoformat(),
+                    "artifact_id": e.artifact_id,
+                }
+                for e in events[:MAX_LIMIT]
+            ],
+        }
+
+
+@mcp.tool()
+def find_stale_artifacts(days: int = 365) -> dict:
+    """Что давно не трогали — кандидаты на удаление.
+
+    days: сколько дней считать долгим сроком
+    """
+    with session_scope() as session:
+        items = ch.stale(session, days=days)
+        oldest, newest = ch.oldest_and_newest(session)
+        return {
+            "threshold_days": days,
+            "total": len(items),
+            # Пустой список надо объяснять, иначе он читается как поломка.
+            "note": (
+                f"Самому старому в каталоге {oldest} дн., самому свежему {newest} дн."
+                if not items
+                else ""
+            ),
+            "items": [
+                {
+                    "id": i.artifact.id,
+                    "name": i.artifact.repository.full_name,
+                    "days_untouched": i.days,
+                    "why": i.reason,
+                }
+                for i in items[:MAX_LIMIT]
+            ],
         }
 
 

@@ -155,6 +155,7 @@ def _new_row(source_id: int, repo: RepoRef, now: datetime) -> Repository:
         is_archived=repo.is_archived,
         is_empty=repo.is_empty,
         original_url=repo.original_url,
+        remote_created_at=repo.created_at,
         remote_updated_at=repo.updated_at,
         first_seen_at=now,
         last_seen_at=now,
@@ -172,6 +173,7 @@ def _update_row(row: Repository, repo: RepoRef, now: datetime) -> None:
     row.is_archived = repo.is_archived
     row.is_empty = repo.is_empty
     row.original_url = repo.original_url
+    row.remote_created_at = repo.created_at
     row.remote_updated_at = repo.updated_at
     row.last_seen_at = now
     row.gone_at = None  # вернулся

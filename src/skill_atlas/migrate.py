@@ -22,6 +22,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",
+        "remote_created_at": "DATETIME",
     },
 }
 

@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from skill_atlas import changes as ch
 from skill_atlas import filters as flt
+from skill_atlas import purposes as pur
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.db import session_scope
 from skill_atlas.models import Artifact, ArtifactTag, TagSuppression, UpstreamLink
@@ -68,6 +69,19 @@ def _combine(params: dict, **extra) -> dict:
 templates.env.filters["combine"] = _combine
 
 
+def author_of(session, artifact: Artifact) -> str:
+    """Кто сделал.
+
+    Владелец в Gitea — это наша организация (design-lib, skills-lib), а не
+    автор. Настоящий автор — владелец репозитория-источника. Источника нет —
+    автор неизвестен, и врать про это не надо.
+    """
+    link = session.scalar(select(UpstreamLink).where(UpstreamLink.artifact_id == artifact.id))
+    if link and link.upstream_repo and "/" in link.upstream_repo:
+        return link.upstream_repo.split("/")[0]
+    return ""
+
+
 def preview_url(artifact: Artifact) -> str | None:
     """Превью берём прямо из Gitea — репозитории открытые, проксировать незачем."""
     if not artifact.preview_path or not artifact.repository.html_url:
@@ -110,12 +124,12 @@ async def index(
                 # а не к базе: иначе порядок по близости потеряется.
                 hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
                 allowed = {a for a in session.scalars(flt.apply(select(Artifact.id), f))}
-                items = [_card(h.artifact, h.reasons) for h in hits if h.artifact.id in allowed][
-                    :60
-                ]
+                items = [
+                    _card(session, h.artifact, h.reasons) for h in hits if h.artifact.id in allowed
+                ][:60]
             else:
                 query = flt.apply(select(Artifact), f).order_by(Artifact.name)
-                items = [_card(a, []) for a in session.scalars(query)]
+                items = [_card(session, a, []) for a in session.scalars(query)]
 
             return templates.TemplateResponse(
                 request,
@@ -138,7 +152,8 @@ async def index(
             await model.aclose()
 
 
-def _card(a: Artifact, reasons: list[str]) -> dict:
+def _card(session, a: Artifact, reasons: list[str]) -> dict:
+    purpose, _score = pur.detect_for(session, a.id, a.name)
     return {
         "id": a.id,
         "name": a.name,
@@ -147,6 +162,10 @@ def _card(a: Artifact, reasons: list[str]) -> dict:
         "summary_short": a.summary_short,
         "preview_url": preview_url(a),
         "reasons": reasons,
+        "author": author_of(session, a),
+        "created": a.repository.remote_created_at,
+        "updated": a.repository.remote_updated_at,
+        "purpose": purpose,
     }
 
 
@@ -193,6 +212,8 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "tags": tags,
                 "suppressed": suppressed,
                 "upstream": upstream,
+                "author": author_of(session, a),
+                "purpose": pur.detect_for(session, a.id, a.name)[0],
                 "preview_url": preview_url(a),
                 "counts": _counts(session),
             },

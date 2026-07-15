@@ -286,15 +286,60 @@ a:focus-visible {
     overflow: hidden;
 }
 
+/* Подвал карточки. Отделён чертой: это не описание, а паспорт —
+   направление, автор, дата. */
 .card-foot {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
     margin-top: auto;
-    padding-top: 6px;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
     font-family: var(--mono);
     font-size: 11px;
+    color: var(--muted);
+    min-width: 0;
+}
+
+.pur {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Значок одноцветный: цвет на странице принадлежит превью брендов. */
+.pur svg {
+    width: 13px;
+    height: 13px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.75;
+}
+
+.dot {
+    color: var(--line-strong);
+    flex: none;
+}
+
+.auth {
     color: var(--faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.when {
+    margin-left: auto;
+    color: var(--faint);
+    flex: none;
+    padding-left: 6px;
 }
 
 .why {
@@ -899,4 +944,28 @@ a:focus-visible {
 
 .fmore[open] > .filters:first-of-type {
     padding-top: 10px;
+}
+
+.pur-big {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pur-big svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Незаполненное показываем как незаполненное, а не прочерком: прочерк
+   выглядит как ошибка, а тут просто нет сведений. */
+.unk {
+    color: var(--faint);
+    font-style: italic;
 }

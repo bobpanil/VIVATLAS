@@ -59,6 +59,7 @@ class Repository(Base):
     # Gitea заполняет, если репозиторий привезён откуда-то.
     original_url: Mapped[str] = mapped_column(String(512), default="")
 
+    remote_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     remote_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_scanned_commit: Mapped[str | None] = mapped_column(String(64))
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

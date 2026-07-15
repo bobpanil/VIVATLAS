@@ -146,5 +146,6 @@ def _to_repo_ref(item: dict) -> RepoRef:
         size_kb=int(item.get("size") or 0),
         original_url=item.get("original_url") or "",
         description=item.get("description") or "",
+        created_at=item.get("created_at"),
         updated_at=item.get("updated_at"),
     )

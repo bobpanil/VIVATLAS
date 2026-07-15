@@ -25,6 +25,7 @@ class RepoRef(BaseModel):
     size_kb: int
     original_url: str = ""  # откуда привезли, если Gitea знает
     description: str = ""
+    created_at: datetime | None = None
     updated_at: datetime | None = None
 
     @property

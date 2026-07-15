@@ -80,8 +80,19 @@
         {% endif %}
 
         <div class="box">
-            <h3>Откуда</h3>
+            <h3>Паспорт</h3>
             <dl class="facts">
+                <dt>направление</dt>
+                <dd class="pur-big">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">{{ purpose.icon|safe }}</svg>
+                    {{ purpose.label }}
+                </dd>
+                <dt>автор</dt>
+                <dd>{% if author %}{{ author }}{% else %}<span class="unk">неизвестен — источник не записан</span>{% endif %}</dd>
+                <dt>создан</dt>
+                <dd>{{ a.repository.remote_created_at.strftime("%d.%m.%Y") if a.repository.remote_created_at else "—" }}</dd>
+                <dt>изменён</dt>
+                <dd>{{ a.repository.remote_updated_at.strftime("%d.%m.%Y") if a.repository.remote_updated_at else "—" }}</dd>
                 <dt>тип</dt><dd>{{ type_name(a.artifact_type) }}</dd>
                 <dt>файлов</dt><dd>{{ a.file_count }}</dd>
                 {% if a.anchor_path %}<dt>опора</dt><dd>{{ a.anchor_path }}</dd>{% endif %}

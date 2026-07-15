@@ -85,10 +85,23 @@
         <div class="card-body">
             <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
             <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
+
+            {# Подвал: для чего, кто сделал, когда трогали. Всё настоящее —
+               автор берётся из источника, дата из коммита. Не знаем — молчим. #}
             <div class="card-foot">
-                <span>{{ type_name(it.type) }}</span>
-                {% if it.reasons %}<span class="why">· {{ it.reasons|join(", ") }}</span>{% endif %}
+                <span class="pur" title="направление: {{ it.purpose.label }}">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
+                    {{ it.purpose.label }}
+                </span>
+                {% if it.author %}
+                <span class="dot">·</span>
+                <span class="auth" title="автор оригинала">{{ it.author }}</span>
+                {% endif %}
+                {% if it.updated %}
+                <time class="when" title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}">{{ it.updated.strftime("%d.%m.%y") }}</time>
+                {% endif %}
             </div>
+            {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
         </div>
     </a>
     {% endfor %}

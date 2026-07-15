@@ -62,11 +62,28 @@ class GoogleTextModel(_GoogleClient):
 
     async def generate_json(self, prompt: str, schema: dict) -> dict:
         """Ответ приходит заполненной анкетой, а не свободным текстом."""
+        return await self._generate([{"text": prompt}], schema)
+
+    async def generate_json_with_media(
+        self, prompt: str, schema: dict, mime_type: str, data_base64: str
+    ) -> dict:
+        """С картинкой, видео или звуком.
+
+        Проверено на живых данных: gemini-3.1-flash-lite принимает и звук, и
+        видео, и картинки — на бесплатном уровне. Ролик на 1.5 МБ обошёлся в
+        4600 токенов.
+        """
+        return await self._generate(
+            [{"text": prompt}, {"inline_data": {"mime_type": mime_type, "data": data_base64}}],
+            schema,
+        )
+
+    async def _generate(self, parts: list[dict], schema: dict) -> dict:
         data = await self._post(
             self.model,
             "generateContent",
             {
-                "contents": [{"parts": [{"text": prompt}]}],
+                "contents": [{"parts": parts}],
                 "generationConfig": {
                     "responseMimeType": "application/json",
                     "responseSchema": schema,

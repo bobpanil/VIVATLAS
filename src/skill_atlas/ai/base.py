@@ -12,6 +12,13 @@ class TextModel(Protocol):
     """Генерация текста по строгой схеме."""
 
     async def generate_json(self, prompt: str, schema: dict) -> dict: ...
+
+    async def generate_json_with_media(
+        self, prompt: str, schema: dict, mime_type: str, data_base64: str
+    ) -> dict:
+        """То же, но с картинкой, видео или звуком."""
+        ...
+
     async def aclose(self) -> None: ...
 
 

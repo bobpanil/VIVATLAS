@@ -16,7 +16,10 @@ def catalog(make_session):
 
     def add(name, owner, kind, days_old, tags, status=None):
         repo = Repository(
-            source_id=source.id, external_id=name, owner=owner, name=name,
+            source_id=source.id,
+            external_id=name,
+            owner=owner,
+            name=name,
             default_branch="main",
             remote_updated_at=datetime.now(UTC) - timedelta(days=days_old),
         )
@@ -33,12 +36,17 @@ def catalog(make_session):
                 s.flush()
             s.add(ArtifactTag(artifact_id=art.id, tag_id=tag.id, source="ai", confidence=0.9))
         if status:
-            s.add(UpstreamLink(artifact_id=art.id, kind="github-file",
-                               upstream_repo="a/b", status=status))
+            s.add(
+                UpstreamLink(
+                    artifact_id=art.id, kind="github-file", upstream_repo="a/b", status=status
+                )
+            )
         return art
 
     add("airbnb", "design-lib", "design-kit", 2, [("typography", "назначение")], "in-sync")
-    add("stripe", "design-lib", "design-kit", 40, [("typography", "назначение")], "update-available")
+    add(
+        "stripe", "design-lib", "design-kit", 40, [("typography", "назначение")], "update-available"
+    )
     add("scanner", "skills-lib", "skill", 5, [("security", "назначение"), ("python", "язык")])
     add("old-tool", "skills-lib", "skill", 200, [("python", "язык")], "locally-modified")
     s.commit()

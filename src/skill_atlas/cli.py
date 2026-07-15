@@ -11,12 +11,14 @@ from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.config import settings
 from skill_atlas.db import engine, session_scope
 from skill_atlas.embeddings import embed_artifact
-from skill_atlas.indexer import index_all
+from skill_atlas.import_run import execute, record_upstream
+from skill_atlas.importer import GitHubFetcher, ImportError_, plan_import
+from skill_atlas.indexer import index_all, index_repository
 from skill_atlas.migrate import ensure_schema, rebuild_fts
-from skill_atlas.models import Artifact, Base
+from skill_atlas.models import Artifact, Base, Repository
 from skill_atlas.providers import build_provider
 from skill_atlas.scanner import get_or_create_source, scan_source
-from skill_atlas.search import Mode
+from skill_atlas.search import Mode, index_artifact_for_words
 from skill_atlas.search import search as do_search
 from skill_atlas.tagger import tag_artifact
 from skill_atlas.upstream import UpstreamChecker
@@ -106,6 +108,85 @@ def tag(no_ai: bool = typer.Option(False, help="Только теги по пр�
         typer.echo(f"  Отклонено запретом : {totals['rejected']}")
         typer.echo(f"  Слабых (не ставим) : {totals['weak']}")
         typer.echo(f"  Ошибок             : {failed}")
+
+    asyncio.run(_run())
+
+
+@app.command("import")
+def import_cmd(
+    url: str,
+    to: str = typer.Option("skills-lib", help="Организация в Gitea"),
+    name: str = typer.Option("", help="Имя у себя (по умолчанию — как у источника)"),
+    yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
+) -> None:
+    """Притащить инструмент по ссылке с GitHub.
+
+    Без --yes только показывает, что будет сделано. Ничего не создаётся.
+    """
+
+    async def _run() -> None:
+        fetcher = GitHubFetcher(token=settings.github_token)
+        try:
+            plan = await plan_import(fetcher, url, target_owner=to, target_name=name)
+        except ImportError_ as exc:
+            typer.echo(str(exc))
+            raise typer.Exit(1) from None
+        finally:
+            await fetcher.aclose()
+
+        typer.echo("")
+        typer.echo("  ЧТО БУДЕТ СДЕЛАНО")
+        typer.echo(
+            f"    откуда    : github.com/{plan.source.full_repo}"
+            + (f"/{plan.source.path}" if plan.source.path else "")
+        )
+        typer.echo(f"    создастся : {plan.target_owner}/{plan.target_name}")
+        typer.echo(f"    файлов    : {len(plan.files)}, {plan.total_bytes / 1024:.0f} КБ")
+        for f in plan.files[:5]:
+            typer.echo(f"       {f.path}")
+        if len(plan.files) > 5:
+            typer.echo(f"       ... ещё {len(plan.files) - 5}")
+        for w in plan.warnings:
+            typer.echo(f"    ! {w}")
+
+        if not yes:
+            typer.echo("")
+            typer.echo("  Ничего не сделано. Повторите с --yes, чтобы выполнить.")
+            return
+
+        if not settings.gitea_token:
+            typer.echo("")
+            typer.echo("  Нет GITEA_TOKEN — писать нечем. Впишите токен в .env")
+            raise typer.Exit(1)
+
+        provider = build_provider("gitea")
+        text_model = build_text_model()
+        embed_model = build_embedding_model()
+        try:
+            with session_scope() as session:
+                result = await execute(session, provider, plan, settings.gitea_url)
+                session.commit()
+                typer.echo("")
+                typer.echo(f"  Создано: {result.repo_full_name}, файлов {result.files_written}")
+
+                row = session.get(Repository, result.repository_id)
+                await index_repository(session, provider, text_model, row, force=True)
+                session.commit()
+
+                art = session.scalar(select(Artifact).where(Artifact.repository_id == row.id))
+                record_upstream(session, art.id, plan)
+                await embed_artifact(session, embed_model, art)
+                await tag_artifact(session, art, text_model)
+                index_artifact_for_words(session, art)
+                session.commit()
+
+                typer.echo(f"  Карточка: {art.name} [{art.artifact_type}]")
+                typer.echo(f"  Описание: {art.summary_short[:70]}")
+                typer.echo(f"  Источник записан: {plan.source.full_repo}")
+        finally:
+            await provider.aclose()
+            await text_model.aclose()
+            await embed_model.aclose()
 
     asyncio.run(_run())
 

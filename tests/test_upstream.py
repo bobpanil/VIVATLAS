@@ -57,9 +57,7 @@ def test_random_github_link_is_not_a_source():
 def test_unknown_upstream_gets_no_guessed_path():
     # Путь знаем только для одного источника. Для остальных — пусто, а не
     # выдумка: сравнивать не то с не тем хуже, чем не сравнивать.
-    contents = read_archive(
-        tar({"README.md": b"Source: [x](https://github.com/foo/bar).\n"})
-    )
+    contents = read_archive(tar({"README.md": b"Source: [x](https://github.com/foo/bar).\n"}))
     ref = detect_from_readme(contents, "thing", "SKILL.md")
     assert ref.repo == "foo/bar"
     assert ref.path == ""

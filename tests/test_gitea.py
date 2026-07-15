@@ -102,3 +102,30 @@ async def test_http_error_is_raised_not_swallowed():
     with pytest.raises(httpx.HTTPStatusError):
         await provider.list_repositories()
     await provider.aclose()
+
+
+def test_provider_really_has_all_its_methods():
+    # Однажды методы записи оказались дописаны внутрь другой функции, а не в
+    # класс. Программа собиралась, тесты шли, а импорт падал на живом запуске.
+    from skill_atlas.providers.gitea import GiteaProvider
+
+    for name in (
+        "list_repositories",
+        "get_head_sha",
+        "download_archive",
+        "blob_shas",
+        "repo_exists",
+        "create_repo",
+        "put_file",
+        "delete_repo",
+        "aclose",
+    ):
+        assert hasattr(GiteaProvider, name), f"у GiteaProvider нет {name}"
+        assert callable(getattr(GiteaProvider, name))
+
+
+def test_provider_satisfies_the_common_interface():
+    from skill_atlas.providers.base import GitProvider
+    from skill_atlas.providers.gitea import GiteaProvider
+
+    assert isinstance(GiteaProvider(BASE), GitProvider)

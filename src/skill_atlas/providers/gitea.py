@@ -78,6 +78,59 @@ class GiteaProvider:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    # --- запись. Требует токена и вызывается только после подтверждения. ---
+
+    async def repo_exists(self, owner: str, name: str) -> bool:
+        response = await self._client.get(f"/repos/{owner}/{name}")
+        if response.status_code == 404:
+            return False
+        response.raise_for_status()
+        return True
+
+    async def create_repo(self, owner: str, name: str, description: str = "") -> dict:
+        """Создать репозиторий в организации.
+
+        Создание — единственная запись, которая ничего не может испортить:
+        до неё репозитория не было. Поэтому проверяем заранее, что имя
+        свободно, и отказываемся, если занято, вместо перезаписи.
+        """
+        if await self.repo_exists(owner, name):
+            raise RuntimeError(f"{owner}/{name} уже существует — не перезаписываю")
+
+        response = await self._client.post(
+            f"/orgs/{owner}/repos",
+            json={
+                "name": name,
+                "description": description[:255],
+                "private": False,
+                "auto_init": False,
+                "default_branch": "main",
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def put_file(
+        self, owner: str, name: str, path: str, content: bytes, message: str, branch: str = "main"
+    ) -> dict:
+        import base64
+
+        response = await self._client.post(
+            f"/repos/{owner}/{name}/contents/{path}",
+            json={
+                "content": base64.b64encode(content).decode(),
+                "message": message,
+                "branch": branch,
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def delete_repo(self, owner: str, name: str) -> None:
+        """Только для отката неудачного импорта. Больше нигде не зовётся."""
+        response = await self._client.delete(f"/repos/{owner}/{name}")
+        response.raise_for_status()
+
 
 def _to_repo_ref(item: dict) -> RepoRef:
     return RepoRef(

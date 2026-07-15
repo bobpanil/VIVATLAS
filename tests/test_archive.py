@@ -71,7 +71,17 @@ def test_example_files_are_not_secrets():
     assert is_secret_file("app/.env") is True
 
 
-def test_oversized_text_is_not_read():
+def test_big_anchor_file_is_still_read():
+    # Была ошибка: потолок 200 КБ молча выбрасывал SKILL.md на 207 КБ
+    # (mvanhorn/last30days-skill), и карточка выходила с текстом
+    # "документация отсутствует". Опорный файл терять нельзя.
+    big = b"# Skill\n" + b"x" * 300_000
+    contents = read_archive(make_tar({"SKILL.md": big}))
+    assert contents.get("SKILL.md").text is not None
+    assert len(contents.get("SKILL.md").text) > 200_000
+
+
+def test_absurdly_big_file_is_still_skipped():
     from skill_atlas.archive import MAX_TEXT_BYTES
 
     contents = read_archive(make_tar({"huge.md": b"x" * (MAX_TEXT_BYTES + 1)}))

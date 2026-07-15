@@ -107,6 +107,18 @@ def tag(no_ai: bool = typer.Option(False, help="Только теги по пр�
     asyncio.run(_run())
 
 
+@app.command("serve")
+def serve(
+    port: int = typer.Option(8000),
+    host: str = typer.Option("127.0.0.1", help="0.0.0.0 — чтобы открыть с телефона"),
+) -> None:
+    """Запустить веб-интерфейс."""
+    import uvicorn
+
+    typer.echo(f"Открой: http://{'127.0.0.1' if host == '0.0.0.0' else host}:{port}")
+    uvicorn.run("skill_atlas.api:app", host=host, port=port, log_level="warning")
+
+
 @app.command("reindex-words")
 def reindex_words() -> None:
     """Пересобрать таблицу поиска по словам."""

@@ -1,6 +1,7 @@
 """REST API."""
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from skill_atlas.ai import build_embedding_model
@@ -9,8 +10,12 @@ from skill_atlas.models import Artifact, ArtifactTag, Repository, ScanRun, Tag, 
 from skill_atlas.search import Mode
 from skill_atlas.search import search as do_search
 from skill_atlas.tagger import add_manual_tag, remove_tag
+from skill_atlas.web import BASE
+from skill_atlas.web import router as web_router
 
 app = FastAPI(title="Skill Atlas", version="0.1.0")
+app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+app.include_router(web_router)
 
 
 @app.get("/health")

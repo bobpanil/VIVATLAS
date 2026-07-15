@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}Skill Atlas{% endblock %}</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+    <header class="top">
+        <div class="wrap top-in">
+            <a class="brand" href="/">skill<span>-</span>atlas</a>
+            <div class="counts">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</div>
+        </div>
+    </header>
+    <main class="wrap">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

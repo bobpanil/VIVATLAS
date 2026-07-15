@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ a.name }} — Skill Atlas{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← ко всем</a>
+
+<article class="art">
+    <div>
+        <h1><span class="art-owner">{{ a.repository.owner }}/</span>{{ a.name }}</h1>
+        <p class="lede">{{ a.summary_short or "Описание не готово." }}</p>
+
+        {% if a.summary_error %}
+        <p class="warn">Описание не получилось: {{ a.summary_error }}</p>
+        {% endif %}
+
+        {% if a.summary_normal %}
+        <section class="level">
+            <h2>Что это</h2>
+            <p>{{ a.summary_normal }}</p>
+        </section>
+        {% endif %}
+
+        {% if a.summary_technical %}
+        <section class="level">
+            <h2>Как устроено</h2>
+            <p>{{ a.summary_technical }}</p>
+        </section>
+        {% endif %}
+
+        <section class="level">
+            <h2>Почему такой тип</h2>
+            <p>{{ a.detect_reasons or "—" }}{% if a.confidence < 0.5 %} · уверенность низкая, тип стоит проверить руками{% endif %}</p>
+        </section>
+    </div>
+
+    <aside class="side">
+        {% if preview_url %}
+        <div class="preview"><img src="{{ preview_url }}" alt="Превью {{ a.name }}"></div>
+        {% endif %}
+
+        <div class="box">
+            <h3>Теги</h3>
+            {% if tags %}
+            <div class="tags">
+                {% for t in tags %}
+                <span class="tag" data-src="{{ t.source }}"
+                      title="{{ t.origin }}, уверенность {{ '%.2f'|format(t.confidence) }}">
+                    {{ t.slug }}{% if t.source == 'ai' %}<em>{{ '%.0f'|format(t.confidence * 100) }}</em>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+            <p class="legend">
+                <span class="l-derived"></span>правило — выведено из файлов<br>
+                <span class="l-ai"></span>модель — догадка, число это уверенность<br>
+                <span class="l-manual"></span>вы — поставлено руками
+            </p>
+            {% else %}
+            <p class="legend">тегов пока нет</p>
+            {% endif %}
+
+            {% if suppressed %}
+            <p class="banned">запрещены навсегда: {% for s in suppressed %}<s>{{ s.slug }}</s>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+            {% endif %}
+        </div>
+
+        <div class="box">
+            <h3>Откуда</h3>
+            <dl class="facts">
+                <dt>тип</dt><dd>{{ type_name(a.artifact_type) }}</dd>
+                <dt>файлов</dt><dd>{{ a.file_count }}</dd>
+                {% if a.anchor_path %}<dt>опора</dt><dd>{{ a.anchor_path }}</dd>{% endif %}
+                <dt>коммит</dt><dd>{{ (a.source_commit or "—")[:8] }}</dd>
+                <dt>собрано</dt><dd>{{ a.updated_at.strftime("%d.%m.%Y") if a.updated_at else "—" }}</dd>
+                {% if a.summary_model %}<dt>описал</dt><dd>{{ a.summary_model }}</dd>{% endif %}
+                <dt>исходник</dt><dd><a href="{{ a.repository.html_url }}">открыть в Gitea</a></dd>
+            </dl>
+        </div>
+    </aside>
+</article>
+{% endblock %}

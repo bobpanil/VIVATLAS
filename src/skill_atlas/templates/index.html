@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="searchbar">
+    <form class="searchform" action="/" method="get" role="search">
+        <input type="search" name="q" value="{{ q }}" autocomplete="off"
+               placeholder="Что нужно сделать? Например: фирменные цвета и шрифты"
+               aria-label="Поиск инструмента">
+        {% if type %}<input type="hidden" name="type" value="{{ type }}">{% endif %}
+        <button type="submit">Найти</button>
+    </form>
+    {% if q %}
+    <p class="hint">Нашлось: {{ items|length }}. Ищет и по словам, и по смыслу — можно спрашивать по-русски про англоязычные инструменты.</p>
+    {% else %}
+    <p class="hint">Ищет по смыслу, а не по буквам. Русский запрос находит инструмент с английским названием.</p>
+    {% endif %}
+</div>
+
+<nav class="filters" aria-label="Фильтр по типу">
+    <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
+       {% if not type %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+    {% for t, n in counts.by_type %}
+    <a class="filter" href="/?type={{ t|urlencode }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+       {% if type == t %}aria-current="true"{% endif %}>{{ type_name(t) }} <b>{{ n }}</b></a>
+    {% endfor %}
+</nav>
+
+{% if items %}
+<div class="grid">
+    {% for it in items %}
+    <a class="card" href="/a/{{ it.id }}">
+        {% if it.preview_url %}
+        <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
+        {% else %}
+        <div class="thumb-text"><span>{{ it.name }}</span></div>
+        {% endif %}
+        <div class="card-body">
+            <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
+            <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
+            <div class="card-foot">
+                <span>{{ type_name(it.type) }}</span>
+                {% if it.reasons %}<span class="why">· {{ it.reasons|join(", ") }}</span>{% endif %}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+    <b>Ничего не нашлось</b>
+    {% if q %}
+    По запросу «{{ q }}» подходящего инструмента нет. Это не ошибка поиска — возможно, такого у вас правда не заведено. Попробуйте описать задачу другими словами или посмотрите все карточки.
+    {% else %}
+    Каталог пуст. Запустите сканирование: <code>skill-atlas scan</code>, затем <code>skill-atlas index</code>.
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

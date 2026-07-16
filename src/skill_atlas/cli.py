@@ -182,7 +182,7 @@ def find_cmd(source: str) -> None:
 @app.command("import")
 def import_cmd(
     url: str,
-    to: str = typer.Option("skills-lib", help="Организация в Gitea"),
+    to: str = typer.Option("", help="Владелец в Gitea. Пусто — как на GitHub."),
     name: str = typer.Option("", help="Имя у себя (по умолчанию — как у источника)"),
     yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
 ) -> None:

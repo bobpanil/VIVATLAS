@@ -28,6 +28,16 @@ MAX_TOTAL_BYTES = 25_000_000
 
 _SKIP_DIRS = (".git/", "node_modules/", ".github/workflows/")
 
+# Gitea допускает в имени репозитория и владельца буквы, цифры, дефис, точку и
+# подчёркивание. Остальное заменяем на дефис, а не выбрасываем: иначе
+# «foo/bar» и «foo bar» слились бы в одно имя.
+_UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _safe_name(raw: str) -> str:
+    name = _UNSAFE.sub("-", raw.strip()).strip("-.")
+    return name or "unnamed"
+
 
 class ImportError_(RuntimeError):
     pass
@@ -48,13 +58,42 @@ class ImportSource:
         return f"{self.owner}/{self.repo}"
 
     @property
-    def suggested_name(self) -> str:
-        """Как назвать у себя."""
+    def leaf(self) -> str:
+        """Последняя часть пути — имя папки или файла инструмента."""
         if self.kind == "repo":
-            return self.repo
-        if self.kind == "folder":
-            return self.path.rstrip("/").rsplit("/", 1)[-1]
-        return self.path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            return ""
+        tail = self.path.rstrip("/").rsplit("/", 1)[-1]
+        if self.kind == "file":
+            tail = tail.rsplit(".", 1)[0]
+        return tail
+
+    @property
+    def mirror_owner(self) -> str:
+        """Владелец у нас = владелец на GitHub. Всегда.
+
+        Так из адреса Gitea читается адрес GitHub, и источник карточки виден
+        прямо в пути: git.../mvanhorn/last30days-skill ← github.com/mvanhorn/...
+        """
+        return _safe_name(self.owner)
+
+    @property
+    def mirror_name(self) -> str:
+        """Имя у нас по адресу на GitHub.
+
+        Целый репозиторий → его имя как есть.
+        Подпапка монорепы → «репозиторий-папка»: 74 набора из одного
+        awesome-design-md разошлись бы по одному адресу, а так каждый свой —
+        awesome-design-md-airbnb, awesome-design-md-apple. Заодно исчезает
+        столкновение: чужой airbnb приедет под своего владельца и не встретится
+        с этим никогда.
+        """
+        if self.kind == "repo":
+            return _safe_name(self.repo)
+        return _safe_name(f"{self.repo}-{self.leaf}")
+
+    @property
+    def suggested_name(self) -> str:
+        return self.mirror_name
 
 
 @dataclass
@@ -296,7 +335,7 @@ class GitHubFetcher:
 async def plan_import(
     fetcher: GitHubFetcher,
     url: str,
-    target_owner: str,
+    target_owner: str = "",
     target_name: str = "",
     method: str = "copy",
 ) -> ImportPlan:
@@ -307,11 +346,13 @@ async def plan_import(
             "Зеркало умеет только целый репозиторий. Папку или файл можно только скопировать."
         )
 
+    # Не указали куда — кладём по правилу: путь как на GitHub. Человек может
+    # переопределить, но по умолчанию адрес Gitea повторяет адрес источника.
     files, warnings = await fetcher.fetch(source)
     plan = ImportPlan(
         source=source,
-        target_owner=target_owner,
-        target_name=target_name or source.suggested_name,
+        target_owner=target_owner or source.mirror_owner,
+        target_name=target_name or source.mirror_name,
         files=files,
         method=method,
         warnings=warnings,

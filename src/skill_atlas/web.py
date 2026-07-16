@@ -389,7 +389,7 @@ async def add_find(
 async def add_plan(
     request: Request,
     url: Annotated[str, Form()],
-    to: Annotated[str, Form()] = "skills-lib",
+    to: Annotated[str, Form()] = "",
     name: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     """Шаг 2: что именно будет создано. По-прежнему ничего не пишем."""
@@ -412,7 +412,7 @@ async def add_plan(
 async def add_run(
     request: Request,
     url: Annotated[str, Form()],
-    to: Annotated[str, Form()] = "skills-lib",
+    to: Annotated[str, Form()] = "",
     name: Annotated[str, Form()] = "",
 ):
     """Шаг 3: записываем. Только сюда и только по нажатию.

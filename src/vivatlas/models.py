@@ -32,6 +32,14 @@ class Source(Base):
     display_name: Mapped[str] = mapped_column(String(128))
     base_url: Mapped[str] = mapped_column(String(512))
     enabled: Mapped[bool] = mapped_column(default=True)
+
+    # Зона. Пусто — общая: инструменты видят все. Задан пользователь — частная:
+    # источник и его инструменты видны только ему. Так у каждого свои
+    # репозитории, не смешиваясь с общими.
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     repositories: Mapped[list["Repository"]] = relationship(back_populates="source")

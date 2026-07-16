@@ -25,6 +25,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "original_url": "VARCHAR(512) DEFAULT ''",
         "remote_created_at": "DATETIME",
     },
+    "sources": {
+        "owner_user_id": "INTEGER",
+    },
 }
 
 # Полнотекстовый поиск. unicode61 разбирает и русский, и английский;

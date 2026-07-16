@@ -239,6 +239,7 @@ def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozense
         "preview_url": preview_url(a),
         "html_url": a.repository.html_url,
         "favorite": a.id in fav_ids,
+        "zone": "private" if a.repository.source.owner_user_id else "common",
         "reasons": reasons,
         "author": author_of(session, a),
         "created": a.repository.remote_created_at,

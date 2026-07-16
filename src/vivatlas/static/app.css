@@ -1207,6 +1207,31 @@ summary:focus-visible {
     flex: none;
 }
 
+/* Значок зоны: общая (зелёный глобус) или частная (янтарный замок). */
+.zone {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+
+.zone svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.zone-common {
+    color: #1d9e75;
+}
+
+.zone-private {
+    color: #c98a00;
+}
+
 /* Значок направления — цветной, по разделу. */
 .pur svg {
     width: 16px;

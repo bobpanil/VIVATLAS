@@ -13,20 +13,31 @@
 
     {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
+    {# Одно окно на всё. Ссылку набирают или вставляют, скриншот на телефоне
+       чаще всего лежит в буфере, а не в файлах — поэтому окно принимает и
+       вставку из буфера, и перетаскивание, и обычный выбор с устройства.
+       Три пути, одно место. #}
     <form class="add-form" method="post" action="/add" enctype="multipart/form-data"
           onsubmit="working(this)">
-        <label class="fld">
-            <span>Ссылка или название</span>
-            <input type="text" name="source" value="{{ source or '' }}" autofocus
-                   placeholder="https://www.facebook.com/share/r/… или github.com/владелец/имя">
-        </label>
+        <div class="drop" id="drop">
+            <input class="drop-in" type="text" name="source" id="src" value="{{ source or '' }}"
+                   autocomplete="off" autocapitalize="off" spellcheck="false"
+                   placeholder="Вставьте ссылку, картинку или просто напишите название"
+                   aria-label="Ссылка, название или картинка">
 
-        <p class="or">или</p>
+            <div class="drop-file" id="chip" hidden>
+                <img id="thumb" alt="" hidden>
+                <span id="chipname"></span>
+                <button type="button" class="chip-x" id="chipx" aria-label="Убрать файл">×</button>
+            </div>
 
-        <label class="fld">
-            <span>Скриншот, картинка, ролик</span>
-            <input type="file" name="file" accept="image/*,video/*">
-        </label>
+            <p class="drop-hint" id="hint">
+                Ссылка на рилс, на GitHub, на сайт. Или картинка: вставьте из буфера,
+                перетащите сюда или <label for="file" class="pick">выберите с устройства</label>.
+            </p>
+
+            <input type="file" name="file" id="file" accept="image/*,video/*" class="vh">
+        </div>
 
         <button class="go" type="submit">Разобрать</button>
         <p class="note">Ничего не создаётся. Сначала покажем, что нашлось.</p>
@@ -148,8 +159,108 @@
 // залить файлы. Без этого кнопка выглядит мёртвой, и на неё жмут второй раз —
 // а второе нажатие на последнем шаге это второй импорт.
 function working(form) {
-    var b = form.querySelector('button');
+    var b = form.querySelector('button[type="submit"]');
     if (b) { b.disabled = true; b.textContent = 'Работаю…'; }
 }
+
+// Одно окно принимает всё: набранный текст, вставленную ссылку, вставленную
+// из буфера картинку, перетащенный файл, выбранный файл. Разные устройства
+// умеют разное — поэтому путей три, а окно одно.
+(function () {
+    var drop = document.getElementById('drop');
+    if (!drop) return;
+    var file = document.getElementById('file');
+    var src = document.getElementById('src');
+    var chip = document.getElementById('chip');
+    var chipname = document.getElementById('chipname');
+    var thumb = document.getElementById('thumb');
+    var hint = document.getElementById('hint');
+
+    function attach(f) {
+        if (!f) return;
+        // input.files только для чтения — подменяем через DataTransfer.
+        // Так файл попадает в обычную форму, и серверу не нужно ничего нового.
+        try {
+            var dt = new DataTransfer();
+            dt.items.add(f);
+            file.files = dt.files;
+        } catch (e) {
+            return; // очень старый браузер — остаётся выбор файла вручную
+        }
+        chipname.textContent = f.name + ' · ' + Math.round(f.size / 1024) + ' КБ';
+        if (f.type.indexOf('image/') === 0) {
+            thumb.src = URL.createObjectURL(f);
+            thumb.hidden = false;
+        } else {
+            thumb.hidden = true;
+        }
+        chip.hidden = false;
+        // Картинка и ссылка одновременно только путают: что из этого разбирать?
+        src.value = '';
+        src.hidden = true;
+        hint.hidden = true;
+    }
+
+    function detach() {
+        file.value = '';
+        chip.hidden = true;
+        thumb.hidden = true;
+        src.hidden = false;
+        hint.hidden = false;
+        src.focus();
+    }
+
+    document.getElementById('chipx').addEventListener('click', detach);
+    file.addEventListener('change', function () { attach(file.files[0]); });
+
+    // Вставка из буфера. На телефоне скриншот чаще всего именно там.
+    // Слушаем на всём документе: попасть точно в поле пальцем трудно.
+    document.addEventListener('paste', function (e) {
+        var items = (e.clipboardData || {}).items || [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                var f = items[i].getAsFile();
+                if (f) {
+                    e.preventDefault();
+                    // У картинки из буфера имени нет — придумываем с
+                    // расширением: по нему сервер отличит картинку от ролика.
+                    if (!f.name || f.name === 'image.png') {
+                        var ext = (f.type.split('/')[1] || 'png').split('+')[0];
+                        f = new File([f], 'вставлено.' + ext, { type: f.type });
+                    }
+                    attach(f);
+                    return;
+                }
+            }
+        }
+        // Текст вставляется сам — но если фокус был не в поле, поможем.
+        var text = (e.clipboardData || {}).getData ? e.clipboardData.getData('text') : '';
+        if (text && document.activeElement !== src && !src.hidden) {
+            e.preventDefault();
+            src.value = text.trim();
+            src.focus();
+        }
+    });
+
+    // Перетаскивание мышью.
+    ['dragenter', 'dragover'].forEach(function (n) {
+        drop.addEventListener(n, function (e) {
+            e.preventDefault();
+            drop.classList.add('over');
+        });
+    });
+    ['dragleave', 'drop'].forEach(function (n) {
+        drop.addEventListener(n, function (e) {
+            e.preventDefault();
+            drop.classList.remove('over');
+        });
+    });
+    drop.addEventListener('drop', function (e) {
+        var f = e.dataTransfer.files[0];
+        if (f) { attach(f); return; }
+        var text = e.dataTransfer.getData('text');
+        if (text) { src.value = text.trim(); }
+    });
+})();
 </script>
 {% endblock %}

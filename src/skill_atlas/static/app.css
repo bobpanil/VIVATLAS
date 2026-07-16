@@ -1002,6 +1002,7 @@ a:focus-visible {
     margin-top: 24px;
 }
 
+/* Поле имени на шаге "что будет сделано" — единственное обычное поле. */
 .fld {
     display: block;
     margin-bottom: 16px;
@@ -1026,23 +1027,117 @@ a:focus-visible {
     color: var(--text);
 }
 
-.fld input[type="file"] {
-    width: 100%;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-    padding: 12px 0;
+/* --- одно окно на всё -----------------------------------------------------
+   Ссылка, картинка из буфера, перетащенный файл, просто слова. Разные
+   устройства умеют разное, поэтому путей внутрь три, а окно одно. */
+
+.drop {
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 18px;
+    transition: border-color 0.15s, background 0.15s;
 }
 
-.or {
+.drop:focus-within {
+    border-style: solid;
+    border-color: var(--text);
+}
+
+.drop.over {
+    border-style: solid;
+    border-color: var(--text);
+    background: var(--surface-2);
+}
+
+.drop-in {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 16px; /* меньше 16px — Safari на телефоне зумит страницу */
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+}
+
+.drop-in:focus { outline: none; }
+
+.drop-in::placeholder { color: var(--faint); }
+
+.drop-hint {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--faint);
-    text-align: center;
-    margin: 4px 0 12px;
+    line-height: 1.8;
+    margin: 14px 0 0;
+}
+
+/* Выбор файла — не кнопка, а слово в тексте: путь запасной, он для тех, у
+   кого картинка лежит в файлах, а не в буфере. */
+.pick {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+/* Своё display перебивает встроенное скрытие по атрибуту hidden — окно с
+   файлом висело на экране, когда файла не было. Правило общее: та же ловушка
+   ждёт любой элемент с display в правилах. */
+[hidden] {
+    display: none !important;
+}
+
+.drop-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.drop-file img {
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+}
+
+.drop-file span {
+    flex: 1;
+    word-break: break-all;
+}
+
+.chip-x {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 9px;
+    cursor: pointer;
+}
+
+.chip-x:hover {
+    color: var(--text);
+    border-color: var(--line-strong);
+}
+
+/* Настоящее поле выбора файла: спрятано от глаз, но не от клавиатуры и не от
+   тех, кто читает экран голосом. display:none отобрал бы его у них. */
+.vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .go {
+    margin-top: 16px;
     font-family: var(--mono);
     font-size: 13px;
     padding: 13px 20px;

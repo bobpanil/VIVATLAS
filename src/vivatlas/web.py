@@ -120,7 +120,6 @@ def _counts(session) -> dict:
     }
 
 
-@router.get("/", response_class=HTMLResponse)
 def _fav_ids(session, user_id: int | None) -> set[int]:
     """Какие карточки этот человек занёс в избранное."""
     if user_id is None:
@@ -130,6 +129,7 @@ def _fav_ids(session, user_id: int | None) -> set[int]:
     )
 
 
+@router.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
     q: str = "",

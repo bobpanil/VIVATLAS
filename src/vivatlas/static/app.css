@@ -571,31 +571,43 @@ a {
     padding: var(--s-lg) var(--s-xl);
 }
 
-/* Ряд шапки: широкий поиск слева, справа — «Фильтры» и размер. Все контролы
-   одной высоты и в одном стиле. */
+/* Ряд шапки в три части: равные распорки по краям, посередине — поиск с
+   «Найти», справа в распорке — «Фильтры» и размер. Все контролы одной высоты
+   и в одном стиле. */
 .toolbar {
     display: flex;
     align-items: center;
     gap: var(--s-md);
-    padding-right: 46px;   /* не залезать под аватарку в углу */
+}
+
+/* Левая распорка равна правой — поиск встаёт по центру программы. */
+.toolbar-left {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .toolbar-right {
     position: relative;   /* якорь для выпадающей шторки */
+    flex: 1 1 0;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: var(--s-md);
-    flex: none;
+    min-width: 0;
+    padding-right: 46px;   /* не залезать под аватарку в углу */
 }
 
+/* Поиск с «Найти» — по центру и заметно длиннее прежнего. Ужимается, если
+   рядом мало места; на телефоне уходит на всю ширину. */
 .searchform {
+    flex: 0 1 800px;
     display: flex;
     gap: var(--s-sm);
-    flex: 1;               /* поиск занимает ряд — стал заметно шире */
     min-width: 0;
 }
 
-/* Обёртка ввода: якорь для подсказки, которая раскрывается по наведению. */
+/* Обёртка ввода: якорь для подсказки. Растягивается — поле заполняет её до
+   самой кнопки «Найти», без пустого зазора между ними. */
 .searchbox {
     position: relative;
     flex: 1;
@@ -644,7 +656,8 @@ a {
 }
 
 .searchform input {
-    flex: 1;
+    width: 100%;   /* обёртка .searchbox не flex — тянем поле явной шириной */
+    box-sizing: border-box;
     min-width: 0;
     font-family: var(--sans);
     font-size: 16px;   /* меньше — и Safari на телефоне зумит страницу */
@@ -2446,17 +2459,20 @@ summary:focus-visible {
        поиск во всю ширину сверху, под ним «Фильтры» и размер. */
     .toolbar {
         flex-wrap: wrap;
-        padding-right: 0;   /* аватарки нет — резервировать нечего */
         gap: var(--s-sm);
     }
 
+    .toolbar-left {
+        display: none;   /* распорка для центровки на телефоне не нужна */
+    }
+
     .searchform {
-        width: 100%;
         flex-basis: 100%;
     }
 
     .toolbar-right {
-        width: 100%;
+        flex-basis: 100%;
+        padding-right: 0;   /* аватарки нет — резервировать нечего */
         justify-content: space-between;
         flex-wrap: wrap;
         gap: var(--s-sm);
@@ -2579,6 +2595,62 @@ body.modal-open {
 .modal-close:hover {
     background: var(--surface-soft);
     color: var(--ink);
+}
+
+/* Вместо крестика — подсказка по этому окну: кружок «?», по наведению или
+   фокусу раскрывает пояснение. Закрывают окно снизу, из футера. */
+.modal-help {
+    position: relative;
+    flex: none;
+}
+
+.modal-help-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    background: var(--surface-soft);
+    color: var(--mute);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: help;
+}
+
+.modal-help-btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.modal-help-tip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    max-width: 70vw;
+    margin: 0;
+    padding: 10px 14px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.25);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--body-ink);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.modal-help:hover .modal-help-tip,
+.modal-help:focus-within .modal-help-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
 }
 
 .modal-body {

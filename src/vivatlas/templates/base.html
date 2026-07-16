@@ -151,11 +151,12 @@
             try { history.pushState({ vivModal: url }, '', url); } catch (e) { /* ok */ }
         };
 
-        // Закрытие: снимаем окно и возвращаем адрес каталога через историю.
+        // Закрытие: окно снимаем сразу (без зависаний), затем аккуратно
+        // возвращаем адрес каталога через историю.
         window.closeModalHost = function (opts) {
-            if (opts && opts.navigate) { hide(); location.href = opts.navigate; return; }
+            hide();
+            if (opts && opts.navigate) { location.href = opts.navigate; return; }
             if (history.state && history.state.vivModal) { history.back(); }
-            else { hide(); }
         };
 
         // Каталог/карточка, открывшиеся внутри рамки, выносят себя наружу.

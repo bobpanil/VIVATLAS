@@ -14,6 +14,10 @@
    активные фильтры. #}
 <div class="stickyhead">
     <div class="toolbar">
+        {# Пустая распорка слева, равная правой колонке: поиск с «Найти» встают
+           ровно по центру программы. #}
+        <div class="toolbar-left" aria-hidden="true"></div>
+
         <form class="searchform" action="/" method="get" role="search">
             <div class="searchbox">
                 <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"

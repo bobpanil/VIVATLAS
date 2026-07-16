@@ -2,6 +2,7 @@
 
 {% block title %}Добавить — VivAtlas{% endblock %}
 {% block modal_title %}{% if step == 'found' %}Что нашлось{% elif step == 'plan' %}Что будет сделано{% elif step == 'refused' %}Так не получится{% else %}Добавить инструмент{% endif %}{% endblock %}
+{% block modal_help %}Вставьте ссылку (GitHub, сайт, рилс) или скриншот. Разберём, покажем, что нашлось, и запишем в ваш Gitea только по вашему нажатию.{% endblock %}
 
 {% block modal_body %}
 {% if step == 'start' %}

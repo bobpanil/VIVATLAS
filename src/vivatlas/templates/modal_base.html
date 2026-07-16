@@ -18,7 +18,16 @@
     <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header class="modal-head">
             <h2 id="modal-title">{% block modal_title %}{% endblock %}</h2>
-            <a class="modal-close" href="{{ close_href|default('/') }}" aria-label="Закрыть">×</a>
+            {# Вместо крестика — подсказка по этому окну. Закрывают снизу, из
+               футера. Если окно подсказки не задало, справа ничего нет. #}
+            {% set help %}{% block modal_help %}{% endblock %}{% endset %}
+            {% if help.strip() %}
+            <div class="modal-help">
+                <button class="modal-help-btn" type="button" aria-label="Об этом окне"
+                        aria-expanded="false">?</button>
+                <p class="modal-help-tip" role="tooltip">{{ help }}</p>
+            </div>
+            {% endif %}
         </header>
 
         <div class="modal-body">
@@ -43,7 +52,9 @@
         if (host) {
             document.body.classList.add('inframe');
             var close = function (e) { if (e) e.preventDefault(); host(); };
-            document.querySelectorAll('.modal-close, .modal-scrim, .modal-foot a[href="/"]')
+            // Тёмный фон и любые ссылки на «/» внутри карточки (закрыть, выйти) —
+            // это закрытие наложения, а не переход на каталог во всю страницу.
+            document.querySelectorAll('.modal-scrim, .modalcard a[href="/"]')
                 .forEach(function (el) { el.addEventListener('click', close); });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close(e);

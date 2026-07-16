@@ -2,6 +2,7 @@
 
 {% block title %}Настройки — VivAtlas{% endblock %}
 {% block modal_title %}{% if step == 'qr' %}Привяжите приложение{% elif step == 'codes' %}{% if fresh %}Проверка включена{% else %}Новые коды восстановления{% endif %}{% else %}Настройки{% endif %}{% endblock %}
+{% block modal_help %}Двухэтажная проверка: при входе спросим код из приложения. Коды восстановления — на случай потери телефона.{% endblock %}
 
 {% block modal_body %}
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}

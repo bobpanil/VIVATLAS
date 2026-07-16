@@ -3,21 +3,59 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
+    {# Тёмной темы у набора PostHog нет — система кремовая по замыслу. Честнее
+       так и сказать браузеру, чем подстраиваться под тему телефона выдумкой. #}
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#eeefe9">
     <title>{% block title %}Skill Atlas{% endblock %}</title>
     <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-    <header class="top">
-        <div class="wrap top-in">
-            <a class="brand" href="/">skill<span>-</span>atlas</a>
-            <a class="navlink" href="/add">добавить</a>
-            <a class="navlink" href="/recommend">что взять?</a>
-            <a class="navlink" href="/changes">изменения</a>
-            <div class="counts">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</div>
-        </div>
+    <a class="skip" href="#main">К содержимому</a>
+
+    {# Выдвижная панель на галочке, а не на скрипте: панель — это навигация,
+       и она обязана работать, даже если скрипт не загрузился. #}
+    <input type="checkbox" id="navt" class="navt">
+
+    <header class="topbar">
+        <label class="burger" for="navt" title="Меню">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M3 5.5h14M3 10h14M3 14.5h14"/>
+            </svg>
+            <span class="vh-text">Меню</span>
+        </label>
+        <a class="brand" href="/">skill<span>-</span>atlas</a>
+        {% if nav != 'add' %}<a class="cta cta-sm" href="/add">Добавить</a>{% endif %}
     </header>
-    <main class="wrap">
+
+    <label class="scrim" for="navt" aria-hidden="true"></label>
+
+    <aside class="side">
+        <a class="brand side-brand" href="/">skill<span>-</span>atlas</a>
+
+        {# Единственная жёлтая кнопка во всей программе. Набор требует: не
+           больше одной на экран, и только на главное действие. На самой
+           странице добавления её нет: там жёлтая — кнопка записи, а две
+           жёлтых на экране набор запрещает прямо. #}
+        {% if nav != 'add' %}
+        <a class="cta side-cta" href="/add">Добавить инструмент</a>
+        {% endif %}
+
+        <nav class="side-nav" aria-label="Разделы">
+            <p class="eyebrow">Каталог</p>
+            <a class="side-item{% if nav == 'all' %} on{% endif %}" href="/">
+                Все инструменты <b>{{ counts.artifacts }}</b>
+            </a>
+            <a class="side-item{% if nav == 'recommend' %} on{% endif %}" href="/recommend">Что взять?</a>
+            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes">Изменения</a>
+        </nav>
+
+        {% block sidebar %}{% endblock %}
+
+        <p class="side-foot">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</p>
+    </aside>
+
+    <main class="main" id="main">
         {% block content %}{% endblock %}
     </main>
 </body>

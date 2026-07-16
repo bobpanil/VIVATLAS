@@ -87,15 +87,29 @@ def classify(source: str) -> str:
         return "github"
     if s.lower().startswith(("http://", "https://")):
         return "web"
-    path = Path(s)
-    if path.exists() and path.is_file():
-        mime = mimetypes.guess_type(s)[0] or ""
-        if mime.startswith("image/"):
-            return "image"
-        if mime.startswith("video/") or mime.startswith("audio/"):
-            return "video"
-        return "text"
+    # Сюда попадает и то, что человек просто набрал в поиске. Проверка пути
+    # трогает диск, и на строке с двоеточием или нулевым байтом Windows
+    # ругается вместо ответа "нет такого файла". Любая беда тут значит одно:
+    # это не файл, а слова.
+    try:
+        if Path(s).is_file():
+            mime = mimetypes.guess_type(s)[0] or ""
+            if mime.startswith("image/"):
+                return "image"
+            if mime.startswith("video/") or mime.startswith("audio/"):
+                return "video"
+    except (OSError, ValueError):
+        pass
     return "text"
+
+
+def looks_like_link(text: str) -> bool:
+    """Похоже ли на ссылку — так, чтобы поиск не искал её среди названий.
+
+    Гадаем только по однозначному: ссылка есть ссылка. Строку "last30days"
+    толковать не беремся — непонятно, ищут это у себя или хотят притащить.
+    """
+    return classify(text) in ("github", "web")
 
 
 def extract_repos(text: str) -> list[str]:

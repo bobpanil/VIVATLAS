@@ -1,37 +1,133 @@
-/* Хром намеренно бесцветный: в каталоге 74 бренда со своими палитрами, и
-   любой акцентный цвет интерфейса дрался бы с ними. Цвет приходит только из
-   превью и из пометок о происхождении тегов. */
+/* IBM Plex Sans — единственный шрифт набора PostHog. Лежит рядом с
+   программой, а не тянется из интернета: каталог самодостаточный, и открывать
+   его надо уметь при мёртвой сети. Разбит по алфавитам — русской странице
+   латинские хвосты не качаются.
 
-:root {
-    --bg: #f6f6f7;
-    --surface: #ffffff;
-    --surface-2: #fbfbfc;
-    --text: #16161a;
-    --muted: #6e6e76;
-    --faint: #9a9aa2;
-    --line: #e3e3e7;
-    --line-strong: #c9c9d0;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.12);
+   Вес только 400-700. В наборе для крупных заголовков записан 800, но у
+   IBM Plex Sans такого веса не существует: Google на запрос 800 отдаёт
+   страницу с ошибкой. Поставить 800 — значит заставить браузер подделать
+   жирность, и буквы поплывут. Берём 700, самый жирный настоящий. */
 
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-
-    --step: 4px;
-    --radius: 6px;
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-cyrillic-ext.woff2') format('woff2');
+    unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #0e0e10;
-        --surface: #17171a;
-        --surface-2: #1c1c20;
-        --text: #ececee;
-        --muted: #8a8a93;
-        --faint: #5f5f68;
-        --line: #2a2a2f;
-        --line-strong: #3d3d45;
-        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
-    }
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-cyrillic.woff2') format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Оформление взято из набора design-lib/posthog — того самого, что лежит в
+   этом же каталоге. Значения не придуманы: они прочитаны из его DESIGN.md, и
+   имена здесь те же, что там.
+
+   Главное в этой системе:
+     - холст кремовый (#eeefe9), НЕ белый. В наборе это отдельный запрет;
+     - жёлтая кнопка — единственный громкий цвет. Набор требует: не больше
+       одной жёлтой кнопки на экран;
+     - карточки плоские: тонкая оливковая рамка, теней нет вообще;
+     - иерархия строится жирностью и размером, а не цветом.
+
+   Тёмной темы тут нет намеренно. В наборе она не описана, а придумать её —
+   значит выдать свою выдумку за фирменный стиль PostHog. */
+
+:root {
+    color-scheme: light;
+
+    /* --- цвета набора --- */
+    --primary: #f7a501;
+    --primary-pressed: #dd9001;
+    --on-primary: #23251d;
+
+    --ink: #23251d;
+    --body-ink: #4d4f46;
+    --charcoal: #33342d;
+    --mute: #6c6e63;
+    --ash: #9b9c92;
+    --stone: #b6b7af;
+
+    --hairline: #bfc1b7;
+    --hairline-soft: #dcdfd2;
+
+    --canvas: #eeefe9;
+    --surface-soft: #e5e7e0;
+    --surface-card: #ffffff;
+    --surface-doc: #fcfcfa;
+    --surface-dark: #23251d;
+    --on-dark: #ffffff;
+
+    --link-teal: #1078a3;
+    --accent-blue: #2c84e0;
+    --accent-blue-soft: #dceaf6;
+    --accent-red: #cd4239;
+    --accent-red-soft: #f7d6d3;
+    --accent-green: #2c8c66;
+    --accent-green-soft: #d9eddf;
+    --accent-purple: #7c44a6;
+    --accent-purple-soft: #e7d8ee;
+    --focus-ring: rgba(59, 130, 246, 0.5);
+
+    /* --- шрифты набора --- */
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
+
+    /* --- скругления и отступы набора --- */
+    --r-xs: 2px;
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 8px;
+    --r-full: 9999px;
+    --radius: var(--r-md);
+
+    --s-xs: 4px;
+    --s-sm: 8px;
+    --s-md: 12px;
+    --s-lg: 16px;
+    --s-xl: 24px;
+    --s-xxl: 32px;
+
+    --sidebar-w: 240px;
+
+    /* Старые имена оставлены ссылками на новые: их держат больше тысячи строк
+       ниже, и переписывать каждую ради переименования — верный способ
+       наделать опечаток на ровном месте. */
+    --bg: var(--canvas);
+    --surface: var(--surface-card);
+    --surface-2: var(--surface-doc);
+    --text: var(--ink);
+    --muted: var(--body-ink);
+    --faint: var(--mute);
+    --line: var(--hairline-soft);
+    --line-strong: var(--hairline);
+    --shadow: none;  /* набор запрещает тени: карточки лежат на холсте плоско */
+    --step: 4px;
 }
 
 * {
@@ -40,11 +136,11 @@
 
 body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
+    background: var(--canvas);
+    color: var(--body-ink);
     font-family: var(--sans);
-    font-size: 15px;
-    line-height: 1.55;
+    font-size: 16px;   /* body-md набора */
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
 
@@ -52,141 +148,434 @@ a {
     color: inherit;
 }
 
-.wrap {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
+/* --- оболочка: боковая панель и содержимое ---------------------------------
+   Панель 240px, кремовая, липкая — как doc-sidebar набора. На узком экране
+   уезжает за край и выходит по кнопке; жёлтая кнопка «Добавить» при этом
+   переезжает в верхнюю полосу, чтобы остаться видимой на любой ширине. */
 
-/* --- шапка --- */
-
-.top {
-    border-bottom: 1px solid var(--line);
-    background: var(--surface);
-    position: sticky;
+.skip {
+    position: absolute;
+    left: -9999px;
     top: 0;
-    z-index: 10;
+    background: var(--ink);
+    color: var(--on-dark);
+    padding: 10px 16px;
+    z-index: 100;
 }
 
-.top-in {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
-    padding: 14px 0;
-    flex-wrap: wrap;
+.skip:focus {
+    left: 8px;
+    top: 8px;
+}
+
+/* Галочка, которой открывается панель. Спрятана от глаз, но не от клавиатуры:
+   display: none отобрал бы её у тех, кто ходит по странице табом. */
+.navt {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+}
+
+.vh-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--canvas);
+    border-right: 1px solid var(--hairline);
+    padding: var(--s-xl) var(--s-lg);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 30;
+}
+
+.main {
+    margin-left: var(--sidebar-w);
+    padding: var(--s-xl) var(--s-xl) 80px;
+    max-width: 1280px;
 }
 
 .brand {
+    display: inline-block;
     font-family: var(--mono);
     font-size: 15px;
     font-weight: 600;
     letter-spacing: -0.03em;
+    color: var(--ink);
     text-decoration: none;
 }
 
 .brand span {
-    color: var(--faint);
+    color: var(--primary);   /* единственная жёлтая точка, кроме кнопки */
 }
 
-.counts {
-    font-family: var(--mono);
+.side-brand {
+    margin-bottom: var(--s-lg);
+}
+
+/* button-primary набора: жёлтый #f7a501, тёмно-оливковый текст, 40px, 6px. */
+.cta {
+    display: block;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    padding: 9px 16px;
+    min-height: 40px;
+    border: 0;
+    border-radius: var(--r-md);
+    cursor: pointer;
+}
+
+.cta:active {
+    background: var(--primary-pressed);
+}
+
+.cta-sm {
+    padding: 8px 14px;
+    min-height: 36px;
+    font-size: 13px;
+}
+
+.side-cta {
+    margin-bottom: var(--s-xl);
+}
+
+/* Заголовок раздела панели. Верхний регистр набор разрешает только тут и в
+   подписях — больше нигде. */
+.eyebrow {
     font-size: 12px;
-    color: var(--muted);
-    margin-left: auto;
+    font-weight: 700;
+    line-height: 1.33;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin: var(--s-xl) 0 var(--s-sm);
 }
 
-/* --- поиск --- */
+.side-nav .eyebrow:first-child {
+    margin-top: 0;
+}
+
+.side-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-sm);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.43;
+    color: var(--body-ink);
+    text-decoration: none;
+    padding: 7px 10px;
+    margin: 0 -10px;
+    border-radius: var(--r-sm);
+    min-height: 34px;
+}
+
+.side-item:hover {
+    background: var(--surface-soft);
+}
+
+/* Выбранный пункт: белая карточка отрывается от кремового холста. Так набор
+   помечает активную вкладку — цветом фона, а не краской текста. */
+.side-item.on {
+    background: var(--surface-card);
+    color: var(--ink);
+    font-weight: 600;
+    border: 1px solid var(--hairline);
+    padding: 6px 9px;
+}
+
+.side-item b {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mute);
+}
+
+.side-foot {
+    font-size: 12px;
+    color: var(--mute);
+    border-top: 1px solid var(--hairline-soft);
+    padding-top: var(--s-md);
+    margin: var(--s-xl) 0 0;
+}
+
+.topbar,
+.scrim {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .topbar {
+        display: flex;
+        align-items: center;
+        gap: var(--s-md);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        height: 56px;
+        padding: 0 var(--s-md);
+        background: var(--canvas);
+        border-bottom: 1px solid var(--hairline);
+    }
+
+    .topbar .brand {
+        margin-right: auto;
+    }
+
+    .burger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin-left: -8px;
+        border-radius: var(--r-sm);
+        cursor: pointer;
+    }
+
+    .burger svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+    }
+
+    .navt:focus-visible + .topbar .burger {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+    }
+
+    .side {
+        transform: translateX(-100%);
+        transition: transform 0.18s ease-out;
+        box-shadow: none;
+        width: min(300px, 86vw);
+    }
+
+    .navt:checked ~ .side {
+        transform: none;
+    }
+
+    .navt:checked ~ .scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 25;
+        background: rgba(35, 37, 29, 0.4);
+    }
+
+    /* В выдвинутой панели своя жёлтая кнопка была бы второй на экране — набор
+       разрешает одну. Тут её роль играет кнопка в верхней полосе. */
+    .side-cta {
+        display: none;
+    }
+
+    .main {
+        margin-left: 0;
+        padding: var(--s-lg) var(--s-lg) 64px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side {
+        transition: none;
+    }
+}
+
+/* --- поиск ---------------------------------------------------------------
+   text-input набора: белая карточка, оливковая рамка в волос, 6px. При фокусе
+   рамка синеет и утолщается — это описано в наборе как text-input-focused. */
 
 .searchbar {
-    padding: 28px 0 20px;
+    padding: 0 0 var(--s-xl);
 }
 
 .searchform {
     display: flex;
-    gap: 8px;
+    gap: var(--s-sm);
 }
 
 .searchform input {
     flex: 1;
     min-width: 0;
     font-family: var(--sans);
-    font-size: 16px; /* 16px — иначе iOS зумит при фокусе */
-    padding: 12px 14px;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
+    font-size: 16px;   /* меньше — и Safari на телефоне зумит страницу */
+    padding: 9px 12px;
+    min-height: 40px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
 }
 
 .searchform input::placeholder {
-    color: var(--faint);
+    color: var(--mute);
 }
 
-.searchform input:focus,
-.searchform button:focus-visible,
-a:focus-visible {
-    outline: 2px solid var(--text);
+.searchform input:focus {
+    outline: none;
+    border: 2px solid var(--accent-blue);
+    padding: 8px 11px;   /* рамка стала толще на 1px — отступ на столько же меньше */
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.searchform .btn-secondary {
+    flex: 0 0 auto;
+}
+
+a:focus-visible,
+button:focus-visible,
+label:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
-}
-
-.searchform button {
-    font-family: var(--mono);
-    font-size: 13px;
-    padding: 12px 18px;
-    border: 1px solid var(--text);
-    border-radius: var(--radius);
-    background: var(--text);
-    color: var(--surface);
-    cursor: pointer;
 }
 
 .hint {
     font-size: 13px;
-    color: var(--muted);
-    margin: 10px 0 0;
+    font-weight: 500;
+    color: var(--mute);
+    margin: var(--s-md) 0 0;
 }
 
-/* --- фильтры --- */
+/* button-secondary набора: мягкая кремово-серая заливка, без жёлтого. */
+.btn-secondary {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    padding: 9px 16px;
+    min-height: 40px;
+    white-space: nowrap;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-soft);
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: var(--surface-card);
+}
+
+/* --- полоса-подсказка ------------------------------------------------------
+   banner-tip набора: мягкая пастель, тёмный текст, 6px. В наборе такие
+   полосы живут только внутри документации — тут ровно тот же случай:
+   пояснение по ходу дела, а не украшение. */
+
+.banner {
+    display: flex;
+    align-items: center;
+    gap: var(--s-lg);
+    flex-wrap: wrap;
+    padding: var(--s-lg) 20px;
+    border-radius: var(--r-md);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: var(--s-xl);
+}
+
+.banner > div {
+    flex: 1;
+    min-width: 220px;
+}
+
+.banner b {
+    font-weight: 600;
+}
+
+.banner-blue {
+    background: var(--accent-blue-soft);
+}
+
+.banner-green {
+    background: var(--accent-green-soft);
+}
+
+.banner-red {
+    background: var(--accent-red-soft);
+}
+
+/* --- фильтры ---------------------------------------------------------------
+   pill-tab набора: прозрачная таблетка, а выбранная переворачивается в
+   тёмную. Цветом не красим — набор строит выделение заливкой. */
 
 .filters {
     display: flex;
-    gap: 6px;
+    gap: var(--s-xs);
     flex-wrap: wrap;
-    padding-bottom: 20px;
+    margin-bottom: var(--s-sm);
 }
 
 .filter {
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 5px 10px;
-    border: 1px solid var(--line);
-    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 7px 12px;
+    border: 1px solid var(--hairline-soft);
+    border-radius: var(--r-full);
     text-decoration: none;
-    color: var(--muted);
-    background: var(--surface);
+    color: var(--body-ink);
+    background: transparent;
     white-space: nowrap;
 }
 
 .filter:hover {
-    border-color: var(--line-strong);
-    color: var(--text);
+    background: var(--surface-card);
+    border-color: var(--hairline);
+    color: var(--ink);
 }
 
 .filter[aria-current="true"] {
-    background: var(--text);
-    border-color: var(--text);
-    color: var(--surface);
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--on-dark);
 }
 
 .filter b {
-    font-weight: 400;
-    color: var(--faint);
+    font-weight: 500;
+    color: var(--mute);
     margin-left: 4px;
 }
 
 .filter[aria-current="true"] b {
-    color: var(--surface);
-    opacity: 0.6;
+    color: var(--on-dark);
+    opacity: 0.65;
+}
+
+.side-filters {
+    border-top: 1px solid var(--hairline-soft);
+    margin-top: var(--s-xl);
+}
+
+.fclear {
+    font-size: 13px;
+    color: var(--mute);
+    margin: var(--s-lg) 0 0;
+}
+
+.fclear a {
+    color: var(--link-teal);
 }
 
 /* --- сетка --- */
@@ -194,32 +583,32 @@ a:focus-visible {
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
+    gap: var(--s-lg);   /* 16px — шаг сетки набора */
     padding-bottom: 48px;
 }
 
+/* product-card набора: белая карточка на кремовом холсте, оливковая рамка в
+   волос, 6px. Теней нет — набор их прямо запрещает, глубину тут даёт
+   контраст белого с кремовым, а не подложенная тень. */
 .card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
     overflow: hidden;
     text-decoration: none;
     display: flex;
     flex-direction: column;
-    transition: border-color 0.12s, transform 0.12s;
+    transition: border-color 0.12s;
 }
 
 .card:hover {
-    border-color: var(--line-strong);
-    transform: translateY(-1px);
+    border-color: var(--ink);
 }
 
-/* Превью всегда на светлом: SVG нарисованы под белый фон и на тёмном
-   разваливаются. */
 .thumb {
     aspect-ratio: 16 / 10;
-    background: #fff;
-    border-bottom: 1px solid var(--line);
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--hairline-soft);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -236,11 +625,11 @@ a:focus-visible {
 /* У скиллов превью нет. Показываем сам идентификатор — он и есть их лицо. */
 .thumb-text {
     aspect-ratio: 16 / 10;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--line);
+    background: var(--surface-doc);
+    border-bottom: 1px solid var(--hairline-soft);
     display: flex;
     align-items: center;
-    padding: 16px;
+    padding: var(--s-lg);
     overflow: hidden;
 }
 
@@ -249,29 +638,32 @@ a:focus-visible {
     font-size: 17px;
     font-weight: 600;
     letter-spacing: -0.04em;
-    color: var(--faint);
+    color: var(--stone);
     word-break: break-all;
     line-height: 1.2;
 }
 
 .card-body {
-    padding: 12px 13px 14px;
+    padding: var(--s-lg);   /* 16px: карточки каталога плотные, это не витрина */
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--s-sm);
     flex: 1;
 }
 
+/* heading-sm-mixed набора: 18px/600. Имя набрано моноширинным намеренно —
+   это идентификатор в Git, а не заголовок статьи. */
 .card-name {
     font-family: var(--mono);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.02em;
+    color: var(--ink);
     word-break: break-all;
 }
 
 .card-owner {
-    color: var(--faint);
+    color: var(--stone);
     font-weight: 400;
 }
 
@@ -474,7 +866,7 @@ a:focus-visible {
 }
 
 .preview {
-    background: #fff;
+    background: var(--surface-card);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     overflow: hidden;
@@ -580,13 +972,16 @@ a:focus-visible {
     margin-bottom: 8px;
 }
 
+/* banner-tip-red набора: предупреждения — мягкая красная полоса, а не
+   пунктирная рамка. В наборе это готовый словарь для «осторожно», и свой
+   изобретать незачем. */
 .warn {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-    border: 1px dashed var(--line-strong);
-    border-radius: var(--radius);
-    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--accent-red-soft);
+    border-radius: var(--r-md);
+    padding: var(--s-md) var(--s-lg);
 }
 
 @media (max-width: 860px) {
@@ -859,41 +1254,6 @@ a:focus-visible {
     white-space: nowrap;
 }
 
-/* --- панель фильтров --- */
-
-.fbar {
-    padding-bottom: 18px;
-}
-
-.fbar .filters {
-    padding-bottom: 7px;
-    align-items: baseline;
-}
-
-/* Подпись группы — не кнопка, поэтому набрана иначе и не кликается. */
-.fgroup {
-    font-family: var(--mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: var(--faint);
-    min-width: 74px;
-    flex: none;
-}
-
-.fclear {
-    font-size: 13px;
-    color: var(--muted);
-    margin: 10px 0 0;
-    padding-top: 10px;
-    border-top: 1px solid var(--line);
-}
-
-.fclear b {
-    font-family: var(--mono);
-    color: var(--text);
-}
-
 /* Плитка без превью: показываем идентификатор и тип. Придумывать картинку
    нечестно — у скиллов её просто нет, проверено: 1 из 26. */
 .thumb-text {
@@ -905,27 +1265,20 @@ a:focus-visible {
 .thumb-text em {
     font-family: var(--mono);
     font-style: normal;
-    font-size: 10px;
+    font-size: 12px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: var(--line-strong);
-}
-
-@media (max-width: 860px) {
-    .fgroup {
-        min-width: 0;
-        width: 100%;
-    }
+    color: var(--stone);
 }
 
 .fmore {
-    margin-top: 4px;
+    margin-top: var(--s-lg);
 }
 
 .fmore summary {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--body-ink);
     cursor: pointer;
     padding: 5px 0;
     list-style: none;
@@ -943,7 +1296,7 @@ a:focus-visible {
 .fmore summary::before {
     content: "+";
     font-weight: 700;
-    color: var(--faint);
+    color: var(--mute);
 }
 
 .fmore[open] summary::before {
@@ -951,7 +1304,7 @@ a:focus-visible {
 }
 
 .fmore summary:hover {
-    color: var(--text);
+    color: var(--ink);
 }
 
 .fmore[open] > .filters:first-of-type {
@@ -992,10 +1345,15 @@ a:focus-visible {
     padding-bottom: 60px;
 }
 
+/* display-lg набора: 24px, самый жирный настоящий вес, тракинг -0.6px.
+   В наборе тут записан вес 800, но у IBM Plex Sans его не существует. */
 .add h1 {
-    font-size: 26px;
-    letter-spacing: -0.02em;
-    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.33;
+    letter-spacing: -0.6px;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
 }
 
 .add-form {
@@ -1136,37 +1494,11 @@ a:focus-visible {
     pointer-events: none;
 }
 
-.go {
-    margin-top: 16px;
-    font-family: var(--mono);
-    font-size: 13px;
-    padding: 13px 20px;
-    border: 1px solid var(--text);
-    border-radius: var(--radius);
-    background: var(--text);
-    color: var(--surface);
-    cursor: pointer;
-}
-
-.go:hover { opacity: 0.85; }
-.go:disabled { opacity: 0.5; cursor: default; }
-
-.go.small {
-    font-size: 12px;
-    padding: 9px 14px;
-    background: var(--surface);
-    color: var(--text);
-    border-color: var(--line-strong);
-}
-
-/* Единственная кнопка во всей программе, которая пишет в Gitea. Выглядит
-   иначе — чтобы её не нажимали походя. */
-.go.write {
-    background: #1f7a3d;
-    border-color: #1f7a3d;
-    color: #fff;
+/* Широкая кнопка: на странице добавления действие ровно одно, и оно должно
+   быть под пальцем целиком. */
+.cta-wide {
     width: 100%;
-    padding: 15px;
+    margin-top: var(--s-lg);
 }
 
 .note {

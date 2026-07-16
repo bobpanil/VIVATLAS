@@ -17,7 +17,7 @@ from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.config import settings
 from skill_atlas.db import session_scope
 from skill_atlas.embeddings import embed_artifact
-from skill_atlas.finder import MAX_MEDIA_BYTES, Finder
+from skill_atlas.finder import MAX_MEDIA_BYTES, Finder, looks_like_link
 from skill_atlas.import_run import execute, record_upstream
 from skill_atlas.importer import GitHubFetcher, ImportError_, plan_import
 from skill_atlas.indexer import index_repository
@@ -125,12 +125,20 @@ async def index(
     owner: str = "",
 ) -> HTMLResponse:
     f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner)
-    model = build_embedding_model() if q else None
+
+    # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
+    # текста в карточках нет и быть не может. Раньше это молча возвращало
+    # пустоту. Теперь предлагаем то, чего человек и хотел, — разобрать её.
+    link = looks_like_link(q)
+
+    model = build_embedding_model() if q and not link else None
     try:
         with session_scope() as session:
             counts = _counts(session)
 
-            if q:
+            if link:
+                items = []
+            elif q:
                 # Поиск уже отобрал по смыслу — фильтры применяем к его выдаче,
                 # а не к базе: иначе порядок по близости потеряется.
                 hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
@@ -156,6 +164,8 @@ async def index(
                     "periods": flt.period_options(session),
                     "statuses": flt.status_options(session),
                     "period_names": {k: v[0] for k, v in flt.PERIODS.items()},
+                    "link": link,
+                    "nav": "all",
                 },
             )
     finally:
@@ -254,6 +264,7 @@ async def recommend_page(request: Request, task: str = "") -> HTMLResponse:
                 "task": task,
                 "counts": counts,
                 "threshold": NO_MATCH_THRESHOLD,
+                "nav": "recommend",
             },
         )
     finally:
@@ -288,6 +299,7 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
                 "stale_items": stale_items,
                 "stale_count": len(ch.stale(session)),
                 "stale_days": ch.STALE_DAYS,
+                "nav": "changes",
                 "oldest": oldest,
                 "newest": newest,
                 "counts": _counts(session),
@@ -313,7 +325,7 @@ def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
         return templates.TemplateResponse(
             request,
             "add.html",
-            {"step": step, "counts": _counts(session), **extra},
+            {"step": step, "counts": _counts(session), "nav": "add", **extra},
         )
 
 

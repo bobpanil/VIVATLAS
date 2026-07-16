@@ -33,6 +33,7 @@ class Filters:
     owner: str = ""
     fav: str = ""
     cat: str = ""
+    draft: str = ""
 
     def active(self) -> bool:
         return any((self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat))
@@ -47,6 +48,7 @@ class Filters:
             "owner": self.owner,
             "fav": self.fav,
             "cat": self.cat,
+            "draft": self.draft,
         }
         out.update(override)
         if drop:
@@ -88,6 +90,12 @@ def apply(
 ) -> Select:
     # Зона — всегда: даже без фильтров человек видит только своё и общее.
     query = query.where(Artifact.id.in_(visible_ids(user_id)))
+    # Черновики — свой раздел: в общем каталоге их не показываем, а по draft=1
+    # показываем только их. Так недоделанное не мешается с готовым.
+    if f.draft:
+        query = query.where(Artifact.artifact_type == "draft")
+    else:
+        query = query.where(Artifact.artifact_type != "draft")
     if f.fav:
         # Избранное — личное: без известного пользователя показывать нечего.
         query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
@@ -164,13 +172,23 @@ def category_options(session: Session, user_id: int | None = None) -> list[Optio
 
 
 def type_options(session: Session, user_id: int | None = None) -> list[Option]:
+    # Черновики — отдельный раздел, среди типов их не показываем.
     rows = session.execute(
         select(Artifact.artifact_type, func.count())
-        .where(Artifact.id.in_(visible_ids(user_id)))
+        .where(Artifact.id.in_(visible_ids(user_id)), Artifact.artifact_type != "draft")
         .group_by(Artifact.artifact_type)
         .order_by(func.count().desc())
     ).all()
     return [Option(t, t, n) for t, n in rows]
+
+
+def draft_count(session: Session, user_id: int | None = None) -> int:
+    """Сколько черновиков у этого человека — для постоянного раздела «Черновики»."""
+    return session.scalar(
+        select(func.count())
+        .select_from(Artifact)
+        .where(Artifact.id.in_(visible_ids(user_id)), Artifact.artifact_type == "draft")
+    ) or 0
 
 
 def owner_options(session: Session, user_id: int | None = None) -> list[Option]:

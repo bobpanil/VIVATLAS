@@ -109,6 +109,12 @@
                    <a href="/settings" data-modal>настройках</a> — потом сюда можно
                    перетаскивать карточки.</p>
                 {% endif %}
+
+                {# Черновики — постоянный подраздел: недоделанные карточки, что
+                   ждут обработки, копятся здесь, а не мешаются в общем списке. #}
+                <a class="side-sub side-drafts{% if active_draft %} on{% endif %}" href="/?draft=1">
+                    <span>Черновики</span><b>{{ counts.drafts }}</b>
+                </a>
             </div>
 
             <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal>

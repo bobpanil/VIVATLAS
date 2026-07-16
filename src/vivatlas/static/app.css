@@ -522,6 +522,13 @@ a {
     border-left: 1px solid var(--panel-line);
 }
 
+/* «Черновики» — постоянный подраздел, отделён тонкой чертой от папок. */
+.side-drafts {
+    margin-top: 4px;
+    padding-top: 9px;
+    border-top: 1px solid var(--panel-line);
+}
+
 .side-sub {
     display: flex;
     align-items: center;

@@ -112,19 +112,22 @@ def preview_url(artifact: Artifact) -> str | None:
 
 
 def _counts(session, user_id: int | None = None) -> dict:
-    # Считаем только видимое этому человеку: общее плюс своё частное.
+    # Считаем только видимое этому человеку: общее плюс своё частное. Черновики —
+    # отдельный раздел, в общий счёт и типы не входят.
     vis = flt.visible_ids(user_id)
+    not_draft = Artifact.artifact_type != "draft"
     by_type = session.execute(
         select(Artifact.artifact_type, func.count())
-        .where(Artifact.id.in_(vis))
+        .where(Artifact.id.in_(vis), not_draft)
         .group_by(Artifact.artifact_type)
         .order_by(func.count().desc())
     ).all()
     return {
         "artifacts": session.scalar(
-            select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
+            select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis), not_draft)
         )
         or 0,
+        "drafts": flt.draft_count(session, user_id),
         "tags": session.scalar(select(func.count(func.distinct(ArtifactTag.tag_id)))) or 0,
         "by_type": by_type,
     }
@@ -150,8 +153,11 @@ async def index(
     owner: str = "",
     fav: str = "",
     cat: str = "",
+    draft: str = "",
 ) -> HTMLResponse:
-    f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat)
+    f = flt.Filters(
+        type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat, draft=draft
+    )
 
     # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
     # текста в карточках нет и быть не может. Раньше это молча возвращало
@@ -203,6 +209,7 @@ async def index(
                     "link": link,
                     "nav": "all",
                     "active_cat": f.cat,
+                    "active_draft": bool(f.draft),
                 },
             )
     finally:
@@ -329,6 +336,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "counts": _counts(session, user_id),
                 "categories": flt.category_options(session, user_id),
                 "active_cat": "",
+                "active_draft": False,
             },
         )
 

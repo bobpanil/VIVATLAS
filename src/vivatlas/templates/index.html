@@ -5,64 +5,9 @@
 <a class="filter" href="/?{{ params|urlencode }}" {% if current %}aria-current="true"{% endif %}>{{ label }} <b>{{ count }}</b></a>
 {% endmacro %}
 
-{# Фильтры живут в боковой панели, а не над карточками: развёрнутыми они
-   съедали весь первый экран, и до самих карточек приходилось листать.
-   Тип, Источник, Обновлялись и «Ещё» — всё под одним заголовком «Фильтры». #}
-{% block sidebar %}
-<div class="side-filters">
-    <p class="eyebrow">{{ icons.ic('filter') }}Фильтры</p>
-
-    <p class="fgroup">{{ icons.ic('type') }}Тип</p>
-    <nav class="filters" aria-label="Тип">
-        <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
-           {% if not f.active() %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
-        {% for t in types %}
-        {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
-        {% endfor %}
-    </nav>
-
-    {% if periods %}
-    <p class="fgroup">{{ icons.ic('updated') }}Обновлялись</p>
-    <nav class="filters" aria-label="Когда обновлялись">
-        {% for p in periods %}
-        {{ chip(p.label, p.count, f.as_query(days=p.value if f.days != p.value else "") | combine(q=q), f.days == p.value) }}
-        {% endfor %}
-    </nav>
-    {% endif %}
-
-    {% if statuses %}
-    <p class="fgroup">{{ icons.ic('source') }}Источник</p>
-    <nav class="filters" aria-label="Источник">
-        {% for st in statuses %}
-        {{ chip(st.label, st.count, f.as_query(status=st.value if f.status != st.value else "") | combine(q=q), f.status == st.value) }}
-        {% endfor %}
-    </nav>
-    {% endif %}
-
-    {# Теговых групп много. Прячем под details — штатная разметка, без скриптов.
-       Если фильтр по тегу выбран, блок открыт: иначе непонятно, почему мало. #}
-    <details class="fmore" {% if f.tag %}open{% endif %}>
-        <summary>Ещё{% if f.tag %}: {{ f.tag }}{% endif %}</summary>
-        {% for g in tag_groups %}
-        <p class="fgroup">{{ g.title }}</p>
-        <nav class="filters" aria-label="{{ g.title }}">
-            {% for o in g.options %}
-            {{ chip(o.label, o.count, f.as_query(tag=o.value if f.tag != o.value else "") | combine(q=q), f.tag == o.value) }}
-            {% endfor %}
-        </nav>
-        {% endfor %}
-    </details>
-
-    {% if f.active() %}
-    <p class="fclear">
-        Отобрано: <b>{{ items|length }}</b><br>
-        <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">снять все фильтры</a>
-    </p>
-    {% endif %}
-</div>
-{% endblock %}
-
 {% block content %}
+{# Сколько фильтров спрятано за кнопкой «Фильтры» (Тип живёт наверху отдельно). #}
+{% set sheet_active = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) %}
 <div class="searchbar">
     <form class="searchform" action="/" method="get" role="search">
         <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
@@ -97,6 +42,76 @@
         <input type="hidden" name="source" value="{{ q }}">
         <button class="btn-secondary" type="submit">Разобрать ссылку</button>
     </form>
+</div>
+{% endif %}
+
+{% if not link %}
+{# Фильтры в шапке, а не в панели: в панели они прокручивались, а на телефоне
+   пропадали при листании. «Тип» — таблетками сразу, остальное — за кнопкой. #}
+<div class="filterbar-wrap">
+    <div class="filterbar">
+        <nav class="type-pills" aria-label="Тип">
+            <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
+               {% if not f.type %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+            {% for t in types %}
+            {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
+            {% endfor %}
+        </nav>
+        <button class="filters-btn{% if sheet_active %} on{% endif %}" type="button"
+                id="filters-btn" aria-expanded="false" aria-controls="sheet">
+            {{ icons.ic('filter') }}<span>Фильтры</span>{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
+        </button>
+    </div>
+
+    {% if sheet_active %}
+    <div class="active-chips">
+        {% if f.days %}<a class="achip" href="/?{{ f.as_query(days='') | combine(q=q) | urlencode }}">{{ period_names.get(f.days, f.days) }} <i>×</i></a>{% endif %}
+        {% if f.status %}<a class="achip" href="/?{{ f.as_query(status='') | combine(q=q) | urlencode }}">{% for st in statuses %}{% if st.value == f.status %}{{ st.label }}{% endif %}{% endfor %} <i>×</i></a>{% endif %}
+        {% if f.tag %}<a class="achip" href="/?{{ f.as_query(tag='') | combine(q=q) | urlencode }}">{{ f.tag }} <i>×</i></a>{% endif %}
+        <a class="achip-clear" href="/{% if q %}?q={{ q|urlencode }}{% endif %}">снять все</a>
+    </div>
+    {% endif %}
+
+    <div class="scrim" id="fscrim" hidden></div>
+    <aside class="sheet" id="sheet" hidden aria-label="Фильтры">
+        <div class="sheet-head">
+            <b>Фильтры</b>
+            <button class="sheet-x" type="button" id="sheet-x" aria-label="Закрыть">×</button>
+        </div>
+        <div class="sheet-body">
+            {% if periods %}
+            <p class="fgroup">{{ icons.ic('updated') }}Обновлялись</p>
+            <nav class="filters" aria-label="Когда обновлялись">
+                {% for p in periods %}
+                {{ chip(p.label, p.count, f.as_query(days=p.value if f.days != p.value else "") | combine(q=q), f.days == p.value) }}
+                {% endfor %}
+            </nav>
+            {% endif %}
+
+            {% if statuses %}
+            <p class="fgroup">{{ icons.ic('source') }}Источник</p>
+            <nav class="filters" aria-label="Источник">
+                {% for st in statuses %}
+                {{ chip(st.label, st.count, f.as_query(status=st.value if f.status != st.value else "") | combine(q=q), f.status == st.value) }}
+                {% endfor %}
+            </nav>
+            {% endif %}
+
+            {% for g in tag_groups %}
+            <p class="fgroup">{{ g.title }}</p>
+            <nav class="filters" aria-label="{{ g.title }}">
+                {% for o in g.options %}
+                {{ chip(o.label, o.count, f.as_query(tag=o.value if f.tag != o.value else "") | combine(q=q), f.tag == o.value) }}
+                {% endfor %}
+            </nav>
+            {% endfor %}
+        </div>
+        {% if f.active() %}
+        <div class="sheet-foot">
+            <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">Снять все фильтры</a>
+        </div>
+        {% endif %}
+    </aside>
 </div>
 {% endif %}
 
@@ -203,6 +218,42 @@
 
     slider.addEventListener('input', function () { apply(slider.value, true); });
     window.addEventListener('resize', function () { apply(slider.value, false); });
+})();
+
+// Шторка фильтров. На десктопе выпадает под кнопкой, на телефоне — снизу.
+// Без скрипта останется скрытой, но «Тип» наверху и активные фильтры видны и
+// снимаются ссылками — то есть фильтровать можно и так.
+(function () {
+    var btn = document.getElementById('filters-btn');
+    var sheet = document.getElementById('sheet');
+    var scrim = document.getElementById('fscrim');
+    if (!btn || !sheet) return;
+
+    function open() {
+        sheet.hidden = false;
+        scrim.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        document.body.classList.add('sheet-open');
+    }
+    function close() {
+        sheet.hidden = true;
+        scrim.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('sheet-open');
+    }
+    btn.addEventListener('click', function () {
+        sheet.hidden ? open() : close();
+    });
+    scrim.addEventListener('click', close);
+    document.getElementById('sheet-x').addEventListener('click', close);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !sheet.hidden) close();
+    });
+    // Клик вне шторки на десктопе — закрыть.
+    document.addEventListener('click', function (e) {
+        if (sheet.hidden) return;
+        if (!sheet.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
+    });
 })();
 
 document.addEventListener('paste', function (e) {

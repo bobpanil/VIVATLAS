@@ -717,38 +717,8 @@ summary:focus-visible {
     opacity: 0.65;
 }
 
-.side-filters {
-    border-top: 1.5px solid #7d7a68;
-    margin-top: var(--s-xl);
-}
-
 /* Фишки фильтров на тёмной панели. Приём набора сохранён: выбранная
    переворачивается — только наоборот, светлым по тёмному. */
-.side .filter {
-    color: var(--panel-text);
-    border-color: var(--panel-line);
-}
-
-.side .filter:hover {
-    background: #131727;
-    border-color: #2a3145;
-    color: var(--panel-bright);
-}
-
-.side .filter[aria-current="true"] {
-    background: var(--panel-bright);
-    border-color: var(--panel-bright);
-    color: var(--panel);
-}
-
-.side .filter b {
-    color: #7d7a68;
-}
-
-.side .filter[aria-current="true"] b {
-    color: var(--panel);
-    opacity: 0.6;
-}
 
 .side .fmore summary {
     color: var(--panel-text);
@@ -769,16 +739,6 @@ summary:focus-visible {
 
 .side .fclear a {
     color: var(--primary);
-}
-
-.fclear {
-    font-size: 13px;
-    color: var(--mute);
-    margin: var(--s-lg) 0 0;
-}
-
-.fclear a {
-    color: var(--link-teal);
 }
 
 /* --- сетка --- */
@@ -1520,46 +1480,6 @@ summary:focus-visible {
     color: var(--stone);
 }
 
-.fmore {
-    margin-top: var(--s-lg);
-}
-
-.fmore summary {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--body-ink);
-    cursor: pointer;
-    padding: 5px 0;
-    list-style: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border-bottom: 1px dotted var(--line-strong);
-    width: fit-content;
-}
-
-.fmore summary::-webkit-details-marker {
-    display: none;
-}
-
-.fmore summary::before {
-    content: "+";
-    font-weight: 700;
-    color: var(--mute);
-}
-
-.fmore[open] summary::before {
-    content: "−";
-}
-
-.fmore summary:hover {
-    color: var(--ink);
-}
-
-.fmore[open] > .filters:first-of-type {
-    padding-top: 10px;
-}
-
 .pur-big {
     display: inline-flex;
     align-items: center;
@@ -2077,7 +1997,6 @@ summary:focus-visible {
     margin-top: var(--s-xl);
 }
 
-
 /* --- помощь --------------------------------------------------------------- */
 
 .help {
@@ -2160,4 +2079,204 @@ summary:focus-visible {
     font-size: 14px;
     color: var(--mute);
     margin-top: var(--s-xl);
+}
+
+/* --- фильтры в шапке содержимого -----------------------------------------
+   Раньше жили в боковой панели: там прокручивались, а на телефоне пропадали
+   при листании. Теперь «Тип» — таблетками сразу, остальное — за кнопкой в
+   шторке (выпадает на десктопе, снизу на телефоне). */
+
+.filterbar-wrap {
+    position: relative;
+    margin: 0 0 var(--s-lg);
+}
+
+.filterbar {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+}
+
+/* «Тип» — горизонтальная лента, на узком экране прокручивается вбок. */
+.type-pills {
+    display: flex;
+    gap: var(--s-xs);
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+}
+
+.type-pills::-webkit-scrollbar {
+    display: none;
+}
+
+.type-pills .filter {
+    flex: none;
+    white-space: nowrap;
+}
+
+.filters-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 7px 14px;
+    min-height: 36px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.filters-btn:hover,
+.filters-btn.on {
+    border-color: var(--ink);
+}
+
+.filters-btn .ic {
+    width: 15px;
+    height: 15px;
+    color: var(--mute);
+}
+
+/* Счётчик активных фильтров в шторке — единственная жёлтая точка тут уместна:
+   это цифра-акцент, не кнопка. */
+.fbadge {
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 0 6px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* Активные фильтры видно и снимается, не открывая шторку. */
+.active-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-xs);
+    margin: var(--s-sm) 0 0;
+}
+
+.achip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: var(--r-full);
+    background: var(--surface-soft);
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.achip i {
+    font-style: normal;
+    color: var(--mute);
+}
+
+.achip:hover i {
+    color: var(--ink);
+}
+
+.achip-clear {
+    font-size: 12px;
+    color: var(--link-teal);
+    padding: 3px 4px;
+}
+
+/* Шторка. На десктопе — выпадающая панель под кнопкой; на телефоне — снизу. */
+.scrim {
+    display: none;
+}
+
+.sheet {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 320px;
+    max-width: 100%;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: var(--s-lg);
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.25);
+    z-index: 40;
+}
+
+.sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--s-sm);
+}
+
+.sheet-head b {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.sheet-x {
+    border: 0;
+    background: none;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--mute);
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.sheet-body .fgroup {
+    color: var(--mute);
+    margin-top: var(--s-lg);
+}
+
+.sheet-body .fgroup:first-child {
+    margin-top: 0;
+}
+
+.sheet-foot {
+    margin-top: var(--s-md);
+    padding-top: var(--s-md);
+    border-top: 1px solid var(--hairline-soft);
+}
+
+.sheet-foot a {
+    font-size: 13px;
+    color: var(--link-teal);
+}
+
+@media (max-width: 768px) {
+    .sheet {
+        position: fixed;
+        inset: auto 0 0 0;
+        width: 100%;
+        max-width: 100%;
+        max-height: 82vh;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(35, 37, 29, 0.45);
+        z-index: 39;
+    }
+
+    body.sheet-open {
+        overflow: hidden;
+    }
 }

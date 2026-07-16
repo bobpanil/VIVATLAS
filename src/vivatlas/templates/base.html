@@ -97,7 +97,9 @@
                     <a class="side-sub side-drop" data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{{ c.label }} <b>{{ c.count }}</b></a>
                     {% endfor %}
                     {% if not categories %}
-                    <p class="side-sub-hint">Пусто. Завести — в <a href="/settings" data-modal>настройках</a>.</p>
+                    <p class="side-sub-hint">Папок пока нет. Заведите их в
+                       <a href="/settings" data-modal>настройках</a> — потом сюда можно
+                       перетаскивать карточки. Типы выше — автоматические, в них не кладут.</p>
                     {% endif %}
                 </div>
             </details>

@@ -387,43 +387,47 @@ document.addEventListener('paste', function (e) {
         for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
     });
 
-    // Наведение на «Все инструменты» при перетаскивании — раскрыть список папок.
-    if (sideCat) {
-        var summary = sideCat.querySelector('summary');
-        if (summary) {
-            summary.addEventListener('dragover', function (e) {
-                if (dragId) { e.preventDefault(); sideCat.open = true; }
-            });
-        }
+    function unlight() {
+        var lit = document.querySelectorAll('.side-drop.drag-over');
+        for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
     }
 
+    // Пока тащим карточку, вся раскрытая зона «Все инструменты» принимает бросок
+    // (курсор не запрещающий), но кладём только на реальную папку. Наведение на
+    // заголовок раскрывает список.
+    var inCat = function (el) { return el && el.closest ? el.closest('#side-cat') : null; };
+
     document.addEventListener('dragover', function (e) {
+        if (!dragId) return;
+        var zone = inCat(e.target);
+        if (!zone) return;
+        e.preventDefault();
+        try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
+        if (e.target.closest && e.target.closest('summary')) sideCat.open = true;
         var drop = e.target.closest ? e.target.closest('.side-drop') : null;
-        if (drop && dragId) {
-            e.preventDefault();
-            try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
-            drop.classList.add('drag-over');
-        }
-    });
-    document.addEventListener('dragleave', function (e) {
-        var drop = e.target.closest ? e.target.closest('.side-drop') : null;
-        if (drop) drop.classList.remove('drag-over');
+        unlight();
+        if (drop) drop.classList.add('drag-over');
     });
     document.addEventListener('drop', function (e) {
-        var drop = e.target.closest ? e.target.closest('.side-drop') : null;
-        if (!drop || !dragId) return;
+        if (!dragId) return;
+        if (!inCat(e.target)) return;
         e.preventDefault();
+        var drop = e.target.closest ? e.target.closest('.side-drop') : null;
+        unlight();
+        if (!drop) return;   // бросили не на папку (тип, заголовок) — ничего
         var id = dragId, cat = drop.getAttribute('data-cat');
-        drop.classList.remove('drag-over');
         var body = new FormData();
         body.append('cat', cat);
         fetch('/artifact/' + id + '/category', {
             method: 'POST', headers: { 'Accept': 'application/json' }, body: body
         }).then(function (r) {
-            if (!r.ok) throw new Error('отказ');
+            if (!r.ok) throw new Error('отказ ' + r.status);
             return r.json();
         }).then(function () { location.reload(); })
-          .catch(function () { alert('Не удалось положить карточку в категорию.'); });
+          .catch(function (err) {
+              alert('Не удалось положить карточку в категорию' +
+                  (('' + err).indexOf('403') > -1 ? ': это может только владелец.' : '.'));
+          });
     });
 })();
 

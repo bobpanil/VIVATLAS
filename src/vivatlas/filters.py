@@ -116,11 +116,15 @@ def count_matching(session: Session, f: Filters) -> int:
     return session.scalar(apply(select(func.count(Artifact.id)), f)) or 0
 
 
-def tag_groups(session: Session, limit_per_group: int = 8) -> list[FilterGroup]:
+def tag_groups(
+    session: Session, limit_per_group: int = 8, user_id: int | None = None
+) -> list[FilterGroup]:
     """Теги, разложенные по категориям. Только те, что реально стоят на карточках."""
+    vis = visible_ids(user_id)
     rows = session.execute(
         select(Tag.category, Tag.slug, func.count(ArtifactTag.id))
         .join(ArtifactTag, ArtifactTag.tag_id == Tag.id)
+        .where(ArtifactTag.artifact_id.in_(vis))
         .group_by(Tag.id)
         .order_by(func.count(ArtifactTag.id).desc())
     ).all()
@@ -141,13 +145,14 @@ def tag_groups(session: Session, limit_per_group: int = 8) -> list[FilterGroup]:
     return groups
 
 
-def category_options(session: Session) -> list[Option]:
+def category_options(session: Session, user_id: int | None = None) -> list[Option]:
     """Свои категории-папки со счётчиком. Показываем все, включая пустые:
     в пустую надо иметь возможность перетащить первую карточку."""
+    vis = visible_ids(user_id)
     counts = dict(
         session.execute(
             select(Artifact.category_id, func.count())
-            .where(Artifact.category_id.is_not(None))
+            .where(Artifact.category_id.is_not(None), Artifact.id.in_(vis))
             .group_by(Artifact.category_id)
         ).all()
     )
@@ -155,32 +160,36 @@ def category_options(session: Session) -> list[Option]:
     return [Option(str(c.id), c.name, counts.get(c.id, 0)) for c in cats]
 
 
-def type_options(session: Session) -> list[Option]:
+def type_options(session: Session, user_id: int | None = None) -> list[Option]:
     rows = session.execute(
         select(Artifact.artifact_type, func.count())
+        .where(Artifact.id.in_(visible_ids(user_id)))
         .group_by(Artifact.artifact_type)
         .order_by(func.count().desc())
     ).all()
     return [Option(t, t, n) for t, n in rows]
 
 
-def owner_options(session: Session) -> list[Option]:
+def owner_options(session: Session, user_id: int | None = None) -> list[Option]:
     rows = session.execute(
         select(Repository.owner, func.count(Artifact.id))
         .join(Artifact, Artifact.repository_id == Repository.id)
+        .where(Artifact.id.in_(visible_ids(user_id)))
         .group_by(Repository.owner)
         .order_by(func.count(Artifact.id).desc())
     ).all()
     return [Option(o, o, n) for o, n in rows]
 
 
-def status_options(session: Session) -> list[Option]:
+def status_options(session: Session, user_id: int | None = None) -> list[Option]:
     """Состояния источника. Показываем только непустые: выбор, который ничего
     не находит, только раздражает."""
     from vivatlas.upstream import STATUS_NAMES
 
     rows = session.execute(
-        select(UpstreamLink.status, func.count()).group_by(UpstreamLink.status)
+        select(UpstreamLink.status, func.count())
+        .where(UpstreamLink.artifact_id.in_(visible_ids(user_id)))
+        .group_by(UpstreamLink.status)
     ).all()
     order = {"update-available": 0, "diverged": 1, "locally-modified": 2, "in-sync": 3}
     out = [Option(s, STATUS_NAMES.get(s, s), n) for s, n in rows if n]
@@ -188,15 +197,16 @@ def status_options(session: Session) -> list[Option]:
     return out
 
 
-def period_options(session: Session) -> list[Option]:
+def period_options(session: Session, user_id: int | None = None) -> list[Option]:
     out: list[Option] = []
     now = datetime.now(UTC)
+    vis = visible_ids(user_id)
     for key, (label, days) in PERIODS.items():
         edge = now - timedelta(days=days)
         n = session.scalar(
             select(func.count(Artifact.id))
             .join(Repository)
-            .where(Repository.remote_updated_at >= edge)
+            .where(Repository.remote_updated_at >= edge, Artifact.id.in_(vis))
         )
         if n:
             out.append(Option(key, label, n))

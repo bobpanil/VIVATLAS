@@ -76,7 +76,7 @@ def settings_page(request: Request) -> HTMLResponse:
             me=me,
             totp_on=bool(me.totp_enabled_at),
             backup_left=twofactor.unused_backup_count(me),
-            categories=flt.category_options(session),
+            categories=flt.category_options(session, me.id),
             my_sources=_my_sources(session, me.id),
             source_kinds=SOURCE_KINDS,
         )

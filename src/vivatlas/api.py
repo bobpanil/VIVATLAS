@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from vivatlas import auth
+from vivatlas import filters as flt
 from vivatlas.admin_web import router as admin_router
 from vivatlas.ai import build_embedding_model
 from vivatlas.auth_web import router as auth_router
@@ -99,9 +100,14 @@ def health() -> dict:
 
 
 @app.get("/api/artifacts")
-def list_artifacts(type: str | None = None) -> dict:
+def list_artifacts(request: Request, type: str | None = None) -> dict:
     with session_scope() as session:
-        query = select(Artifact).order_by(Artifact.name)
+        user_id = getattr(request.state, "user_id", None)
+        query = (
+            select(Artifact)
+            .where(Artifact.id.in_(flt.visible_ids(user_id)))
+            .order_by(Artifact.name)
+        )
         if type:
             query = query.where(Artifact.artifact_type == type)
         rows = session.scalars(query).all()
@@ -123,10 +129,14 @@ def list_artifacts(type: str | None = None) -> dict:
 
 
 @app.get("/api/artifacts/{artifact_id}")
-def get_artifact(artifact_id: int) -> dict:
+def get_artifact(request: Request, artifact_id: int) -> dict:
     with session_scope() as session:
+        user_id = getattr(request.state, "user_id", None)
         a = session.get(Artifact, artifact_id)
         if a is None:
+            raise HTTPException(404, "карточка не найдена")
+        owner_id = a.repository.source.owner_user_id
+        if owner_id is not None and owner_id != user_id:
             raise HTTPException(404, "карточка не найдена")
         return {
             "id": a.id,
@@ -151,6 +161,7 @@ def get_artifact(artifact_id: int) -> dict:
 
 @app.get("/api/search")
 async def search_endpoint(
+    request: Request,
     q: str,
     mode: Mode = Mode.BOTH,
     limit: int = 10,
@@ -159,7 +170,11 @@ async def search_endpoint(
     model = build_embedding_model() if mode in (Mode.MEANING, Mode.BOTH) else None
     try:
         with session_scope() as session:
+            user_id = getattr(request.state, "user_id", None)
+            visible = set(session.scalars(flt.visible_ids(user_id)))
             hits = await do_search(session, q, model, mode=mode, limit=limit, artifact_type=type)
+            # Зона: чужое частное не отдаём даже через API.
+            hits = [h for h in hits if h.artifact_id in visible]
             return {
                 "query": q,
                 "mode": mode,

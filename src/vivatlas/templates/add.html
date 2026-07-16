@@ -1,7 +1,7 @@
 {% extends "modal_base.html" %}
 
 {% block title %}Добавить — VivAtlas{% endblock %}
-{% block modal_title %}{% if step == 'found' %}Что нашлось{% elif step == 'plan' %}Что будет сделано{% elif step == 'refused' %}Так не получится{% else %}Добавить инструмент{% endif %}{% endblock %}
+{% block modal_title %}{% if step == 'found' %}Что нашлось{% elif step == 'plan' %}Что будет сделано{% elif step == 'done' %}Карточка создана{% elif step == 'refused' %}Так не получится{% else %}Добавить инструмент{% endif %}{% endblock %}
 {% block modal_help %}Вставьте ссылку (GitHub, сайт, рилс) или скриншот. Разберём, покажем, что нашлось, и запишем в ваш Gitea только по вашему нажатию.{% endblock %}
 
 {% block modal_body %}
@@ -114,6 +114,35 @@
 </form>
 {% endif %}
 
+{% if step == 'done' %}
+<p class="lede">Карточка создана. Отметьте, кому её показывать, и сохраните —
+   тогда она встанет в каталог.</p>
+
+<div class="box">
+    <div class="done-card">
+        {% if card.preview_url %}
+        <img class="done-thumb" src="{{ card.preview_url }}" alt="">
+        {% endif %}
+        <div class="done-card-body">
+            <div class="card-name"><span class="card-owner">{{ card.owner }}/</span>{{ card.name }}</div>
+            <p class="card-sum">{{ card.summary_short or "Описание пока не готово" }}</p>
+        </div>
+    </div>
+</div>
+
+<form method="post" action="/add/save" id="saveform" onsubmit="working(this)">
+    <input type="hidden" name="artifact_id" value="{{ card.id }}">
+    <label class="zone-opt">
+        <input type="radio" name="zone" value="shared" checked>
+        <span><b>Расшаренная</b> — видят все, кто входит в программу</span>
+    </label>
+    <label class="zone-opt">
+        <input type="radio" name="zone" value="private">
+        <span><b>Личная</b> — видите только вы</span>
+    </label>
+</form>
+{% endif %}
+
 {% if step == 'refused' %}
 {% for line in message.split('\n') %}
     {% if 'https://github.com/' in line %}
@@ -138,6 +167,8 @@
     {% elif step == 'plan' %}
     <a class="btn-secondary foot-left" href="/add">← отмена</a>
     <button class="cta" type="submit" form="runform">Тащить в Gitea</button>
+    {% elif step == 'done' %}
+    <button class="cta" type="submit" form="saveform">Сохранить</button>
     {% elif step == 'refused' %}
     <a class="btn-secondary foot-left" href="/add">← другой источник</a>
     {% else %}

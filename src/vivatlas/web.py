@@ -238,6 +238,14 @@ def toggle_favorite(
     return RedirectResponse(dest, status_code=303)
 
 
+def _zone(a: Artifact) -> str:
+    """Итоговая зона карточки: частная, если помечена личной или её источник
+    частный; иначе общая."""
+    if a.private_to_user_id is not None or a.repository.source.owner_user_id is not None:
+        return "private"
+    return "common"
+
+
 def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozenset()) -> dict:
     purpose, _score = pur.detect_for(session, a.id, a.name)
     return {
@@ -249,7 +257,7 @@ def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozense
         "preview_url": preview_url(a),
         "html_url": a.repository.html_url,
         "favorite": a.id in fav_ids,
-        "zone": "private" if a.repository.source.owner_user_id else "common",
+        "zone": _zone(a),
         "reasons": reasons,
         "author": author_of(session, a),
         "created": a.repository.remote_created_at,
@@ -267,8 +275,11 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
             raise HTTPException(404, "карточка не найдена")
         # Зона: чужое частное не показываем даже по прямой ссылке. «Не найдена»,
         # а не «нельзя» — незачем подтверждать, что такая карточка существует.
-        owner_id = a.repository.source.owner_user_id
-        if owner_id is not None and owner_id != user_id:
+        src_owner = a.repository.source.owner_user_id
+        priv = a.private_to_user_id
+        if (src_owner is not None and src_owner != user_id) or (
+            priv is not None and priv != user_id
+        ):
             raise HTTPException(404, "карточка не найдена")
 
         links = session.scalars(
@@ -310,6 +321,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "author": author_of(session, a),
                 "purpose": pur.detect_for(session, a.id, a.name)[0],
                 "preview_url": preview_url(a),
+                "zone": _zone(a),
                 "counts": _counts(session, user_id),
                 "categories": flt.category_options(session, user_id),
                 "active_cat": "",
@@ -525,6 +537,7 @@ async def add_run(
         return _add_page(request, "refused", message=str(exc), url=url, to=to)
     await fetcher.aclose()
 
+    user_id = getattr(request.state, "user_id", None)
     provider = build_provider("gitea")
     text_model = build_text_model()
     embed_model = build_embedding_model()
@@ -542,8 +555,18 @@ async def add_run(
             await embed_artifact(session, embed_model, art)
             await tag_artifact(session, art, text_model)
             index_artifact_for_words(session, art)
+            # По умолчанию новая карточка — личная у создателя: пока он не выберет
+            # «расшаренная», другие её не видят. Так «появляется в списке после
+            # сохранения» выполняется для всех остальных.
+            art.private_to_user_id = user_id
             session.commit()
-            artifact_id = art.id
+            card = {
+                "id": art.id,
+                "name": art.name,
+                "owner": art.repository.owner,
+                "summary_short": art.summary_short,
+                "preview_url": preview_url(art),
+            }
     except Exception as exc:
         return _add_page(request, "refused", message=f"Не получилось: {exc}", url=url, to=to)
     finally:
@@ -551,4 +574,21 @@ async def add_run(
         await text_model.aclose()
         await embed_model.aclose()
 
-    return RedirectResponse(f"/a/{artifact_id}", status_code=303)
+    return _add_page(request, "done", card=card)
+
+
+@router.post("/add/save")
+def add_save(
+    request: Request,
+    artifact_id: Annotated[int, Form()],
+    zone: Annotated[str, Form()] = "shared",
+) -> RedirectResponse:
+    """Финал создания: карточку отмечают личной или расшаренной и сохраняют.
+    До этого она — личный черновик создателя."""
+    user_id = getattr(request.state, "user_id", None)
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        # Менять зону может только тот, чей это черновик (или уже общий им же).
+        if art is not None and art.private_to_user_id in (user_id, None):
+            art.private_to_user_id = user_id if zone == "private" else None
+    return RedirectResponse("/", status_code=303)

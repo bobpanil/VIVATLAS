@@ -1467,15 +1467,15 @@ summary:focus-visible {
     stroke: #f7a501;
 }
 
-.card-foot[data-pur="security"]      { --pur-color: #c0392b; }
-.card-foot[data-pur="accessibility"] { --pur-color: #2f6fb0; }
-.card-foot[data-pur="performance"]   { --pur-color: #d98200; }
-.card-foot[data-pur="testing"]       { --pur-color: #2e8b57; }
-.card-foot[data-pur="research"]      { --pur-color: #7a4fb5; }
-.card-foot[data-pur="code"]          { --pur-color: #2f7d8c; }
-.card-foot[data-pur="automation"]    { --pur-color: #4a5bbf; }
-.card-foot[data-pur="design"]        { --pur-color: #c2418f; }
-.card-foot[data-pur="unknown"]       { --pur-color: #8a8672; }
+[data-pur="security"]      { --pur-color: #c0392b; }
+[data-pur="accessibility"] { --pur-color: #2f6fb0; }
+[data-pur="performance"]   { --pur-color: #d98200; }
+[data-pur="testing"]       { --pur-color: #2e8b57; }
+[data-pur="research"]      { --pur-color: #7a4fb5; }
+[data-pur="code"]          { --pur-color: #2f7d8c; }
+[data-pur="automation"]    { --pur-color: #4a5bbf; }
+[data-pur="design"]        { --pur-color: #c2418f; }
+[data-pur="unknown"]       { --pur-color: #8a8672; }
 
 .pur {
     display: inline-flex;
@@ -1748,6 +1748,115 @@ summary:focus-visible {
     letter-spacing: 0.1em;
     color: var(--faint);
     margin: 0 0 10px;
+}
+
+/* Финальный шаг создания: превью карточки и выбор зоны. */
+.done-card {
+    display: flex;
+    gap: var(--s-md);
+    align-items: center;
+}
+
+.done-thumb {
+    width: 72px;
+    height: 46px;
+    object-fit: cover;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--hairline);
+    flex: none;
+}
+
+.done-card-body {
+    min-width: 0;
+}
+
+.zone-opt {
+    display: flex;
+    gap: var(--s-sm);
+    align-items: flex-start;
+    padding: 12px 2px;
+    border-top: 1px solid var(--hairline-soft);
+    font-size: 14px;
+    color: var(--body-ink);
+    cursor: pointer;
+}
+
+.zone-opt:first-of-type {
+    border-top: 0;
+}
+
+.zone-opt input {
+    margin-top: 3px;
+    accent-color: var(--primary);
+}
+
+.zone-opt b {
+    color: var(--ink);
+}
+
+/* --- карточка инструмента в модалке --------------------------------------
+   Картинка сверху, вся информация под ней в один столбец. */
+.art-image {
+    margin: 0 0 var(--s-lg);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    background: var(--surface-doc);
+}
+
+.art-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.art-meta {
+    --pur-color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--body-ink);
+    margin: 0 0 var(--s-md);
+}
+
+.art-meta .zone {
+    gap: 5px;
+}
+
+.art-meta .zone svg {
+    width: 15px;
+    height: 15px;
+}
+
+.art-meta .pur {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--pur-color);
+}
+
+.art-meta .pur svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.art-meta-sep {
+    width: 1px;
+    height: 12px;
+    background: var(--line-strong);
+}
+
+/* Заголовок карточки в шапке модалки — моноширинный идентификатор. */
+.modal-head .art-owner {
+    color: var(--stone);
+    font-weight: 400;
 }
 
 /* Пилюли выбора темы. Активная — как выбранный фильтр (тёмная заливка). */

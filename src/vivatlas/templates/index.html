@@ -157,7 +157,7 @@
     {# Карточка — не ссылка целиком, а контейнер: так внутри могут жить свои
        кнопки (копировать ссылку). За переход отвечает растянутый .card-link. #}
     <div class="card" draggable="true" data-id="{{ it.id }}">
-        <a class="card-link" href="/a/{{ it.id }}" draggable="false"
+        <a class="card-link" href="/a/{{ it.id }}" draggable="false" data-modal
            aria-label="{{ it.owner }}/{{ it.name }} — открыть карточку"></a>
         {% if it.preview_url %}
         <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>

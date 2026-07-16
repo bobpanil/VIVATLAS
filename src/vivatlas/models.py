@@ -109,6 +109,14 @@ class Artifact(Base):
         ForeignKey("categories.id", ondelete="SET NULL")
     )
 
+    # Личная карточка: если задан пользователь, её видит только он (частная
+    # зона). Пусто — общая, видят все. Ставится при создании (личная/расшаренная)
+    # поверх зоны источника: импорт идёт из общего Gitea, а личной карточку
+    # делает именно эта отметка.
+    private_to_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+
     anchor_path: Mapped[str | None] = mapped_column(String(512))
     preview_path: Mapped[str | None] = mapped_column(String(512))
     doc_text: Mapped[str] = mapped_column(Text, default="")

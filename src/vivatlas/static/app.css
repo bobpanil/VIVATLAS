@@ -228,7 +228,7 @@ a {
 .logo {
     display: block;
     text-align: center;
-    margin: 0 0 var(--s-md);
+    margin: 0;
 }
 
 .logo-mark {
@@ -238,11 +238,13 @@ a {
     margin: 0 auto;
 }
 
+/* Слово во всю ширину — до краёв кнопки «Добавить». Отступ сверху равен
+   отступу девиза снизу, чтобы три элемента стояли на равном расстоянии. */
 .logo-word {
     display: block;
-    width: 82%;
+    width: 100%;
     height: auto;
-    margin: 8px auto 0;
+    margin: 10px auto 0;
 }
 
 /* Девиз во всю ширину панели — ту же, что у кнопки «Добавить». Три слова
@@ -253,7 +255,7 @@ a {
     align-items: center;
     justify-content: center;
     gap: 0.45em;
-    margin: 12px 0 0;
+    margin: 10px 0 0;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -269,7 +271,8 @@ a {
 /* Сепаратор и большой отступ: кнопка и разделы отодвинуты от логотипа. */
 .side-sep {
     border: 0;
-    border-top: 1px solid var(--panel-line);
+    /* Цвет и толщина — как у иконок разделов: прежний тёмный терялся на фоне. */
+    border-top: 1.5px solid #7d7a68;
     margin: var(--s-xl) 0 var(--s-xl);
 }
 
@@ -440,7 +443,7 @@ a {
 .side-foot {
     font-size: 12px;
     color: #7d7a68;
-    border-top: 1px solid var(--panel-line);
+    border-top: 1.5px solid #7d7a68;
     padding-top: var(--s-md);
     margin: var(--s-xl) 0 0;
 }
@@ -715,7 +718,7 @@ summary:focus-visible {
 }
 
 .side-filters {
-    border-top: 1px solid var(--panel-line);
+    border-top: 1.5px solid #7d7a68;
     margin-top: var(--s-xl);
 }
 

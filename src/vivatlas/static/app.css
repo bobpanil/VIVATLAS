@@ -82,6 +82,10 @@
     --surface-doc: #fcfcfa;
     --surface-dark: #23251d;
     --on-dark: #ffffff;
+    /* Текст на «чернильной» заливке (--ink). В светлой теме --ink тёмный —
+       текст белый; в тёмной теме --ink светлеет, и текст должен потемнеть,
+       иначе белым по белому ничего не видно. */
+    --on-ink: #ffffff;
 
     --link-teal: #1078a3;
     --accent-blue: #2c84e0;
@@ -160,6 +164,7 @@
     color-scheme: dark;
 
     --ink: #ecefe4;
+    --on-ink: #16181a;
     --body-ink: #c3c6ba;
     --charcoal: #d9dccf;
     --mute: #95988c;
@@ -187,6 +192,7 @@
     color-scheme: dark;
 
     --ink: #eef0e6;
+    --on-ink: #000000;
     --body-ink: #c3c6ba;
     --charcoal: #d9dccf;
     --mute: #8f9288;
@@ -240,7 +246,7 @@ a {
     left: -9999px;
     top: 0;
     background: var(--ink);
-    color: var(--on-dark);
+    color: var(--on-ink);
     padding: 10px 16px;
     z-index: 100;
 }
@@ -454,7 +460,7 @@ a {
     color: var(--panel-text);
     text-decoration: none;
     padding: 8px 10px;
-    margin: 0 -10px;
+    margin: 0;   /* не шире кнопки «Добавить»: подложка в границах содержимого */
     border-radius: var(--r-sm);
     min-height: 36px;
 }
@@ -524,7 +530,7 @@ a {
     color: var(--panel-text);
     text-decoration: none;
     padding: 5px 10px;
-    margin: 0 -10px 0 0;
+    margin: 0;   /* правый край — в границах содержимого, не шире кнопки */
     border-radius: var(--r-sm);
 }
 
@@ -1159,7 +1165,7 @@ summary:focus-visible {
 .filter[aria-current="true"] {
     background: var(--ink);
     border-color: var(--ink);
-    color: var(--on-dark);
+    color: var(--on-ink);
 }
 
 .filter b {
@@ -1169,7 +1175,7 @@ summary:focus-visible {
 }
 
 .filter[aria-current="true"] b {
-    color: var(--on-dark);
+    color: var(--on-ink);
     opacity: 0.65;
 }
 
@@ -1759,7 +1765,7 @@ summary:focus-visible {
 .theme-opt.on {
     background: var(--ink);
     border-color: var(--ink);
-    color: var(--on-dark);
+    color: var(--on-ink);
 }
 
 /* Каждая секция в модалке (настройки, админ, добавление) — в своей рамке,
@@ -2988,7 +2994,7 @@ summary:focus-visible {
     border-radius: 50%;
     border: 0;
     background: var(--ink);
-    color: var(--on-dark);
+    color: var(--on-ink);
     font-family: var(--sans);
     font-size: 14px;
     font-weight: 600;

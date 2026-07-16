@@ -199,6 +199,7 @@ async def index(
                     "period_names": {k: v[0] for k, v in flt.PERIODS.items()},
                     "link": link,
                     "nav": "all",
+                    "active_cat": f.cat,
                 },
             )
     finally:
@@ -311,6 +312,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "preview_url": preview_url(a),
                 "counts": _counts(session, user_id),
                 "categories": flt.category_options(session, user_id),
+                "active_cat": "",
             },
         )
 

@@ -151,6 +151,67 @@
     --step: 4px;
 }
 
+/* --- тёмная тема ----------------------------------------------------------
+   Набор PostHog тёмной темы не описывает — это наше добавление по просьбе.
+   Переопределяем базовые цвета; старые имена-псевдонимы тянутся за ними сами.
+   Панель и так тёмная, поэтому меняется мало. Жёлтая кнопка и её тёмный текст
+   работают на обоих фонах, поэтому --on-primary не трогаем. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --ink: #ecefe4;
+    --body-ink: #c3c6ba;
+    --charcoal: #d9dccf;
+    --mute: #95988c;
+    --ash: #7f8278;
+    --stone: #6d7066;
+
+    --hairline: #3b3f36;
+    --hairline-soft: #2c2f28;
+
+    --canvas: #16181a;
+    --surface-soft: #1e2124;
+    --surface-card: #24272b;
+    --surface-doc: #1b1e21;
+    --surface-dark: #0b0c0a;
+
+    --accent-blue-soft: #1b2f47;
+    --accent-red-soft: #40211f;
+    --accent-green-soft: #143528;
+    --accent-purple-soft: #2c2140;
+    --focus-ring: rgba(90, 150, 240, 0.5);
+}
+
+/* --- OLED: чистый чёрный, чтобы на амолед-экранах пиксели гасли --- */
+:root[data-theme="oled"] {
+    color-scheme: dark;
+
+    --ink: #eef0e6;
+    --body-ink: #c3c6ba;
+    --charcoal: #d9dccf;
+    --mute: #8f9288;
+    --ash: #74776e;
+    --stone: #5f6259;
+
+    --hairline: #333630;
+    --hairline-soft: #1e201c;
+
+    --canvas: #000000;
+    --surface-soft: #0b0b0c;
+    --surface-card: #0e0f10;
+    --surface-doc: #060607;
+    --surface-dark: #000000;
+
+    --panel: #000000;
+    --panel-line: #16171c;
+
+    --accent-blue-soft: #12233a;
+    --accent-red-soft: #331917;
+    --accent-green-soft: #0e2a20;
+    --accent-purple-soft: #221836;
+    --focus-ring: rgba(90, 150, 240, 0.5);
+}
+
 * {
     box-sizing: border-box;
 }
@@ -233,7 +294,7 @@ a {
 
 .logo-mark {
     display: block;
-    height: 72px;
+    height: 122px;   /* значок крупнее в ~1.7 раза (было 72px) */
     width: auto;
     margin: 0 auto;
 }
@@ -448,41 +509,11 @@ a {
     margin: var(--s-xl) 0 0;
 }
 
-/* Развёртка «Все инструменты»: типы и свои категории-папки. */
-.side-cat {
-    margin: 0;
-}
-
-.side-cat > summary {
-    list-style: none;
-    cursor: pointer;
-}
-
-.side-cat > summary::-webkit-details-marker {
-    display: none;
-}
-
-.cat-caret {
-    width: 14px;
-    height: 14px;
-    fill: none;
-    stroke: #7d7a68;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    margin-left: 4px;
-    transition: transform 0.15s;
-}
-
-.side-cat[open] > summary .cat-caret {
-    transform: rotate(180deg);
-}
-
+/* Свои категории-папки под «Каталогом» — всегда на виду. */
 .cat-list {
-    margin: 2px 0 var(--s-sm);
+    margin: 2px 0 var(--s-sm) 12px;
     padding-left: 12px;
     border-left: 1px solid var(--panel-line);
-    margin-left: 12px;
 }
 
 .side-sub {
@@ -512,6 +543,20 @@ a {
     color: var(--panel-bright);
 }
 
+/* Активная папка — тот же приём, что у основного раздела: светлее подложка,
+   оранжевый краешек слева, яркий текст. Иерархия ниже, а выделение то же. */
+.side-sub.on,
+.side-sub.on:hover {
+    background: #232c44;
+    color: var(--panel-bright);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.side-sub.on b {
+    color: var(--panel-bright);
+}
+
 .side-sub-eyebrow {
     font-size: 10px;
     font-weight: 700;
@@ -529,6 +574,11 @@ a {
 
 .side-sub-hint a {
     color: var(--primary);
+}
+
+/* Плавная подсветка папки при наведении перетаскиваемой карточки. */
+.side-sub {
+    transition: background 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
 }
 
 /* Цель перетаскивания: подсвечиваем папку, когда над ней тащат карточку. */
@@ -597,13 +647,13 @@ a {
 }
 
 .admin-tag-on {
-    background: var(--accent-green-soft, #e1f5ee);
-    color: #0f6e56;
+    background: var(--accent-green-soft);
+    color: var(--accent-green);
 }
 
 .admin-tag-off {
-    background: var(--accent-red-soft, #fcebeb);
-    color: #a32d2d;
+    background: var(--accent-red-soft);
+    color: var(--accent-red);
 }
 
 .admin-user-you {
@@ -1154,6 +1204,14 @@ summary:focus-visible {
    140px: на телефоне «восемь в ряд» превратилось бы в восемь ниточек.
    auto-fill доложит столько, сколько влезет, — поэтому на узком экране
    ряд сам собой становится короче, без отдельных правил. */
+/* --cols — число, чтобы его можно было плавно анимировать: ручка размера
+   меняет его, а сетка перестраивается не скачком, а за доли секунды. */
+@property --cols {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 4;
+}
+
 .grid {
     display: grid;
     grid-template-columns: repeat(
@@ -1162,6 +1220,13 @@ summary:focus-visible {
     );
     gap: var(--s-lg);   /* 16px — шаг сетки набора */
     padding-bottom: 48px;
+    transition: --cols 0.18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .grid {
+        transition: none;
+    }
 }
 
 /* --- ручка размера --------------------------------------------------------
@@ -1212,16 +1277,24 @@ summary:focus-visible {
     text-decoration: none;
     display: flex;
     flex-direction: column;
-    transition: border-color 0.12s;
+    /* Плавно, но быстро: рамка на наведении, прозрачность при захвате. */
+    transition: border-color 0.12s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 
 .card:hover {
     border-color: var(--ink);
 }
 
-/* Пока карточку тащат — она бледнеет, чтобы было видно, что «взяли». */
+/* Пока карточку тащат — она бледнеет и чуть сжимается: видно, что «взяли». */
 .card.dragging {
-    opacity: 0.5;
+    opacity: 0.45;
+    transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card {
+        transition: none;
+    }
 }
 
 /* Растянутая ссылка: покрывает карточку и уводит на её страницу. Свои кнопки
@@ -1669,6 +1742,38 @@ summary:focus-visible {
     letter-spacing: 0.1em;
     color: var(--faint);
     margin: 0 0 10px;
+}
+
+/* Пилюли выбора темы. Активная — как выбранный фильтр (тёмная заливка). */
+.theme-pills {
+    display: flex;
+    gap: var(--s-xs);
+    flex-wrap: wrap;
+}
+
+.theme-opt {
+    font-family: var(--sans);
+    cursor: pointer;
+}
+
+.theme-opt.on {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--on-dark);
+}
+
+/* Каждая секция в модалке (настройки, админ, добавление) — в своей рамке,
+   чтобы разделы читались отдельно, а не сливались в один поток. */
+.modal-body .box {
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: var(--s-lg);
+    margin-bottom: var(--s-md);
+    background: var(--surface-soft);
+}
+
+.modal-body .box:last-child {
+    margin-bottom: 0;
 }
 
 .facts {

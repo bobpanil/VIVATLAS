@@ -8,6 +8,15 @@
     <title>{% if step == 'setup' %}Настройка{% else %}Вход{% endif %} — VivAtlas</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="stylesheet" href="/static/app.css">
+    <script>
+    (function () {
+        try {
+            var t = localStorage.getItem('vivatlas-theme') || 'light';
+            if (t === 'auto') { t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+            if (t === 'dark' || t === 'oled') { document.documentElement.setAttribute('data-theme', t); }
+        } catch (e) { /* приватный режим */ }
+    })();
+    </script>
 </head>
 <body class="auth-body">
     <main class="auth-wrap">

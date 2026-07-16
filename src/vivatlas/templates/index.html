@@ -379,7 +379,6 @@ document.addEventListener('paste', function (e) {
 // ложится. Раскладывать может владелец; иначе сервер ответит отказом.
 (function () {
     var dragId = null;
-    var sideCat = document.getElementById('side-cat');
 
     document.addEventListener('dragstart', function (e) {
         var card = e.target.closest ? e.target.closest('.card') : null;
@@ -401,10 +400,9 @@ document.addEventListener('paste', function (e) {
         for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
     }
 
-    // Пока тащим карточку, вся раскрытая зона «Все инструменты» принимает бросок
-    // (курсор не запрещающий), но кладём только на реальную папку. Наведение на
-    // заголовок раскрывает список.
-    var inCat = function (el) { return el && el.closest ? el.closest('#side-cat') : null; };
+    // Пока тащим карточку, весь список категорий принимает бросок (курсор не
+    // запрещающий), но кладём только на реальную папку.
+    var inCat = function (el) { return el && el.closest ? el.closest('#cat-list') : null; };
 
     document.addEventListener('dragover', function (e) {
         if (!dragId) return;
@@ -412,7 +410,6 @@ document.addEventListener('paste', function (e) {
         if (!zone) return;
         e.preventDefault();
         try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
-        if (e.target.closest && e.target.closest('summary')) sideCat.open = true;
         var drop = e.target.closest ? e.target.closest('.side-drop') : null;
         unlight();
         if (drop) drop.classList.add('drag-over');

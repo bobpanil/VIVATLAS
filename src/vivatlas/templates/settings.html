@@ -112,6 +112,20 @@
     </form>
 </div>
 
+{# Тема — личная настройка устройства, как размер карточек. Хранится в
+   localStorage, применяется до отрисовки (без вспышки). #}
+<div class="box">
+    <h3>Тема оформления</h3>
+    <p class="legend">Настройка этого устройства. «Как в системе» следует за
+       телефоном или компьютером. OLED — чистый чёрный для амолед-экранов.</p>
+    <nav class="theme-pills" aria-label="Тема оформления">
+        <button type="button" class="filter theme-opt" data-theme-val="light">Светлая</button>
+        <button type="button" class="filter theme-opt" data-theme-val="dark">Тёмная</button>
+        <button type="button" class="filter theme-opt" data-theme-val="oled">OLED</button>
+        <button type="button" class="filter theme-opt" data-theme-val="auto">Как в системе</button>
+    </nav>
+</div>
+
 <div class="box">
     <h3>Язык интерфейса</h3>
     <p class="legend">Программа рассчитана на тех, кто читает по-английски. Интерфейс
@@ -166,4 +180,40 @@
     <a class="btn-secondary" href="/">Закрыть</a>
     {% endif %}
 </footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Переключение темы. Сохраняем выбор на устройстве и применяем сразу. Каталог
+// за модалкой подхватит смену через событие storage (см. base.html).
+(function () {
+    var btns = document.querySelectorAll('.theme-opt');
+    if (!btns.length) return;
+    var cur = 'light';
+    try { cur = localStorage.getItem('vivatlas-theme') || 'light'; } catch (e) {}
+
+    function apply(t) {
+        var eff = t;
+        if (t === 'auto') { eff = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+        if (eff === 'dark' || eff === 'oled') { document.documentElement.setAttribute('data-theme', eff); }
+        else { document.documentElement.removeAttribute('data-theme'); }
+    }
+    function mark(t) {
+        btns.forEach(function (b) {
+            var on = b.getAttribute('data-theme-val') === t;
+            b.classList.toggle('on', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+    mark(cur);
+    btns.forEach(function (b) {
+        b.addEventListener('click', function () {
+            var t = b.getAttribute('data-theme-val');
+            try { localStorage.setItem('vivatlas-theme', t); } catch (e) {}
+            apply(t);
+            mark(t);
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -12,6 +12,27 @@
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="stylesheet" href="/static/app.css">
+    {# Тема применяется до отрисовки, чтобы не было вспышки светлого. Выбор
+       личный, живёт на устройстве (localStorage), как и размер карточек. #}
+    <script>
+    (function () {
+        function resolve(t) {
+            if (t === 'auto') { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+            return t;
+        }
+        function applyTheme(t) {
+            var eff = resolve(t || 'light');
+            if (eff === 'dark' || eff === 'oled') { document.documentElement.setAttribute('data-theme', eff); }
+            else { document.documentElement.removeAttribute('data-theme'); }
+        }
+        try { applyTheme(localStorage.getItem('vivatlas-theme') || 'light'); } catch (e) { /* приватный режим */ }
+        // Смена темы в модалке настроек (другое окно того же origin) — подхватить
+        // здесь же, чтобы каталог за модалкой перекрасился сразу.
+        window.addEventListener('storage', function (e) {
+            if (e.key === 'vivatlas-theme') applyTheme(e.newValue || 'light');
+        });
+    })();
+    </script>
 </head>
 <body>
     {# Если обычная страница (каталог, карточка) открылась внутри окна-рамки —
@@ -72,28 +93,23 @@
         {% endif %}
 
         <nav class="side-nav" aria-label="Разделы">
-            <p class="eyebrow">{{ icons.ic('catalog') }}Каталог</p>
-
-            {# «Все инструменты» разворачивается на свои категории-папки. Типы —
-               не здесь, они пилюлями в шапке. В папку можно перетащить карточку.
-               Без скрипта раскрыто по галочке details. #}
-            <details class="side-cat" id="side-cat" open>
-                <summary class="side-item{% if nav == 'all' %} on{% endif %}">
-                    {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
-                    <svg class="cat-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 6l3 3 3-3"/></svg>
-                </summary>
-                <div class="cat-list">
-                    <a class="side-sub" href="/">Показать все <b>{{ counts.artifacts }}</b></a>
-                    {% for c in categories %}
-                    <a class="side-sub side-drop" data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{{ c.label }} <b>{{ c.count }}</b></a>
-                    {% endfor %}
-                    {% if not categories %}
-                    <p class="side-sub-hint">Папок пока нет. Заведите их в
-                       <a href="/settings" data-modal>настройках</a> — потом сюда можно
-                       перетаскивать карточки.</p>
-                    {% endif %}
-                </div>
-            </details>
+            {# «Каталог» — весь список. Под ним сразу видны свои категории-папки;
+               в папку можно перетащить карточку. Типы — не здесь, они пилюлями
+               в шапке. #}
+            <a class="side-item{% if nav == 'all' and not active_cat %} on{% endif %}" href="/">
+                {{ icons.ic('all') }}<span>Каталог</span><b>{{ counts.artifacts }}</b>
+            </a>
+            <div class="cat-list" id="cat-list">
+                {% for c in categories %}
+                <a class="side-sub side-drop{% if active_cat == c.value %} on{% endif %}"
+                   data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{{ c.label }} <b>{{ c.count }}</b></a>
+                {% endfor %}
+                {% if not categories %}
+                <p class="side-sub-hint">Папок пока нет. Заведите их в
+                   <a href="/settings" data-modal>настройках</a> — потом сюда можно
+                   перетаскивать карточки.</p>
+                {% endif %}
+            </div>
 
             <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal>
                 {{ icons.ic('changes') }}<span>Изменения</span>

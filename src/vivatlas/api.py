@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from vivatlas import auth
+from vivatlas.admin_web import router as admin_router
 from vivatlas.ai import build_embedding_model
 from vivatlas.auth_web import router as auth_router
 from vivatlas.db import session_scope
@@ -71,6 +72,7 @@ async def require_login(request: Request, call_next):
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 app.include_router(auth_router)
 app.include_router(settings_router)
+app.include_router(admin_router)
 app.include_router(web_router)
 
 # MCP для ChatGPT. Отдельным приложением: у него свой жизненный цикл, и

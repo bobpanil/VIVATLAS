@@ -1,0 +1,57 @@
+{% extends "modal_base.html" %}
+
+{% block title %}Администрирование — VivAtlas{% endblock %}
+{% block modal_title %}Панель администратора{% endblock %}
+{% block modal_help %}Для владельца: люди с доступом, общие ключи и AI. Личные настройки (проверка, категории, свои репозитории) — в обычных настройках.{% endblock %}
+
+{% block modal_body %}
+<div class="box">
+    <h3>Пользователи</h3>
+    <p class="legend">Кто может входить. Выключенный не войдёт и теряет открытые
+       сессии сразу. Себя и последнего владельца выключить нельзя.</p>
+
+    <ul class="admin-users">
+        {% for u in users %}
+        <li class="admin-user{% if not u.is_active %} off{% endif %}">
+            <div class="admin-user-main">
+                <span class="admin-user-name">{{ u.name or u.email }}</span>
+                <span class="admin-user-email">{{ u.email }}</span>
+            </div>
+            <div class="admin-user-tags">
+                {% if u.is_owner %}<span class="admin-tag admin-tag-owner">владелец</span>{% endif %}
+                {% if u.totp %}<span class="admin-tag">2FA</span>{% endif %}
+                {% if u.is_active %}<span class="admin-tag admin-tag-on">активен</span>
+                {% else %}<span class="admin-tag admin-tag-off">выключен</span>{% endif %}
+            </div>
+            {% if not u.is_me %}
+            <form method="post" action="/admin/users/{{ u.id }}/toggle">
+                <button class="btn-secondary" type="submit">{{ 'Выключить' if u.is_active else 'Включить' }}</button>
+            </form>
+            {% else %}
+            <span class="admin-user-you">это вы</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="box">
+    <h3>Общие ключи и AI</h3>
+    <p class="legend">Доступ к хостингу и модели — общие для всей программы.
+       Пока меняются в файле <code>.env</code>; правка отсюда — следующий шаг.
+       Секреты показаны замаскированно и никогда не отдаются целиком.</p>
+
+    <dl class="admin-keys">
+        {% for k in keys %}
+        <dt>{{ k.label }}</dt>
+        <dd{% if k.secret %} class="admin-secret"{% endif %}>{{ k.value }}</dd>
+        {% endfor %}
+    </dl>
+</div>
+{% endblock %}
+
+{% block modal_foot %}
+<footer class="modal-foot">
+    <a class="btn-secondary" href="/">Закрыть</a>
+</footer>
+{% endblock %}

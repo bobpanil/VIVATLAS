@@ -125,6 +125,9 @@
         <div class="usermenu-pop" id="usermenu-pop" hidden role="menu">
             <p class="usermenu-name">{{ request.state.user_name }}</p>
             <a class="usermenu-item" href="/settings" role="menuitem" data-modal>{{ icons.ic('settings') }}<span>Настройки</span></a>
+            {% if request.state.is_owner %}
+            <a class="usermenu-item" href="/admin" role="menuitem" data-modal>{{ icons.ic('settings') }}<span>Администрирование</span></a>
+            {% endif %}
             <form method="post" action="/logout">
                 <button class="usermenu-item" type="submit" role="menuitem">{{ icons.ic('logout') }}<span>Выйти</span></button>
             </form>

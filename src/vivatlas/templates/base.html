@@ -74,9 +74,9 @@
         <nav class="side-nav" aria-label="Разделы">
             <p class="eyebrow">{{ icons.ic('catalog') }}Каталог</p>
 
-            {# «Все инструменты» разворачивается: сверху — типы (автокатегории,
-               как пилюли), ниже — свои категории-папки. В папку можно перетащить
-               карточку из каталога. Без скрипта раскрыто по галочке details. #}
+            {# «Все инструменты» разворачивается на свои категории-папки. Типы —
+               не здесь, они пилюлями в шапке. В папку можно перетащить карточку.
+               Без скрипта раскрыто по галочке details. #}
             <details class="side-cat" id="side-cat" open>
                 <summary class="side-item{% if nav == 'all' %} on{% endif %}">
                     {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
@@ -84,22 +84,13 @@
                 </summary>
                 <div class="cat-list">
                     <a class="side-sub" href="/">Показать все <b>{{ counts.artifacts }}</b></a>
-
-                    {% if types %}
-                    <p class="side-sub-eyebrow">Типы</p>
-                    {% for t in types %}
-                    <a class="side-sub" href="/?type={{ t.value }}">{{ type_name(t.value) }} <b>{{ t.count }}</b></a>
-                    {% endfor %}
-                    {% endif %}
-
-                    <p class="side-sub-eyebrow">Категории</p>
                     {% for c in categories %}
                     <a class="side-sub side-drop" data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{{ c.label }} <b>{{ c.count }}</b></a>
                     {% endfor %}
                     {% if not categories %}
                     <p class="side-sub-hint">Папок пока нет. Заведите их в
                        <a href="/settings" data-modal>настройках</a> — потом сюда можно
-                       перетаскивать карточки. Типы выше — автоматические, в них не кладут.</p>
+                       перетаскивать карточки.</p>
                     {% endif %}
                 </div>
             </details>

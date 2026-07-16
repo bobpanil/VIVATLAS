@@ -294,7 +294,6 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "purpose": pur.detect_for(session, a.id, a.name)[0],
                 "preview_url": preview_url(a),
                 "counts": _counts(session),
-                "types": flt.type_options(session),
                 "categories": flt.category_options(session),
             },
         )

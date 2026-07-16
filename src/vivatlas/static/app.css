@@ -988,9 +988,11 @@ summary:focus-visible {
     overflow: hidden;
 }
 
-/* Подвал карточки. Отделён чертой: это не описание, а паспорт —
-   направление, автор, дата. */
+/* Подвал карточки. Отделён чертой. Компактный: цветной значок направления
+   слева, дата и кнопка «копировать» справа. Цвет значка и даты — по разделу
+   (--pur-color), чтобы раздел читался с одного взгляда даже в узкой карточке. */
 .card-foot {
+    --pur-color: var(--muted);
     display: flex;
     gap: 6px;
     align-items: center;
@@ -1003,43 +1005,47 @@ summary:focus-visible {
     min-width: 0;
 }
 
+.card-foot[data-pur="security"]      { --pur-color: #c0392b; }
+.card-foot[data-pur="accessibility"] { --pur-color: #2f6fb0; }
+.card-foot[data-pur="performance"]   { --pur-color: #d98200; }
+.card-foot[data-pur="testing"]       { --pur-color: #2e8b57; }
+.card-foot[data-pur="research"]      { --pur-color: #7a4fb5; }
+.card-foot[data-pur="code"]          { --pur-color: #2f7d8c; }
+.card-foot[data-pur="automation"]    { --pur-color: #4a5bbf; }
+.card-foot[data-pur="design"]        { --pur-color: #c2418f; }
+.card-foot[data-pur="unknown"]       { --pur-color: #8a8672; }
+
 .pur {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: none;
 }
 
-/* Значок одноцветный: цвет на странице принадлежит превью брендов. */
+/* Значок направления — цветной, по разделу. */
 .pur svg {
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
     flex: none;
     fill: none;
-    stroke: currentColor;
+    stroke: var(--pur-color);
     stroke-width: 1.4;
     stroke-linecap: round;
     stroke-linejoin: round;
-    opacity: 0.75;
 }
 
-.dot {
-    color: var(--line-strong);
-    flex: none;
+/* У «оформления» точки палитры залиты — красим и заливку в цвет раздела. */
+.pur svg [fill="currentColor"] {
+    fill: var(--pur-color);
 }
 
-.auth {
-    color: var(--faint);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
+/* Дата обновления — крупнее и в цвет раздела, чтобы её было видно. Не
+   моноширинным: так «08.07.26» уже и помещается в самой узкой карточке. */
 .when {
     margin-left: auto;
-    color: var(--faint);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pur-color);
     flex: none;
     padding-left: 6px;
 }
@@ -1060,6 +1066,8 @@ summary:focus-visible {
 
 /* Кнопка копирования ссылки. Выше растянутой ссылки по z-index — перехватывает
    свой клик, не открывая карточку. */
+/* Кнопка копирования — крупная и оранжевая (единственное действие в подвале).
+   Выше растянутой ссылки по z-index — перехватывает свой клик. */
 .card-copy {
     position: relative;
     z-index: 2;
@@ -1067,27 +1075,27 @@ summary:focus-visible {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    border: 1px solid var(--line);
+    border: 0;
     border-radius: var(--r-sm);
-    background: var(--surface-card);
-    color: var(--muted);
+    background: var(--primary);
+    color: var(--on-primary);
     cursor: pointer;
+    transition: filter 0.12s, background 0.12s;
 }
 
 .card-copy:hover {
-    border-color: var(--ink);
-    color: var(--ink);
+    filter: brightness(0.93);
 }
 
 .card-copy svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.4;
+    stroke-width: 1.6;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
@@ -1098,8 +1106,9 @@ summary:focus-visible {
 
 /* После копирования — зелёная галочка на миг. */
 .card-copy.ok {
-    border-color: var(--accent-green, #2e7d32);
-    color: var(--accent-green, #2e7d32);
+    background: #2e7d32;
+    color: #fff;
+    filter: none;
 }
 
 .card-copy.ok .i-link {
@@ -2357,6 +2366,9 @@ summary:focus-visible {
     max-width: 100%;
     max-height: 70vh;
     overflow-y: auto;
+    /* Докрутили шторку до конца — каталог за ней не должен подхватывать
+       прокрутку. Список фильтров и сетка карточек скроллятся независимо. */
+    overscroll-behavior: contain;
     padding: var(--s-lg);
     background: var(--surface-card);
     border: 1px solid var(--hairline);

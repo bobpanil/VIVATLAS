@@ -164,18 +164,13 @@
             <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
             <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
 
-            {# Подвал: для чего, кто сделал, когда трогали. Всё настоящее —
-               автор берётся из источника, дата из коммита. Не знаем — молчим.
-               Справа — копировать ссылку на репозиторий, не открывая карточку. #}
-            <div class="card-foot">
+            {# Подвал компактный: слева — цветной значок направления (раздела),
+               справа — дата обновления и кнопка «копировать ссылку». Ни имени,
+               ни автора: в самой узкой карточке они всё равно не помещались. #}
+            <div class="card-foot" data-pur="{{ it.purpose.key }}">
                 <span class="pur" title="направление: {{ it.purpose.label }}">
                     <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
-                    {{ it.purpose.label }}
                 </span>
-                {% if it.author %}
-                <span class="dot">·</span>
-                <span class="auth" title="автор оригинала">{{ it.author }}</span>
-                {% endif %}
                 <span class="card-foot-right">
                     {% if it.updated %}
                     <time class="when" title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}">{{ it.updated.strftime("%d.%m.%y") }}</time>

@@ -17,6 +17,7 @@ from skill_atlas.importer import GitHubFetcher, ImportError_, plan_import
 from skill_atlas.indexer import index_all, index_repository
 from skill_atlas.migrate import ensure_schema, rebuild_fts
 from skill_atlas.models import Artifact, Base, Repository, UpstreamLink
+from skill_atlas.net import lan_addresses
 from skill_atlas.providers import build_provider
 from skill_atlas.scanner import get_or_create_source, scan_source
 from skill_atlas.search import Mode, index_artifact_for_words
@@ -432,7 +433,18 @@ def serve(
     """Запустить веб-интерфейс."""
     import uvicorn
 
-    typer.echo(f"Открой: http://{'127.0.0.1' if host == '0.0.0.0' else host}:{port}")
+    # Адреса печатаем здесь, а не в пусковом файле: это окно остаётся открытым,
+    # пока сервер работает, а окно пускателя закрывается сразу. Человеку, который
+    # запустил двойным щелчком, адрес для телефона виден только тут.
+    typer.echo("")
+    typer.echo(f"  Skill Atlas, порт {port}")
+    typer.echo(f"    на этом компьютере : http://127.0.0.1:{port}")
+    if host == "0.0.0.0":
+        for ip in lan_addresses():
+            typer.echo(f"    с телефона         : http://{ip}:{port}")
+        typer.echo("")
+        typer.echo("  Телефон должен быть в той же сети.")
+    typer.echo("")
     uvicorn.run("skill_atlas.api:app", host=host, port=port, log_level="warning")
 
 

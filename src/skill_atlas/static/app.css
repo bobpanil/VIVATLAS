@@ -115,6 +115,24 @@
 
     --sidebar-w: 240px;
 
+    /* --- тёмная панель ------------------------------------------------------
+       Фон взят не из набора PostHog, а из самого логотипа: он приходит своим
+       чёрным #06080f, и если панель сделать другим оттенком, вокруг картинки
+       будет виден прямоугольник. Панель продолжает холст логотипа.
+
+       Это осознанный отход от набора: там doc-sidebar кремовый. Но главный
+       логотип нарисован светлым по чёрному, и на кремовом его пришлось бы
+       менять — а он тут главнее.
+
+       Палитра логотипа и палитра PostHog почти совпадают: фирменный оранжевый
+       на листе объявлен #f39e05, у PostHog #f7a501 — разница на волос. Поэтому
+       жёлтая кнопка остаётся жёлтой кнопкой набора и с логотипом не спорит. */
+    --panel: #06080f;
+    --panel-text: #b9b2a2;   /* stone из палитры логотипа */
+    --panel-bright: #eae7dc; /* cream оттуда же */
+    --panel-mute: #565342;   /* olive оттуда же */
+    --panel-line: #1c2030;
+
     /* Сколько карточек в ряду. Меняется ручкой над сеткой и запоминается. */
     --cols: 4;
 
@@ -196,12 +214,26 @@ a {
     left: 0;
     bottom: 0;
     width: var(--sidebar-w);
-    background: var(--canvas);
-    border-right: 1px solid var(--hairline);
-    padding: var(--s-xl) var(--s-lg);
+    background: var(--panel);
+    color: var(--panel-text);
+    border-right: 1px solid var(--panel-line);
+    padding: var(--s-lg) var(--s-lg) var(--s-xl);
     overflow-y: auto;
     overscroll-behavior: contain;
     z-index: 30;
+}
+
+/* Логотип. Приходит со своим чёрным фоном — панель под него подогнана, шва
+   нет. Растягиваем на всю ширину панели: он и есть её шапка. */
+.logo {
+    display: block;
+    margin: 0 0 var(--s-lg);
+}
+
+.logo img {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 /* Во всю ширину. В наборе содержимое ограничено 1280px — но там это
@@ -224,10 +256,6 @@ a {
 
 .brand span {
     color: var(--primary);   /* единственная жёлтая точка, кроме кнопки */
-}
-
-.side-brand {
-    margin-bottom: var(--s-lg);
 }
 
 /* button-primary набора: жёлтый #f7a501, тёмно-оливковый текст, 40px, 6px. */
@@ -272,6 +300,11 @@ a {
     margin: var(--s-xl) 0 var(--s-sm);
 }
 
+/* На тёмной панели оливковый #565342 читается плохо — подписи там светлее. */
+.side .eyebrow {
+    color: #7d7a68;
+}
+
 .side-nav .eyebrow:first-child {
     margin-top: 0;
 }
@@ -284,7 +317,7 @@ a {
     font-size: 14px;
     font-weight: 500;
     line-height: 1.43;
-    color: var(--body-ink);
+    color: var(--panel-text);
     text-decoration: none;
     padding: 7px 10px;
     margin: 0 -10px;
@@ -293,29 +326,31 @@ a {
 }
 
 .side-item:hover {
-    background: var(--surface-soft);
+    background: #131727;
+    color: var(--panel-bright);
 }
 
-/* Выбранный пункт: белая карточка отрывается от кремового холста. Так набор
-   помечает активную вкладку — цветом фона, а не краской текста. */
+/* Выбранный пункт подсвечен заливкой, как активная вкладка в наборе: там
+   белая карточка отрывается от кремового холста, тут светлая от чёрного.
+   Приём тот же — выделяем фоном, а не краской текста. */
 .side-item.on {
-    background: var(--surface-card);
-    color: var(--ink);
+    background: #161b2c;
+    color: var(--panel-bright);
     font-weight: 600;
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--panel-line);
     padding: 6px 9px;
 }
 
 .side-item b {
     font-size: 12px;
     font-weight: 600;
-    color: var(--mute);
+    color: #7d7a68;
 }
 
 .side-foot {
     font-size: 12px;
-    color: var(--mute);
-    border-top: 1px solid var(--hairline-soft);
+    color: #7d7a68;
+    border-top: 1px solid var(--panel-line);
     padding-top: var(--s-md);
     margin: var(--s-xl) 0 0;
 }
@@ -326,6 +361,9 @@ a {
 }
 
 @media (max-width: 768px) {
+    /* Полоса тёмная, как панель: логотип приходит со своим чёрным фоном, и
+       на кремовой полосе он был бы чёрным прямоугольником. Обрамление тёмное,
+       содержимое кремовое — так это читается как замысел, а не как заплатка. */
     .topbar {
         display: flex;
         align-items: center;
@@ -335,12 +373,17 @@ a {
         z-index: 20;
         height: 56px;
         padding: 0 var(--s-md);
-        background: var(--canvas);
-        border-bottom: 1px solid var(--hairline);
+        background: var(--panel);
+        border-bottom: 1px solid var(--panel-line);
     }
 
-    .topbar .brand {
-        margin-right: auto;
+    .logo-sm {
+        margin: 0 auto 0 0;
+    }
+
+    .logo-sm img {
+        width: auto;
+        height: 30px;
     }
 
     .burger {
@@ -358,9 +401,13 @@ a {
         width: 20px;
         height: 20px;
         fill: none;
-        stroke: var(--ink);
+        stroke: var(--panel-bright);
         stroke-width: 1.6;
         stroke-linecap: round;
+    }
+
+    .burger:hover {
+        background: #131727;
     }
 
     .navt:focus-visible + .topbar .burger {
@@ -391,6 +438,15 @@ a {
        разрешает одну. Тут её роль играет кнопка в верхней полосе. */
     .side-cta {
         display: none;
+    }
+
+    /* И логотип в панели тоже лишний: он уже стоит в полосе прямо над ней. */
+    .side > .logo {
+        display: none;
+    }
+
+    .side {
+        padding-top: var(--s-xl);
     }
 
     .main {
@@ -569,8 +625,57 @@ summary:focus-visible {
 }
 
 .side-filters {
-    border-top: 1px solid var(--hairline-soft);
+    border-top: 1px solid var(--panel-line);
     margin-top: var(--s-xl);
+}
+
+/* Фишки фильтров на тёмной панели. Приём набора сохранён: выбранная
+   переворачивается — только наоборот, светлым по тёмному. */
+.side .filter {
+    color: var(--panel-text);
+    border-color: var(--panel-line);
+}
+
+.side .filter:hover {
+    background: #131727;
+    border-color: #2a3145;
+    color: var(--panel-bright);
+}
+
+.side .filter[aria-current="true"] {
+    background: var(--panel-bright);
+    border-color: var(--panel-bright);
+    color: var(--panel);
+}
+
+.side .filter b {
+    color: #7d7a68;
+}
+
+.side .filter[aria-current="true"] b {
+    color: var(--panel);
+    opacity: 0.6;
+}
+
+.side .fmore summary {
+    color: var(--panel-text);
+    border-bottom-color: var(--panel-line);
+}
+
+.side .fmore summary:hover {
+    color: var(--panel-bright);
+}
+
+.side .fmore summary::before {
+    color: #7d7a68;
+}
+
+.side .fclear {
+    color: #7d7a68;
+}
+
+.side .fclear a {
+    color: var(--primary);
 }
 
 .fclear {
@@ -1566,7 +1671,17 @@ summary:focus-visible {
     font-size: 14px;
     line-height: 1.6;
     margin: 0;
-    color: var(--muted);
+    color: var(--mute);
+}
+
+/* Пересказ по-русски. Набран заметнее оригинала: если ролик на иврите, читать
+   будут именно эту строчку, а оригинал остаётся доказательством, что мы не
+   выдумали. */
+.gist {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: var(--s-sm) 0 0;
 }
 
 .notes {

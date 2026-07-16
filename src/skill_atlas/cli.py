@@ -149,7 +149,10 @@ def find_cmd(source: str) -> None:
         typer.echo("")
         typer.echo(f"  Что дали: {kinds.get(result.kind, result.kind)}")
         if result.heard:
-            typer.echo(f"  Прочитано: {result.heard[:150]}")
+            lang = f" ({result.language})" if result.language else ""
+            typer.echo(f"  Прочитано{lang}: {result.heard[:150]}")
+        if result.gist:
+            typer.echo(f"  Это про: {result.gist[:150]}")
         if result.tool_name:
             typer.echo(f"  Название: {result.tool_name}")
         for note in result.notes:

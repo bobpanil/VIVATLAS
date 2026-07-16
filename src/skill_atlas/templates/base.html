@@ -6,8 +6,11 @@
     {# Тёмной темы у набора PostHog нет — система кремовая по замыслу. Честнее
        так и сказать браузеру, чем подстраиваться под тему телефона выдумкой. #}
     <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#eeefe9">
+    {# Цвет строки состояния на телефоне — под верхнюю полосу, а она тёмная. #}
+    <meta name="theme-color" content="#06080f">
     <title>{% block title %}Skill Atlas{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -24,14 +27,24 @@
             </svg>
             <span class="vh-text">Меню</span>
         </label>
-        <a class="brand" href="/">skill<span>-</span>atlas</a>
+        {# Тот же логотип, что в панели. Отдельная текстовая надпись рядом была
+           бы повтором: слова SKILL ATLAS есть в самой картинке. #}
+        <a class="logo logo-sm" href="/">
+            <img src="/static/logo-dark.webp" width="640" height="282" alt="Skill Atlas">
+        </a>
         {% if nav != 'add' %}<a class="cta cta-sm" href="/add">Добавить</a>{% endif %}
     </header>
 
     <label class="scrim" for="navt" aria-hidden="true"></label>
 
     <aside class="side">
-        <a class="brand side-brand" href="/">skill<span>-</span>atlas</a>
+        {# Логотип вырезан из вашего листа: верхний, светлый по чёрному.
+           Подпись MAP YOUR SKILLS убрана — в панели шириной 240 она стала бы
+           3.5 точки высотой, то есть грязью вместо текста. #}
+        <a class="logo" href="/">
+            <img src="/static/logo-dark.webp" width="640" height="282"
+                 alt="Skill Atlas — на главную">
+        </a>
 
         {# Единственная жёлтая кнопка во всей программе. Набор требует: не
            больше одной на экран, и только на главное действие. На самой

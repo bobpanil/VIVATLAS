@@ -77,6 +77,8 @@ class FindResult:
     source: str
     candidates: list[Candidate] = field(default_factory=list)
     heard: str = ""  # что распознали: текст со страницы, речь, надпись
+    language: str = ""  # язык оригинала — рилсы бывают на иврите и на чём угодно
+    gist: str = ""  # о чём это по-русски, если оригинал не русский
     tool_name: str = ""
     notes: list[str] = field(default_factory=list)
 
@@ -201,24 +203,44 @@ SCHEMA = {
     "type": "object",
     "properties": {
         "heard": {"type": "string"},
+        "language": {"type": "string"},
+        "gist": {"type": "string"},
         "tool_name": {"type": "string"},
         "github_repo": {"type": "string"},
         "keywords": {"type": "string"},
         "stars_mentioned": {"type": "integer"},
     },
-    "required": ["heard", "tool_name", "github_repo", "keywords", "stars_mentioned"],
+    "required": [
+        "heard",
+        "language",
+        "gist",
+        "tool_name",
+        "github_repo",
+        "keywords",
+        "stars_mentioned",
+    ],
 }
 
 _PROMPT = """Определи, о каком инструменте для разработчика тут речь.
 
 {what}
 
+Речь и надписи могут быть на ЛЮБОМ языке: английском, иврите, русском,
+испанском, китайском — на каком угодно. Разбирай как есть, не удивляйся и не
+отказывайся. Текст может идти справа налево — это нормально.
+
 Верни:
-- heard: что именно тут сказано или написано, дословно и кратко
-- tool_name: название инструмента, если прозвучало или видно. Иначе пустая строка.
+- heard: что тут сказано или написано, дословно и кратко, НА ЯЗЫКЕ ОРИГИНАЛА
+- language: язык оригинала по-русски, одним словом: английский, иврит, русский…
+- gist: о чём это, ОДНОЙ СТРОКОЙ ПО-РУССКИ. Если оригинал и так русский —
+  пустая строка.
+- tool_name: название инструмента, если прозвучало или видно. Пиши его так,
+  как оно пишется в Git — латиницей. Не переводи название и не записывай его
+  буквами другого алфавита. Не поняли названия — пустая строка.
 - github_repo: адрес вида владелец/репозиторий — ТОЛЬКО если он прямо назван
   или виден. Если не назван — ПУСТАЯ СТРОКА.
-- keywords: 3-6 слов по-английски для поиска на GitHub, через пробел
+- keywords: 3-6 слов ПО-АНГЛИЙСКИ для поиска на GitHub, через пробел. Всегда
+  по-английски, даже если оригинал на другом языке: на GitHub ищут так.
 - stars_mentioned: если названо число звёзд — это число, иначе 0
 
 Главное правило: НЕ ВЫДУМЫВАЙ адрес репозитория. Пустая строка лучше
@@ -375,6 +397,8 @@ class Finder:
             return
 
         result.heard = (data.get("heard") or result.heard).strip()
+        result.language = (data.get("language") or "").strip()
+        result.gist = (data.get("gist") or "").strip()
         result.tool_name = (data.get("tool_name") or "").strip()
         stars = int(data.get("stars_mentioned") or 0)
         if stars:

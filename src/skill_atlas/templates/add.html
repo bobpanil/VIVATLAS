@@ -52,8 +52,15 @@
 
     {% if result.heard %}
     <div class="box">
-        <h3>Прочитано</h3>
-        <p class="heard">{{ result.heard[:400] }}</p>
+        <h3>Прочитано{% if result.language %} · {{ result.language }}{% endif %}</h3>
+        {# Оригинал показываем как есть, своим алфавитом и в свою сторону:
+           иврит и арабский читаются справа налево, и dir=auto даёт браузеру
+           решить это самому — он справится лучше, чем мы угадаем. #}
+        <p class="heard" dir="auto">{{ result.heard[:400] }}</p>
+        {% if result.gist %}
+        {# Пересказ по-русски. Рилс на иврите бесполезен, если его не понять. #}
+        <p class="gist">{{ result.gist }}</p>
+        {% endif %}
         {% if result.tool_name %}<p class="legend">название: {{ result.tool_name }}</p>{% endif %}
     </div>
     {% endif %}

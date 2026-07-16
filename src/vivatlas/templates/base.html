@@ -38,13 +38,17 @@
     <label class="scrim" for="navt" aria-hidden="true"></label>
 
     <aside class="side">
-        {# Логотип вырезан из вашего листа: верхний, светлый по чёрному.
-           Подпись MAP YOUR SKILLS убрана — в панели шириной 240 она стала бы
-           3.5 точки высотой, то есть грязью вместо текста. #}
+        {# Логотип столбиком по центру: значок, под ним слово VivAtlas, под ним
+           девиз во всю ширину панели. Девиз — живым текстом: в картинке при
+           такой ширине он стал бы нечитаемой полоской. #}
         <a class="logo" href="/">
-            <img src="/static/logo-dark.webp" width="640" height="197"
+            <img class="logo-mark" src="/static/logo-mark.webp" width="166" height="220"
                  alt="VivAtlas — на главную">
+            <img class="logo-word" src="/static/logo-word.webp" width="560" height="76" alt="">
         </a>
+        <div class="logo-tagline" aria-hidden="true">
+            <span>Organize</span><i>·</i><span>Connect</span><i>·</i><span>Empower</span>
+        </div>
 
         {# Единственная жёлтая кнопка во всей программе. Набор требует: не
            больше одной на экран, и только на главное действие. На самой

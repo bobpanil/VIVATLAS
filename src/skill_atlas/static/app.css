@@ -1779,3 +1779,111 @@ summary:focus-visible {
 }
 
 .hint form, form.hint { margin: 0 0 8px; }
+
+/* --- экран входа ----------------------------------------------------------
+   Своя оболочка, без боковой панели: пока не вошёл, каталога нет. Тёмный фон
+   логотипа на весь экран, кремовая карточка по центру — как обрамление всего
+   остального в программе, только крупнее. */
+
+.auth-body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--s-xl) var(--s-lg);
+}
+
+.auth-wrap {
+    width: 100%;
+    max-width: 380px;
+}
+
+.auth-logo {
+    display: block;
+    width: 200px;
+    max-width: 70%;
+    height: auto;
+    margin: 0 auto var(--s-xl);
+}
+
+.auth-card {
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: var(--s-xl);
+}
+
+.auth-card h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
+}
+
+.auth-lede {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--body-ink);
+    margin: 0 0 var(--s-lg);
+}
+
+.auth-card .fld input {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 16px;   /* меньше — и Safari на телефоне зумит при касании */
+    padding: 10px 12px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+}
+
+.auth-card .fld input:focus {
+    outline: none;
+    border: 2px solid var(--accent-blue);
+    padding: 9px 11px;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.auth-card .cta-wide {
+    margin-top: var(--s-sm);
+}
+
+/* banner-tip-red набора: отказ — мягкая красная полоса, не голый красный текст. */
+.auth-err {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--accent-red-soft);
+    border-radius: var(--r-md);
+    padding: 10px 14px;
+    margin: 0 0 var(--s-lg);
+}
+
+.auth-note {
+    font-size: 12px;
+    color: var(--mute);
+    line-height: 1.6;
+    margin: var(--s-md) 0 0;
+}
+
+.auth-alt {
+    margin: var(--s-md) 0 0;
+    text-align: center;
+}
+
+.auth-link {
+    background: none;
+    border: 0;
+    color: var(--link-teal);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}

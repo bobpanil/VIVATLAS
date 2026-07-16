@@ -1,10 +1,13 @@
 """REST API."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
+from skill_atlas import auth
 from skill_atlas.ai import build_embedding_model
+from skill_atlas.auth_web import router as auth_router
 from skill_atlas.db import session_scope
 from skill_atlas.mcp_server import http_app as mcp_http_app
 from skill_atlas.models import Artifact, ArtifactTag, Repository, ScanRun, Tag, TagSuppression
@@ -15,7 +18,45 @@ from skill_atlas.web import BASE
 from skill_atlas.web import router as web_router
 
 app = FastAPI(title="Skill Atlas", version="0.1.0")
+
+# Пути, открытые без входа. Всё остальное — за замком. Список короткий
+# намеренно: что не здесь, то закрыто, а не наоборот.
+_OPEN_PREFIXES = ("/static/", "/login", "/setup", "/logout", "/mcp-server")
+_OPEN_EXACT = {"/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa"}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """Замок на всё. Не вошёл — на страницу входа, а не внутрь.
+
+    MCP-сервер пока открыт: ChatGPT ходит без куки, ему нужен отдельный токен —
+    это следующий шаг. Помечено, чтобы не забыть: за туннелем это дыра.
+    """
+    path = request.url.path
+    if path in _OPEN_EXACT or path.startswith(_OPEN_PREFIXES):
+        return await call_next(request)
+
+    with session_scope() as session:
+        user = auth.current_user(session, request)
+        setup_needed = not auth.has_any_user(session)
+
+    if user is not None:
+        return await call_next(request)
+
+    # Программу ещё не настроили — веди к заведению хозяина.
+    if setup_needed:
+        return RedirectResponse("/setup", status_code=303)
+
+    # Для страниц — на вход, запомнив, куда шли. Для API — честный 401, а не
+    # переадресация: программа-клиент должна получить отказ, а не HTML.
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "Нужно войти"}, status_code=401)
+    nxt = f"?next={path}" if path != "/" else ""
+    return RedirectResponse(f"/login{nxt}", status_code=303)
+
+
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+app.include_router(auth_router)
 app.include_router(web_router)
 
 # MCP для ChatGPT. Отдельным приложением: у него свой жизненный цикл, и

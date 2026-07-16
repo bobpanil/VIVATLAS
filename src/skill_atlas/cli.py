@@ -7,7 +7,7 @@ import typer
 from sqlalchemy import select
 
 from skill_atlas import changes as ch
-from skill_atlas import remap
+from skill_atlas import remap, security
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.config import settings
 from skill_atlas.db import engine, session_scope
@@ -498,6 +498,21 @@ def upstream_cmd() -> None:
     asyncio.run(_run())
 
 
+@app.command("secret")
+def secret_cmd() -> None:
+    """Сгенерировать главный ключ для .env.
+
+    Из него держится вся дверь: подписи и шифрование чужих токенов. Сменить
+    его потом — разлогинить всех и потерять сохранённые токены.
+    """
+    typer.echo("")
+    typer.echo("  Впишите в .env одной строкой:")
+    typer.echo("")
+    typer.echo(f"  SECRET_KEY={security.new_token(48)}")
+    typer.echo("")
+    typer.echo("  Никому не показывайте и в Git не коммитьте (.env и так игнорируется).")
+
+
 @app.command("serve")
 def serve(
     port: int = typer.Option(8000),
@@ -505,6 +520,15 @@ def serve(
 ) -> None:
     """Запустить веб-интерфейс."""
     import uvicorn
+
+    # Без главного ключа дверь не запереть. Проверяем здесь, а не когда человек
+    # жмёт «Войти»: узнать о беде надо при запуске.
+    try:
+        security.require_secret()
+    except security.SecretMissing as exc:
+        typer.echo("")
+        typer.echo(f"  {exc}")
+        raise typer.Exit(1) from None
 
     # Адреса печатаем здесь, а не в пусковом файле: это окно остаётся открытым,
     # пока сервер работает, а окно пускателя закрывается сразу. Человеку, который

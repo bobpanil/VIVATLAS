@@ -558,14 +558,48 @@ a {
    text-input набора: белая карточка, оливковая рамка в волос, 6px. При фокусе
    рамка синеет и утолщается — это описано в наборе как text-input-focused. */
 
-.searchbar {
-    padding: 0 54px 0 0;   /* справа место под аватарку в углу */
-    margin-bottom: var(--s-xl);
+/* Липкая шапка: при листании стоит на месте, карточки уходят под неё.
+   Отрицательные поля выводят фон и разделитель на всю ширину контента,
+   перекрывая паддинги .main; внутренние паддинги возвращают выравнивание
+   к сетке. Аватарка (fixed, z-index выше) стоит поверх справа и завершает
+   ряд. */
+.stickyhead {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--canvas);
+    margin: calc(-1 * var(--s-xl)) calc(-1 * var(--s-xl)) var(--s-lg);
+    padding: var(--s-md) var(--s-xl);
+    border-bottom: 1.5px solid #7d7a68;
+}
+
+/* Ряд шапки: поиск строго по центру программы (боковые колонки равны),
+   справа — «Фильтры» и размер, слева пусто под симметрию. */
+.toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--s-md);
+}
+
+.toolbar-side {
+    min-width: 0;
+}
+
+.toolbar-right {
+    position: relative;   /* якорь для выпадающей шторки */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--s-md);
+    min-width: 0;
+    padding-right: 46px;   /* не залезать под аватарку в углу */
 }
 
 .searchform {
     display: flex;
     gap: var(--s-sm);
+    width: min(560px, 100%);   /* поиск в меру широкий и по центру */
 }
 
 .searchform input {
@@ -763,42 +797,30 @@ summary:focus-visible {
    Меняет вид сразу, без перезагрузки, и запоминается на этом устройстве.
    Без скриптов останется значение по умолчанию — сетка всё равно рабочая. */
 
-.viewbar {
+.sizectl {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: var(--s-md);
-    margin-bottom: var(--s-md);
+    gap: var(--s-sm);
+    flex: none;
 }
 
-.viewbar label {
+.sizectl label {
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--mute);
 }
 
-.viewbar output {
+.sizectl output {
     font-size: 13px;
     font-weight: 500;
     color: var(--body-ink);
     min-width: 7ch;
 }
 
-.viewbar input[type="range"] {
-    width: 160px;
+.sizectl input[type="range"] {
+    width: 120px;
     accent-color: var(--primary);
-}
-
-@media (max-width: 768px) {
-    .viewbar {
-        justify-content: space-between;
-    }
-
-    .viewbar input[type="range"] {
-        flex: 1;
-        max-width: 200px;
-    }
 }
 
 /* product-card набора: белая карточка на кремовом холсте, оливковая рамка в
@@ -2087,24 +2109,14 @@ summary:focus-visible {
    при листании. Теперь «Тип» — таблетками сразу, остальное — за кнопкой в
    шторке (выпадает на десктопе, снизу на телефоне). */
 
-.filterbar-wrap {
-    position: relative;
-    margin: 0 0 var(--s-lg);
-}
-
-.filterbar {
-    display: flex;
-    align-items: center;
-    gap: var(--s-sm);
-}
-
-/* «Тип» — горизонтальная лента, на узком экране прокручивается вбок. */
+/* «Тип» — горизонтальная лента под рядом поиска; на узком экране
+   прокручивается вбок. */
 .type-pills {
     display: flex;
     gap: var(--s-xs);
-    flex: 1;
     min-width: 0;
     overflow-x: auto;
+    margin-top: var(--s-md);
     padding-bottom: 2px;
     scrollbar-width: none;
 }
@@ -2383,9 +2395,39 @@ summary:focus-visible {
 }
 
 @media (max-width: 768px) {
-    /* Аватарки на телефоне нет — правый отступ под неё не нужен. */
-    .searchbar {
-        padding-right: 0;
+    /* На телефоне аватарки нет, места мало: ряд складываем в столбик —
+       поиск во всю ширину сверху, под ним «Фильтры» и размер. */
+    .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s-sm);
+    }
+
+    .toolbar-side {
+        display: none;
+    }
+
+    .searchform {
+        order: -1;
+        width: 100%;
+    }
+
+    .toolbar-right {
+        width: 100%;
+        padding-right: 0;   /* аватарки нет — резервировать нечего */
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--s-sm);
+    }
+
+    .sizectl {
+        flex: 1;
+        justify-content: flex-end;
+    }
+
+    .sizectl input[type="range"] {
+        flex: 1;
+        max-width: 160px;
     }
 }
 

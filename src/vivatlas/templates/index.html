@@ -8,16 +8,91 @@
 {% block content %}
 {# Сколько фильтров спрятано за кнопкой «Фильтры» (Тип живёт наверху отдельно). #}
 {% set sheet_active = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) %}
-<div class="searchbar">
-    <form class="searchform" action="/" method="get" role="search">
-        <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
-               placeholder="Что нужно сделать — или вставьте ссылку"
-               aria-label="Поиск инструмента или ссылка">
-        {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
-        {# Мягкая, а не жёлтая: жёлтая на всю программу одна, и она за
-           «Добавить». Две жёлтых на экране — прямой запрет набора. #}
-        <button class="btn-secondary" type="submit">Найти</button>
-    </form>
+{# Липкая шапка: при листании остаётся на месте, карточки уходят под неё.
+   Один ряд — поиск по центру программы, справа «Фильтры» и размер, аватар
+   стоит у base.html поверх справа. Под рядом — подсказка, тип-таблетки,
+   активные фильтры. #}
+<div class="stickyhead">
+    <div class="toolbar">
+        <div class="toolbar-side" aria-hidden="true"></div>
+
+        <form class="searchform" action="/" method="get" role="search">
+            <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
+                   placeholder="Что нужно сделать — или вставьте ссылку"
+                   aria-label="Поиск инструмента или ссылка">
+            {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+            {# Мягкая, а не жёлтая: жёлтая на всю программу одна, и она за
+               «Добавить». Две жёлтых на экране — прямой запрет набора. #}
+            <button class="btn-secondary" type="submit">Найти</button>
+        </form>
+
+        <div class="toolbar-right">
+            {% if not link %}
+            <button class="filters-btn{% if sheet_active %} on{% endif %}" type="button"
+                    id="filters-btn" aria-expanded="false" aria-controls="sheet">
+                {{ icons.ic('filter') }}<span>Фильтры</span>{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
+            </button>
+            {% endif %}
+            {% if items %}
+            {# Ручка размера. Без скриптов останется вид по умолчанию — сетка
+               рабочая в любом случае, поэтому прятать её за скриптом нечестно. #}
+            <div class="sizectl">
+                <label for="cols">Размер</label>
+                {# От одной до девяти. Единица нужна телефону: там от 2 до 9 всё
+                   равно выходит два, а вот одна крупная карточка во всю ширину —
+                   настоящий выбор. На большом экране девять упрутся в предел
+                   ширины карточки, и подпись честно скажет, сколько вышло. #}
+                <input type="range" id="cols" min="1" max="9" step="1" value="4"
+                       aria-label="Сколько карточек в ряду">
+                <output id="colsout" for="cols">4 в ряд</output>
+            </div>
+            {% endif %}
+
+            {% if not link %}
+            <div class="scrim" id="fscrim" hidden></div>
+            <aside class="sheet" id="sheet" hidden aria-label="Фильтры">
+                <div class="sheet-head">
+                    <b>Фильтры</b>
+                    <button class="sheet-x" type="button" id="sheet-x" aria-label="Закрыть">×</button>
+                </div>
+                <div class="sheet-body">
+                    {% if periods %}
+                    <p class="fgroup">{{ icons.ic('updated') }}Обновлялись</p>
+                    <nav class="filters" aria-label="Когда обновлялись">
+                        {% for p in periods %}
+                        {{ chip(p.label, p.count, f.as_query(days=p.value if f.days != p.value else "") | combine(q=q), f.days == p.value) }}
+                        {% endfor %}
+                    </nav>
+                    {% endif %}
+
+                    {% if statuses %}
+                    <p class="fgroup">{{ icons.ic('source') }}Источник</p>
+                    <nav class="filters" aria-label="Источник">
+                        {% for st in statuses %}
+                        {{ chip(st.label, st.count, f.as_query(status=st.value if f.status != st.value else "") | combine(q=q), f.status == st.value) }}
+                        {% endfor %}
+                    </nav>
+                    {% endif %}
+
+                    {% for g in tag_groups %}
+                    <p class="fgroup">{{ g.title }}</p>
+                    <nav class="filters" aria-label="{{ g.title }}">
+                        {% for o in g.options %}
+                        {{ chip(o.label, o.count, f.as_query(tag=o.value if f.tag != o.value else "") | combine(q=q), f.tag == o.value) }}
+                        {% endfor %}
+                    </nav>
+                    {% endfor %}
+                </div>
+                {% if f.active() %}
+                <div class="sheet-foot">
+                    <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">Снять все фильтры</a>
+                </div>
+                {% endif %}
+            </aside>
+            {% endif %}
+        </div>
+    </div>
+
     {% if link %}
     <p class="hint">Ищет по смыслу. А ссылку или картинку — разбирает.</p>
     {% elif q %}
@@ -26,6 +101,25 @@
     <p class="hint">Одно окно на всё: название, смысл или задача словами («оформить лендинг как Airbnb»).
        Русский запрос находит английский инструмент. Ссылку или скриншот — вставьте сюда же.
        Не знаете, с чего начать — <a href="/help">Помощь</a>.</p>
+    {% endif %}
+
+    {% if not link %}
+    <nav class="type-pills" aria-label="Тип">
+        <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
+           {% if not f.type %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+        {% for t in types %}
+        {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
+        {% endfor %}
+    </nav>
+
+    {% if sheet_active %}
+    <div class="active-chips">
+        {% if f.days %}<a class="achip" href="/?{{ f.as_query(days='') | combine(q=q) | urlencode }}">{{ period_names.get(f.days, f.days) }} <i>×</i></a>{% endif %}
+        {% if f.status %}<a class="achip" href="/?{{ f.as_query(status='') | combine(q=q) | urlencode }}">{% for st in statuses %}{% if st.value == f.status %}{{ st.label }}{% endif %}{% endfor %} <i>×</i></a>{% endif %}
+        {% if f.tag %}<a class="achip" href="/?{{ f.as_query(tag='') | combine(q=q) | urlencode }}">{{ f.tag }} <i>×</i></a>{% endif %}
+        <a class="achip-clear" href="/{% if q %}?q={{ q|urlencode }}{% endif %}">снять все</a>
+    </div>
+    {% endif %}
     {% endif %}
 </div>
 
@@ -45,91 +139,7 @@
 </div>
 {% endif %}
 
-{% if not link %}
-{# Фильтры в шапке, а не в панели: в панели они прокручивались, а на телефоне
-   пропадали при листании. «Тип» — таблетками сразу, остальное — за кнопкой. #}
-<div class="filterbar-wrap">
-    <div class="filterbar">
-        <nav class="type-pills" aria-label="Тип">
-            <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
-               {% if not f.type %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
-            {% for t in types %}
-            {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
-            {% endfor %}
-        </nav>
-        <button class="filters-btn{% if sheet_active %} on{% endif %}" type="button"
-                id="filters-btn" aria-expanded="false" aria-controls="sheet">
-            {{ icons.ic('filter') }}<span>Фильтры</span>{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
-        </button>
-    </div>
-
-    {% if sheet_active %}
-    <div class="active-chips">
-        {% if f.days %}<a class="achip" href="/?{{ f.as_query(days='') | combine(q=q) | urlencode }}">{{ period_names.get(f.days, f.days) }} <i>×</i></a>{% endif %}
-        {% if f.status %}<a class="achip" href="/?{{ f.as_query(status='') | combine(q=q) | urlencode }}">{% for st in statuses %}{% if st.value == f.status %}{{ st.label }}{% endif %}{% endfor %} <i>×</i></a>{% endif %}
-        {% if f.tag %}<a class="achip" href="/?{{ f.as_query(tag='') | combine(q=q) | urlencode }}">{{ f.tag }} <i>×</i></a>{% endif %}
-        <a class="achip-clear" href="/{% if q %}?q={{ q|urlencode }}{% endif %}">снять все</a>
-    </div>
-    {% endif %}
-
-    <div class="scrim" id="fscrim" hidden></div>
-    <aside class="sheet" id="sheet" hidden aria-label="Фильтры">
-        <div class="sheet-head">
-            <b>Фильтры</b>
-            <button class="sheet-x" type="button" id="sheet-x" aria-label="Закрыть">×</button>
-        </div>
-        <div class="sheet-body">
-            {% if periods %}
-            <p class="fgroup">{{ icons.ic('updated') }}Обновлялись</p>
-            <nav class="filters" aria-label="Когда обновлялись">
-                {% for p in periods %}
-                {{ chip(p.label, p.count, f.as_query(days=p.value if f.days != p.value else "") | combine(q=q), f.days == p.value) }}
-                {% endfor %}
-            </nav>
-            {% endif %}
-
-            {% if statuses %}
-            <p class="fgroup">{{ icons.ic('source') }}Источник</p>
-            <nav class="filters" aria-label="Источник">
-                {% for st in statuses %}
-                {{ chip(st.label, st.count, f.as_query(status=st.value if f.status != st.value else "") | combine(q=q), f.status == st.value) }}
-                {% endfor %}
-            </nav>
-            {% endif %}
-
-            {% for g in tag_groups %}
-            <p class="fgroup">{{ g.title }}</p>
-            <nav class="filters" aria-label="{{ g.title }}">
-                {% for o in g.options %}
-                {{ chip(o.label, o.count, f.as_query(tag=o.value if f.tag != o.value else "") | combine(q=q), f.tag == o.value) }}
-                {% endfor %}
-            </nav>
-            {% endfor %}
-        </div>
-        {% if f.active() %}
-        <div class="sheet-foot">
-            <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">Снять все фильтры</a>
-        </div>
-        {% endif %}
-    </aside>
-</div>
-{% endif %}
-
 {% if items %}
-{# Ручка размера. Без скриптов останется вид по умолчанию — сетка рабочая
-   в любом случае, поэтому прятать её за скриптом нечестно, а обходиться
-   без неё можно. #}
-<div class="viewbar">
-    <label for="cols">Размер</label>
-    {# От одной до девяти. Единица нужна телефону: там от 2 до 9 всё равно
-       выходит два, а вот одна крупная карточка во всю ширину — настоящий
-       выбор. На большом экране девять упрутся в предел ширины карточки, и
-       подпись честно скажет, сколько вышло на самом деле. #}
-    <input type="range" id="cols" min="1" max="9" step="1" value="4"
-           aria-label="Сколько карточек в ряду">
-    <output id="colsout" for="cols">4 в ряд</output>
-</div>
-
 <div class="grid">
     {% for it in items %}
     <a class="card" href="/a/{{ it.id }}">

@@ -65,7 +65,18 @@
 
         {% block sidebar %}{% endblock %}
 
-        <p class="side-foot">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</p>
+        <div class="side-user">
+            {% if request.state.user_name %}
+            <p class="eyebrow">Вы</p>
+            <a class="side-item{% if nav == 'settings' %} on{% endif %}" href="/settings">
+                {{ request.state.user_name }}
+            </a>
+            <form method="post" action="/logout">
+                <button type="submit" class="side-out">Выйти</button>
+            </form>
+            {% endif %}
+            <p class="side-foot">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</p>
+        </div>
     </aside>
 
     <main class="main" id="main">

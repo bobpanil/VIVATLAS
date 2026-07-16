@@ -13,6 +13,7 @@ from skill_atlas.mcp_server import http_app as mcp_http_app
 from skill_atlas.models import Artifact, ArtifactTag, Repository, ScanRun, Tag, TagSuppression
 from skill_atlas.search import Mode
 from skill_atlas.search import search as do_search
+from skill_atlas.settings_web import router as settings_router
 from skill_atlas.tagger import add_manual_tag, remove_tag
 from skill_atlas.web import BASE
 from skill_atlas.web import router as web_router
@@ -39,6 +40,12 @@ async def require_login(request: Request, call_next):
     with session_scope() as session:
         user = auth.current_user(session, request)
         setup_needed = not auth.has_any_user(session)
+        if user is not None:
+            # Кладём простыми значениями, а не объект: сессия сейчас закроется,
+            # и объект стал бы отвязанным. Шаблонам этого хватает.
+            request.state.user_id = user.id
+            request.state.user_name = user.display_name or user.email
+            request.state.is_owner = user.is_owner
 
     if user is not None:
         return await call_next(request)
@@ -57,6 +64,7 @@ async def require_login(request: Request, call_next):
 
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 app.include_router(auth_router)
+app.include_router(settings_router)
 app.include_router(web_router)
 
 # MCP для ChatGPT. Отдельным приложением: у него свой жизненный цикл, и

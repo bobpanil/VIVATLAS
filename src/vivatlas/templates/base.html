@@ -63,9 +63,6 @@
             <a class="side-item{% if nav == 'all' %} on{% endif %}" href="/">
                 {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
             </a>
-            <a class="side-item{% if nav == 'recommend' %} on{% endif %}" href="/recommend">
-                {{ icons.ic('recommend') }}<span>Что взять?</span>
-            </a>
             <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes">
                 {{ icons.ic('changes') }}<span>Изменения</span>
             </a>
@@ -76,6 +73,9 @@
         <div class="side-user">
             {% if request.state.user_name %}
             <p class="eyebrow">Вы · {{ request.state.user_name }}</p>
+            <a class="side-item{% if nav == 'help' %} on{% endif %}" href="/help">
+                {{ icons.ic('help') }}<span>Помощь</span>
+            </a>
             <a class="side-item{% if nav == 'settings' %} on{% endif %}" href="/settings">
                 {{ icons.ic('settings') }}<span>Настройки</span>
             </a>

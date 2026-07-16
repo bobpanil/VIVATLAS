@@ -2077,3 +2077,87 @@ summary:focus-visible {
     margin-top: var(--s-xl);
 }
 
+
+/* --- помощь --------------------------------------------------------------- */
+
+.help {
+    max-width: 720px;
+}
+
+.help h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
+}
+
+.help .lede {
+    margin-bottom: var(--s-lg);
+}
+
+/* Оглавление — строка ссылок-таблеток, ведут к разделам якорями. */
+.help-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-sm);
+    margin: 0 0 var(--s-xl);
+}
+
+.help-toc a {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--body-ink);
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-full);
+    background: var(--surface-card);
+}
+
+.help-toc a:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.help .box {
+    scroll-margin-top: var(--s-lg);   /* якорь не прячется под верх */
+}
+
+.help .box h3 {
+    font-size: 17px;
+}
+
+.help-list {
+    margin: var(--s-sm) 0 0;
+    padding-left: 1.2em;
+    line-height: 1.6;
+}
+
+.help-list li {
+    margin: 6px 0;
+}
+
+.help-list b {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.help p {
+    line-height: 1.6;
+    margin: var(--s-sm) 0 0;
+}
+
+.help code {
+    background: var(--surface-soft);
+    padding: 1px 5px;
+    border-radius: var(--r-xs);
+    font-family: var(--mono);
+    font-size: 0.9em;
+}
+
+.help-foot {
+    font-size: 14px;
+    color: var(--mute);
+    margin-top: var(--s-xl);
+}

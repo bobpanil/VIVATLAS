@@ -4,6 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -23,8 +24,6 @@ from vivatlas.importer import GitHubFetcher, ImportError_, plan_import
 from vivatlas.indexer import index_repository
 from vivatlas.models import Artifact, ArtifactTag, Repository, TagSuppression, UpstreamLink
 from vivatlas.providers import build_provider
-from vivatlas.recommender import NO_MATCH_THRESHOLD
-from vivatlas.recommender import recommend as do_recommend
 from vivatlas.search import Mode, index_artifact_for_words
 from vivatlas.search import search as do_search
 from vivatlas.tagger import tag_artifact
@@ -241,37 +240,24 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
         )
 
 
-@router.get("/recommend", response_class=HTMLResponse)
-async def recommend_page(request: Request, task: str = "") -> HTMLResponse:
-    result = None
-    embedding_model = text_model = None
-    try:
-        if task.strip():
-            embedding_model = build_embedding_model()
-            text_model = build_text_model()
-            with session_scope() as session:
-                result = await do_recommend(session, task, embedding_model, text_model)
-                counts = _counts(session)
-        else:
-            with session_scope() as session:
-                counts = _counts(session)
+@router.get("/recommend")
+def recommend_redirect(task: str = "") -> RedirectResponse:
+    """«Что взять?» слит с поиском: одно окно на всё. Старую ссылку с задачей
+    уводим прямо в поиск, чтобы закладки не сломались.
 
+    Рекомендации никуда не делись — они остались для ChatGPT через MCP, где у
+    ответа есть место под объяснения. На сайте же поиск и так ранжирует по
+    смыслу, и отдельная страница только раздваивала «спросить программу»."""
+    q = f"?q={quote(task.strip())}" if task.strip() else ""
+    return RedirectResponse(f"/{q}", status_code=308)
+
+
+@router.get("/help", response_class=HTMLResponse)
+def help_page(request: Request) -> HTMLResponse:
+    with session_scope() as session:
         return templates.TemplateResponse(
-            request,
-            "recommend.html",
-            {
-                "r": result,
-                "task": task,
-                "counts": counts,
-                "threshold": NO_MATCH_THRESHOLD,
-                "nav": "recommend",
-            },
+            request, "help.html", {"counts": _counts(session), "nav": "help"}
         )
-    finally:
-        if embedding_model:
-            await embedding_model.aclose()
-        if text_model:
-            await text_model.aclose()
 
 
 @router.get("/changes", response_class=HTMLResponse)

@@ -1,5 +1,6 @@
 """Страницы для человека. API для программ живёт в api.py."""
 
+import hashlib
 import os
 import tempfile
 from pathlib import Path
@@ -32,6 +33,7 @@ from vivatlas.models import (
     UpstreamLink,
 )
 from vivatlas.providers import build_provider
+from vivatlas.scanner import get_or_create_source
 from vivatlas.search import Mode, index_artifact_for_words
 from vivatlas.search import search as do_search
 from vivatlas.tagger import tag_artifact
@@ -50,6 +52,7 @@ TYPE_NAMES = {
     "mcp-server": "MCP-сервер",
     "plugin": "плагин",
     "project": "проект",
+    "draft": "черновик",
     "unknown": "не опознан",
 }
 
@@ -322,6 +325,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "purpose": pur.detect_for(session, a.id, a.name)[0],
                 "preview_url": preview_url(a),
                 "zone": _zone(a),
+                "is_draft": a.artifact_type == "draft",
                 "counts": _counts(session, user_id),
                 "categories": flt.category_options(session, user_id),
                 "active_cat": "",
@@ -574,6 +578,75 @@ async def add_run(
         await text_model.aclose()
         await embed_model.aclose()
 
+    return _add_page(request, "done", card=card)
+
+
+def _create_draft(session, user_id, source_url: str, name: str, summary: str, heard: str) -> int:
+    """Черновик: карточка без импорта из GitHub. Когда ссылку или ролик не
+    удалось свести к репозиторию, сохраняем, что распознали, — чтобы обработать
+    потом. Живёт в отдельном источнике «Черновики», личная у создателя."""
+    src = get_or_create_source(session, "draft", "", "Черновики")
+    key = source_url or name or heard or "черновик"
+    ext = "draft-" + hashlib.md5(key.encode("utf-8")).hexdigest()[:16]  # noqa: S324
+
+    repo = session.scalar(
+        select(Repository).where(Repository.source_id == src.id, Repository.external_id == ext)
+    )
+    if repo is None:
+        repo = Repository(
+            source_id=src.id,
+            external_id=ext,
+            owner="черновик",
+            name=(name or "черновик")[:256],
+            default_branch="",
+            html_url="",
+            original_url=source_url or "",
+        )
+        session.add(repo)
+        session.flush()
+
+    art = session.scalar(select(Artifact).where(Artifact.repository_id == repo.id))
+    if art is None:
+        art = Artifact(
+            repository_id=repo.id,
+            name=(name or "черновик")[:256],
+            artifact_type="draft",
+            summary_short=summary or "",
+            doc_text=heard or "",
+            private_to_user_id=user_id,
+        )
+        session.add(art)
+        session.flush()
+    else:
+        art.name = (name or art.name)[:256]
+        art.summary_short = summary or art.summary_short
+        art.private_to_user_id = user_id
+    index_artifact_for_words(session, art)
+    return art.id
+
+
+@router.post("/add/draft")
+def add_draft(
+    request: Request,
+    source: Annotated[str, Form()] = "",
+    name: Annotated[str, Form()] = "",
+    summary: Annotated[str, Form()] = "",
+    heard: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    """Не свелось к GitHub — делаем черновик и ведём к тому же выбору зоны."""
+    user_id = getattr(request.state, "user_id", None)
+    with session_scope() as session:
+        aid = _create_draft(
+            session, user_id, source.strip(), name.strip(), summary.strip(), heard.strip()
+        )
+        art = session.get(Artifact, aid)
+        card = {
+            "id": art.id,
+            "name": art.name,
+            "owner": art.repository.owner,
+            "summary_short": art.summary_short,
+            "preview_url": preview_url(art),
+        }
     return _add_page(request, "done", card=card)
 
 

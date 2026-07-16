@@ -1550,16 +1550,17 @@ summary:focus-visible {
     width: 28px;
     height: 28px;
     padding: 0;
-    border: 0;
+    border: 1px solid var(--line-strong);   /* серая рамка */
     border-radius: var(--r-sm);
-    background: var(--primary);
-    color: var(--on-primary);
+    background: transparent;
+    color: var(--mute);   /* серый значок копирования */
     cursor: pointer;
     transition: filter 0.12s, background 0.12s;
 }
 
 .card-copy:hover {
-    filter: brightness(0.93);
+    border-color: var(--ink);
+    color: var(--ink);
 }
 
 .card-copy svg {
@@ -1578,9 +1579,8 @@ summary:focus-visible {
 
 /* После копирования — зелёная галочка на миг. */
 .card-copy.ok {
-    background: #2e7d32;
-    color: #fff;
-    filter: none;
+    border-color: var(--accent-green);
+    color: var(--accent-green);   /* на миг зелёная галочка — «скопировано» */
 }
 
 .card-copy.ok .i-link {

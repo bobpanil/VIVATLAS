@@ -81,7 +81,15 @@
     {% endfor %}
 </ul>
 {% else %}
-<p class="warn">Ничего не нашлось. Попробуйте дать ссылку на GitHub прямо.</p>
+<p class="warn">На GitHub ничего не нашлось. Можно дать ссылку на GitHub прямо —
+   или сохранить черновик и свести к репозиторию позже.</p>
+<form method="post" action="/add/draft" onsubmit="working(this)">
+    <input type="hidden" name="source" value="{{ given }}">
+    <input type="hidden" name="name" value="{{ result.tool_name or '' }}">
+    <input type="hidden" name="summary" value="{{ result.gist or '' }}">
+    <input type="hidden" name="heard" value="{{ result.heard or '' }}">
+    <button class="btn-secondary" type="submit">Создать черновик</button>
+</form>
 {% endif %}
 {% endif %}
 
@@ -154,6 +162,13 @@
     <p class="refused-line">{{ line }}</p>
     {% endif %}
 {% endfor %}
+
+<p class="lede">Не сводится к одному репозиторию? Сохраните черновик — вернётесь
+   к нему позже.</p>
+<form method="post" action="/add/draft" onsubmit="working(this)">
+    <input type="hidden" name="source" value="{{ url }}">
+    <button class="btn-secondary" type="submit">Создать черновик</button>
+</form>
 {% endif %}
 {% endblock %}
 

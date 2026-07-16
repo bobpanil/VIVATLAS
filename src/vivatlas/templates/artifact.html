@@ -108,7 +108,17 @@
 {% endblock %}
 
 {% block modal_foot %}
+{# GitHub — оригинал (откуда взяли), Gitea — своя копия. Открываются в новой
+   вкладке. У черновиков копии в Gitea ещё нет — тогда только GitHub. #}
+{% set gh = upstream.upstream_url if upstream else a.repository.original_url %}
 <footer class="modal-foot">
-    <a class="btn-secondary" href="/">Закрыть</a>
+    <a class="btn-secondary foot-left" href="/">Закрыть</a>
+    {% if gh %}
+    <a class="btn-secondary" href="{{ gh }}" target="_blank" rel="noopener">
+        {{ 'Открыть источник' if is_draft else 'Открыть в GitHub' }}</a>
+    {% endif %}
+    {% if a.repository.html_url and not is_draft %}
+    <a class="btn-secondary" href="{{ a.repository.html_url }}" target="_blank" rel="noopener">Открыть в Gitea</a>
+    {% endif %}
 </footer>
 {% endblock %}

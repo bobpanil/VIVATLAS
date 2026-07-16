@@ -96,6 +96,20 @@
 {% endif %}
 
 {% if items %}
+{# Ручка размера. Без скриптов останется вид по умолчанию — сетка рабочая
+   в любом случае, поэтому прятать её за скриптом нечестно, а обходиться
+   без неё можно. #}
+<div class="viewbar">
+    <label for="cols">Размер</label>
+    {# От одной до девяти. Единица нужна телефону: там от 2 до 9 всё равно
+       выходит два, а вот одна крупная карточка во всю ширину — настоящий
+       выбор. На большом экране девять упрутся в предел ширины карточки, и
+       подпись честно скажет, сколько вышло на самом деле. #}
+    <input type="range" id="cols" min="1" max="9" step="1" value="4"
+           aria-label="Сколько карточек в ряду">
+    <output id="colsout" for="cols">4 в ряд</output>
+</div>
+
 <div class="grid">
     {% for it in items %}
     <a class="card" href="/a/{{ it.id }}">
@@ -152,6 +166,40 @@
     <input type="file" name="file" id="pastefile">
 </form>
 <script>
+// Ручка размера карточек. Меняет вид сразу и запоминает выбор на этом
+// устройстве: настройка личная, в адрес её тащить незачем — ссылкой делятся,
+// чтобы показать находку, а не свой размер плиток.
+(function () {
+    var slider = document.getElementById('cols');
+    if (!slider) return;
+    var out = document.getElementById('colsout');
+    var grid = document.querySelector('.grid');
+
+    function apply(n, remember) {
+        document.documentElement.style.setProperty('--cols', n);
+        slider.value = n;
+        // Пишем не задуманное число, а то, что вышло: на узком экране карточка
+        // упирается в свои 140px, и в ряду их оказывается меньше. Обещать
+        // «девять», показывая три, — врать.
+        var real = n;
+        if (grid) {
+            var cs = getComputedStyle(grid).gridTemplateColumns;
+            real = cs ? cs.split(' ').length : n;
+        }
+        out.textContent = real + ' в ряд';
+        if (remember) {
+            try { localStorage.setItem('skill-atlas-cols', n); } catch (e) { /* приватный режим */ }
+        }
+    }
+
+    var saved;
+    try { saved = localStorage.getItem('skill-atlas-cols'); } catch (e) { saved = null; }
+    apply(saved || slider.value, false);
+
+    slider.addEventListener('input', function () { apply(slider.value, true); });
+    window.addEventListener('resize', function () { apply(slider.value, false); });
+})();
+
 document.addEventListener('paste', function (e) {
     var items = (e.clipboardData || {}).items || [];
     for (var i = 0; i < items.length; i++) {

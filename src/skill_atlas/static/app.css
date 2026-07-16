@@ -115,6 +115,9 @@
 
     --sidebar-w: 240px;
 
+    /* Сколько карточек в ряду. Меняется ручкой над сеткой и запоминается. */
+    --cols: 4;
+
     /* Старые имена оставлены ссылками на новые: их держат больше тысячи строк
        ниже, и переписывать каждую ради переименования — верный способ
        наделать опечаток на ровном месте. */
@@ -201,10 +204,12 @@ a {
     z-index: 30;
 }
 
+/* Во всю ширину. В наборе содержимое ограничено 1280px — но там это
+   рекламная страница с текстом, а тут витрина: лишние сантиметры экрана
+   становятся лишними карточками, а не воздухом по краям. */
 .main {
     margin-left: var(--sidebar-w);
     padding: var(--s-xl) var(--s-xl) 80px;
-    max-width: 1280px;
 }
 
 .brand {
@@ -580,11 +585,61 @@ summary:focus-visible {
 
 /* --- сетка --- */
 
+/* Сколько карточек в ряду — решает человек ручкой над сеткой.
+   Считаем ширину под нужное число колонок, но не даём карточке стать уже
+   140px: на телефоне «восемь в ряд» превратилось бы в восемь ниточек.
+   auto-fill доложит столько, сколько влезет, — поэтому на узком экране
+   ряд сам собой становится короче, без отдельных правил. */
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(max(140px, calc((100% - (var(--cols) - 1) * var(--s-lg)) / var(--cols))), 1fr)
+    );
     gap: var(--s-lg);   /* 16px — шаг сетки набора */
     padding-bottom: 48px;
+}
+
+/* --- ручка размера --------------------------------------------------------
+   Меняет вид сразу, без перезагрузки, и запоминается на этом устройстве.
+   Без скриптов останется значение по умолчанию — сетка всё равно рабочая. */
+
+.viewbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--s-md);
+    margin-bottom: var(--s-md);
+}
+
+.viewbar label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--mute);
+}
+
+.viewbar output {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--body-ink);
+    min-width: 7ch;
+}
+
+.viewbar input[type="range"] {
+    width: 160px;
+    accent-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .viewbar {
+        justify-content: space-between;
+    }
+
+    .viewbar input[type="range"] {
+        flex: 1;
+        max-width: 200px;
+    }
 }
 
 /* product-card набора: белая карточка на кремовом холсте, оливковая рамка в
@@ -1002,11 +1057,6 @@ summary:focus-visible {
     .art-side {
         position: static;
         order: -1;
-    }
-
-    .grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 10px;
     }
 
     .counts {

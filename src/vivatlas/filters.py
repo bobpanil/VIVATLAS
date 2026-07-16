@@ -31,9 +31,10 @@ class Filters:
     days: str = ""
     status: str = ""
     owner: str = ""
+    fav: str = ""
 
     def active(self) -> bool:
-        return any((self.type, self.tag, self.days, self.status, self.owner))
+        return any((self.type, self.tag, self.days, self.status, self.owner, self.fav))
 
     def as_query(self, drop: str = "", **override) -> dict:
         """Для сборки ссылок: те же фильтры, но один снят или заменён."""
@@ -43,6 +44,7 @@ class Filters:
             "days": self.days,
             "status": self.status,
             "owner": self.owner,
+            "fav": self.fav,
         }
         out.update(override)
         if drop:
@@ -64,7 +66,10 @@ class FilterGroup:
     options: list[Option] = field(default_factory=list)
 
 
-def apply(query: Select, f: Filters) -> Select:
+def apply(query: Select, f: Filters, fav_ids: set[int] | None = None) -> Select:
+    if f.fav:
+        # Избранное — личное: без известного пользователя показывать нечего.
+        query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
     if f.type:
         query = query.where(Artifact.artifact_type == f.type)
     if f.owner:

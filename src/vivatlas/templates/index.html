@@ -111,7 +111,14 @@
     {% if not link %}
     <nav class="type-pills" aria-label="Тип">
         <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
-           {% if not f.type %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+           {% if not f.type and not f.fav %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+        {# Избранное — своя пилюля: личный отбор поверх типов. #}
+        <a class="filter filter-fav{% if f.fav %} on{% endif %}"
+           href="/?{{ f.as_query(fav='' if f.fav else '1') | combine(q=q) | urlencode }}"
+           {% if f.fav %}aria-current="true"{% endif %}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/></svg>
+            избранное <b>{{ fav_count }}</b>
+        </a>
         {% for t in types %}
         {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
         {% endfor %}
@@ -164,29 +171,43 @@
             <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
             <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
 
-            {# Подвал в три части: слева цветной значок направления (раздела),
-               по центру — дата обновления (всегда), справа — «копировать
-               ссылку». Ни имени, ни автора: в узкой карточке не помещались. #}
+            {# Подвал в один ряд с сепараторами: слева цветной значок раздела,
+               по центру — дата (всегда), справа — избранное и «копировать». #}
             <div class="card-foot" data-pur="{{ it.purpose.key }}">
                 <span class="pur" title="направление: {{ it.purpose.label }}">
                     <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
                 </span>
                 <time class="when"{% if it.updated %} title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}"{% endif %}>{{ it.updated.strftime("%d.%m.%y") if it.updated else "—" }}</time>
-                {% if it.html_url %}
-                {# Значок «копировать» — две наложенные карточки, привычный знак
-                   копирования. Что копируется ссылка — в подписи и по наведению. #}
-                <button class="card-copy" type="button" data-copy="{{ it.html_url }}"
-                        aria-label="Копировать ссылку на репозиторий"
-                        title="Копировать ссылку на репозиторий">
-                    <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
-                        <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
-                        <path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/>
-                    </svg>
-                    <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
-                        <path d="M3.5 8.5l3 3 6-6.5"/>
-                    </svg>
-                </button>
-                {% endif %}
+
+                <span class="foot-actions">
+                    {# Избранное — своё у каждого. Работает и без скрипта: форма
+                       переключает и возвращает на этот же вид. #}
+                    <form class="fav-form" method="post" action="/favorite/{{ it.id }}">
+                        <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                        <button class="fav-btn{% if it.favorite %} on{% endif %}" type="submit"
+                                data-id="{{ it.id }}" aria-pressed="{{ 'true' if it.favorite else 'false' }}"
+                                aria-label="В избранное" title="В избранное">
+                            <svg viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/>
+                            </svg>
+                        </button>
+                    </form>
+                    {% if it.html_url %}
+                    <span class="foot-sep"></span>
+                    {# «Копировать» — две наложенные карточки, привычный знак. #}
+                    <button class="card-copy" type="button" data-copy="{{ it.html_url }}"
+                            aria-label="Копировать ссылку на репозиторий"
+                            title="Копировать ссылку на репозиторий">
+                        <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
+                            <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
+                            <path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/>
+                        </svg>
+                        <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M3.5 8.5l3 3 6-6.5"/>
+                        </svg>
+                    </button>
+                    {% endif %}
+                </span>
             </div>
             {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
         </div>
@@ -341,6 +362,26 @@ document.addEventListener('paste', function (e) {
         e.preventDefault();
         e.stopPropagation();
         copy(btn.getAttribute('data-copy'), btn);
+    });
+})();
+
+// Избранное: переключаем без перезагрузки. Без скрипта форма отправится сама и
+// вернётся на этот же вид (см. поле next).
+(function () {
+    document.addEventListener('submit', function (e) {
+        var form = e.target.closest ? e.target.closest('.fav-form') : null;
+        if (!form) return;
+        e.preventDefault();
+        var btn = form.querySelector('.fav-btn');
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: new FormData(form)
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!btn) return;
+            btn.classList.toggle('on', !!d.favorite);
+            btn.setAttribute('aria-pressed', d.favorite ? 'true' : 'false');
+        }).catch(function () { form.submit(); });   // не вышло — обычная отправка
     });
 })();
 </script>

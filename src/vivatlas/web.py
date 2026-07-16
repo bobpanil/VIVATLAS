@@ -7,7 +7,7 @@ from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
@@ -22,7 +22,14 @@ from vivatlas.finder import MAX_MEDIA_BYTES, Finder, looks_like_link
 from vivatlas.import_run import execute, record_upstream
 from vivatlas.importer import GitHubFetcher, ImportError_, plan_import
 from vivatlas.indexer import index_repository
-from vivatlas.models import Artifact, ArtifactTag, Repository, TagSuppression, UpstreamLink
+from vivatlas.models import (
+    Artifact,
+    ArtifactTag,
+    Favorite,
+    Repository,
+    TagSuppression,
+    UpstreamLink,
+)
 from vivatlas.providers import build_provider
 from vivatlas.search import Mode, index_artifact_for_words
 from vivatlas.search import search as do_search
@@ -114,6 +121,15 @@ def _counts(session) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse)
+def _fav_ids(session, user_id: int | None) -> set[int]:
+    """Какие карточки этот человек занёс в избранное."""
+    if user_id is None:
+        return set()
+    return set(
+        session.scalars(select(Favorite.artifact_id).where(Favorite.user_id == user_id))
+    )
+
+
 async def index(
     request: Request,
     q: str = "",
@@ -122,8 +138,9 @@ async def index(
     days: str = "",
     status: str = "",
     owner: str = "",
+    fav: str = "",
 ) -> HTMLResponse:
-    f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner)
+    f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner, fav=fav)
 
     # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
     # текста в карточках нет и быть не может. Раньше это молча возвращало
@@ -134,6 +151,8 @@ async def index(
     try:
         with session_scope() as session:
             counts = _counts(session)
+            user_id = getattr(request.state, "user_id", None)
+            fav_ids = _fav_ids(session, user_id)
 
             if link:
                 items = []
@@ -141,13 +160,15 @@ async def index(
                 # Поиск уже отобрал по смыслу — фильтры применяем к его выдаче,
                 # а не к базе: иначе порядок по близости потеряется.
                 hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
-                allowed = {a for a in session.scalars(flt.apply(select(Artifact.id), f))}
+                allowed = {a for a in session.scalars(flt.apply(select(Artifact.id), f, fav_ids))}
                 items = [
-                    _card(session, h.artifact, h.reasons) for h in hits if h.artifact.id in allowed
+                    _card(session, h.artifact, h.reasons, fav_ids)
+                    for h in hits
+                    if h.artifact.id in allowed
                 ][:60]
             else:
-                query = flt.apply(select(Artifact), f).order_by(Artifact.name)
-                items = [_card(session, a, []) for a in session.scalars(query)]
+                query = flt.apply(select(Artifact), f, fav_ids).order_by(Artifact.name)
+                items = [_card(session, a, [], fav_ids) for a in session.scalars(query)]
 
             return templates.TemplateResponse(
                 request,
@@ -157,6 +178,7 @@ async def index(
                     "q": q,
                     "f": f,
                     "counts": counts,
+                    "fav_count": len(fav_ids),
                     "types": flt.type_options(session),
                     "owners": flt.owner_options(session),
                     "tag_groups": flt.tag_groups(session),
@@ -172,7 +194,38 @@ async def index(
             await model.aclose()
 
 
-def _card(session, a: Artifact, reasons: list[str]) -> dict:
+@router.post("/favorite/{artifact_id}")
+def toggle_favorite(
+    request: Request, artifact_id: int, next: Annotated[str, Form()] = "/"
+) -> Response:
+    """Занести карточку в избранное или убрать. Избранное — личное, поэтому
+    привязано к вошедшему. Возвращает JSON для страницы, редирект — без скрипта."""
+    user_id = getattr(request.state, "user_id", None)
+    if user_id is None:
+        raise HTTPException(401, "нужно войти")
+    with session_scope() as session:
+        if session.get(Artifact, artifact_id) is None:
+            raise HTTPException(404, "карточка не найдена")
+        row = session.scalar(
+            select(Favorite).where(
+                Favorite.user_id == user_id, Favorite.artifact_id == artifact_id
+            )
+        )
+        if row is not None:
+            session.delete(row)
+            now_fav = False
+        else:
+            session.add(Favorite(user_id=user_id, artifact_id=artifact_id))
+            now_fav = True
+
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"favorite": now_fav})
+    # Без скрипта: вернуться туда, откуда пришли. Только внутренний путь.
+    dest = next if next.startswith("/") else "/"
+    return RedirectResponse(dest, status_code=303)
+
+
+def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozenset()) -> dict:
     purpose, _score = pur.detect_for(session, a.id, a.name)
     return {
         "id": a.id,
@@ -182,6 +235,7 @@ def _card(session, a: Artifact, reasons: list[str]) -> dict:
         "summary_short": a.summary_short,
         "preview_url": preview_url(a),
         "html_url": a.repository.html_url,
+        "favorite": a.id in fav_ids,
         "reasons": reasons,
         "author": author_of(session, a),
         "created": a.repository.remote_created_at,

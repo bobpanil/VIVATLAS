@@ -993,12 +993,10 @@ summary:focus-visible {
    (--pur-color), чтобы раздел читался с одного взгляда даже в узкой карточке. */
 .card-foot {
     --pur-color: var(--muted);
-    /* Три части: значок слева, дата строго по центру карточки, кнопка справа.
-       Крайние колонки равны (1fr) — дата встаёт ровно посередине. */
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 6px;
+    /* Один ряд с сепараторами: значок слева, дата по центру, действия справа. */
+    display: flex;
     align-items: center;
+    gap: 8px;
     margin-top: auto;
     padding-top: 9px;
     border-top: 1px solid var(--line);
@@ -1006,6 +1004,66 @@ summary:focus-visible {
     font-size: 11px;
     color: var(--muted);
     min-width: 0;
+}
+
+/* Действия справа: избранное и «копировать», между ними — сепаратор. */
+.foot-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+/* Тонкий вертикальный сепаратор между элементами подвала. */
+.foot-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--line-strong, #d7d8cf);
+    flex: none;
+}
+
+/* Звезда избранного. Серый контур — не в избранном, золотая заливка — в нём. */
+.fav-form {
+    margin: 0;
+    display: flex;
+}
+
+.fav-btn {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--muted);
+}
+
+.fav-btn svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+}
+
+.fav-btn:hover {
+    color: #d99a00;
+}
+
+.fav-btn.on {
+    color: #f7a501;
+}
+
+.fav-btn.on svg {
+    fill: #f7a501;
+    stroke: #f7a501;
 }
 
 .card-foot[data-pur="security"]      { --pur-color: #c0392b; }
@@ -1021,7 +1079,7 @@ summary:focus-visible {
 .pur {
     display: inline-flex;
     align-items: center;
-    justify-self: start;
+    flex: none;
 }
 
 /* Значок направления — цветной, по разделу. */
@@ -1044,7 +1102,7 @@ summary:focus-visible {
 /* Дата обновления — по центру карточки, крупнее и в цвет раздела. Не
    моноширинным: так «08.07.26» уже и помещается в самой узкой карточке. */
 .when {
-    justify-self: center;
+    margin: 0 auto;   /* по центру ряда, слева значок, справа действия */
     font-family: var(--sans);
     font-size: 13px;
     font-weight: 700;
@@ -1059,7 +1117,7 @@ summary:focus-visible {
 .card-copy {
     position: relative;
     z-index: 2;
-    justify-self: end;
+    flex: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2262,6 +2320,27 @@ summary:focus-visible {
 .type-pills .filter {
     flex: none;
     white-space: nowrap;
+}
+
+/* Пилюля «Избранное» со звездой. Выбранная — золотая звезда. */
+.filter-fav {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.filter-fav svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+}
+
+.filter-fav.on svg {
+    fill: #f7a501;
+    stroke: #f7a501;
 }
 
 .filters-btn {

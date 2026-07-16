@@ -164,31 +164,29 @@
             <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
             <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
 
-            {# Подвал компактный: слева — цветной значок направления (раздела),
-               справа — дата обновления и кнопка «копировать ссылку». Ни имени,
-               ни автора: в самой узкой карточке они всё равно не помещались. #}
+            {# Подвал в три части: слева цветной значок направления (раздела),
+               по центру — дата обновления (всегда), справа — «копировать
+               ссылку». Ни имени, ни автора: в узкой карточке не помещались. #}
             <div class="card-foot" data-pur="{{ it.purpose.key }}">
                 <span class="pur" title="направление: {{ it.purpose.label }}">
                     <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
                 </span>
-                <span class="card-foot-right">
-                    {% if it.updated %}
-                    <time class="when" title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}">{{ it.updated.strftime("%d.%m.%y") }}</time>
-                    {% endif %}
-                    {% if it.html_url %}
-                    <button class="card-copy" type="button" data-copy="{{ it.html_url }}"
-                            aria-label="Копировать ссылку на репозиторий"
-                            title="Копировать ссылку на репозиторий">
-                        <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M6.5 9.5a2.5 2.5 0 0 0 3.5 0l2-2a2.5 2.5 0 0 0-3.5-3.5l-1 1"/>
-                            <path d="M9.5 6.5a2.5 2.5 0 0 0-3.5 0l-2 2a2.5 2.5 0 0 0 3.5 3.5l1-1"/>
-                        </svg>
-                        <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M3.5 8.5l3 3 6-6.5"/>
-                        </svg>
-                    </button>
-                    {% endif %}
-                </span>
+                <time class="when"{% if it.updated %} title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}"{% endif %}>{{ it.updated.strftime("%d.%m.%y") if it.updated else "—" }}</time>
+                {% if it.html_url %}
+                {# Значок «копировать» — две наложенные карточки, привычный знак
+                   копирования. Что копируется ссылка — в подписи и по наведению. #}
+                <button class="card-copy" type="button" data-copy="{{ it.html_url }}"
+                        aria-label="Копировать ссылку на репозиторий"
+                        title="Копировать ссылку на репозиторий">
+                    <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
+                        <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
+                        <path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/>
+                    </svg>
+                    <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M3.5 8.5l3 3 6-6.5"/>
+                    </svg>
+                </button>
+                {% endif %}
             </div>
             {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
         </div>

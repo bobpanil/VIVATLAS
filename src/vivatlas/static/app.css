@@ -993,7 +993,10 @@ summary:focus-visible {
    (--pur-color), чтобы раздел читался с одного взгляда даже в узкой карточке. */
 .card-foot {
     --pur-color: var(--muted);
-    display: flex;
+    /* Три части: значок слева, дата строго по центру карточки, кнопка справа.
+       Крайние колонки равны (1fr) — дата встаёт ровно посередине. */
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     gap: 6px;
     align-items: center;
     margin-top: auto;
@@ -1018,7 +1021,7 @@ summary:focus-visible {
 .pur {
     display: inline-flex;
     align-items: center;
-    flex: none;
+    justify-self: start;
 }
 
 /* Значок направления — цветной, по разделу. */
@@ -1038,30 +1041,15 @@ summary:focus-visible {
     fill: var(--pur-color);
 }
 
-/* Дата обновления — крупнее и в цвет раздела, чтобы её было видно. Не
+/* Дата обновления — по центру карточки, крупнее и в цвет раздела. Не
    моноширинным: так «08.07.26» уже и помещается в самой узкой карточке. */
 .when {
-    margin-left: auto;
+    justify-self: center;
     font-family: var(--sans);
     font-size: 13px;
     font-weight: 700;
     color: var(--pur-color);
-    flex: none;
-    padding-left: 6px;
-}
-
-/* Правый край подвала: дата и кнопка копирования жмутся вправо вместе. */
-.card-foot-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: none;
-}
-
-.card-foot-right .when {
-    margin-left: 0;   /* правый край держит уже сам блок */
-    padding-left: 0;
+    white-space: nowrap;
 }
 
 /* Кнопка копирования ссылки. Выше растянутой ссылки по z-index — перехватывает
@@ -1071,7 +1059,7 @@ summary:focus-visible {
 .card-copy {
     position: relative;
     z-index: 2;
-    flex: none;
+    justify-self: end;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2625,8 +2613,10 @@ summary:focus-visible {
     background: transparent;
 }
 
-/* Пока окно открыто, каталог под ним не прокручивается. */
-body.modal-open {
+/* Пока окно открыто, каталог под ним не прокручивается. Класс висит на
+   корне (html) — это настоящий скроллер; место под полосу резервирует
+   скрипт (padding-right), чтобы поле карточек не дёргалось. */
+html.modal-open {
     overflow: hidden;
 }
 

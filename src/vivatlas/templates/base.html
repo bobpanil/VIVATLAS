@@ -133,30 +133,34 @@
         if (!host || !frame) return;
         if (window.self !== window.top) return;   // сами внутри рамки — не наш случай
 
-        function show(url) {
+        var root = document.documentElement;
+
+        // Блокируем прокрутку каталога, но резервируем место под исчезающую
+        // полосу прокрутки: иначе поле карточек дёргается при открытии/закрытии.
+        function lock() {
+            var sw = window.innerWidth - root.clientWidth;
+            if (sw > 0) { root.style.paddingRight = sw + 'px'; }
+            root.classList.add('modal-open');
+        }
+        function unlock() {
+            root.classList.remove('modal-open');
+            root.style.paddingRight = '';
+        }
+
+        // Открытие/закрытие — простое переключение видимости, без истории.
+        // История давала гонки, из-за которых «Закрыть» иногда не срабатывал.
+        window.openModalHost = function (url) {
             frame.src = url;
             host.classList.add('open');
             host.setAttribute('aria-hidden', 'false');
-            document.body.classList.add('modal-open');
-        }
-        function hide() {
+            lock();
+        };
+        window.closeModalHost = function (opts) {
             host.classList.remove('open');
             host.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('modal-open');
             frame.src = 'about:blank';
-        }
-
-        window.openModalHost = function (url) {
-            show(url);
-            try { history.pushState({ vivModal: url }, '', url); } catch (e) { /* ok */ }
-        };
-
-        // Закрытие: окно снимаем сразу (без зависаний), затем аккуратно
-        // возвращаем адрес каталога через историю.
-        window.closeModalHost = function (opts) {
-            hide();
-            if (opts && opts.navigate) { location.href = opts.navigate; return; }
-            if (history.state && history.state.vivModal) { history.back(); }
+            unlock();
+            if (opts && opts.navigate) { location.href = opts.navigate; }
         };
 
         // Каталог/карточка, открывшиеся внутри рамки, выносят себя наружу.
@@ -172,12 +176,6 @@
         });
 
         scrim.addEventListener('click', function () { window.closeModalHost(); });
-
-        // Кнопка «назад» браузера закрывает окно; «вперёд» — открывает снова.
-        window.addEventListener('popstate', function (e) {
-            if (e.state && e.state.vivModal) { show(e.state.vivModal); }
-            else if (host.classList.contains('open')) { hide(); }
-        });
     })();
     </script>
 

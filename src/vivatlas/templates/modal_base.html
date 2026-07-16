@@ -52,10 +52,14 @@
         if (host) {
             document.body.classList.add('inframe');
             var close = function (e) { if (e) e.preventDefault(); host(); };
-            // Тёмный фон и любые ссылки на «/» внутри карточки (закрыть, выйти) —
-            // это закрытие наложения, а не переход на каталог во всю страницу.
-            document.querySelectorAll('.modal-scrim, .modalcard a[href="/"]')
-                .forEach(function (el) { el.addEventListener('click', close); });
+            // Делегирование на весь документ: тёмный фон и любые ссылки на «/»
+            // внутри карточки (закрыть, выйти) закрывают наложение. Ловит клик
+            // надёжно, в том числе по вложенным элементам и после перерисовок.
+            document.addEventListener('click', function (e) {
+                var hit = e.target.closest
+                    ? e.target.closest('.modal-scrim, .modalcard a[href="/"]') : null;
+                if (hit) close(e);
+            });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close(e);
             });

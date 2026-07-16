@@ -628,7 +628,10 @@ summary:focus-visible {
     background: var(--surface-doc);
     border-bottom: 1px solid var(--hairline-soft);
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: var(--s-xs);
     padding: var(--s-lg);
     overflow: hidden;
 }
@@ -857,12 +860,18 @@ summary:focus-visible {
     color: var(--text);
 }
 
-.side {
+/* Боковой блок карточки. Раньше звался .side — и это имя столкнулось с
+   панелью навигации: правило шло ниже и побеждало, отчего панель на КАЖДОЙ
+   странице теряла крепление к экрану, съезжала на 74px и растягивала
+   страницу на свою высоту. Имя разведено.
+
+   74px был высотой старой липкой шапки, которой больше нет. */
+.art-side {
     position: sticky;
-    top: 74px;
+    top: var(--s-lg);
     display: flex;
     flex-direction: column;
-    gap: 22px;
+    gap: var(--s-xl);
 }
 
 .preview {
@@ -990,7 +999,7 @@ summary:focus-visible {
         gap: 24px;
     }
 
-    .side {
+    .art-side {
         position: static;
         order: -1;
     }
@@ -1254,14 +1263,6 @@ summary:focus-visible {
     white-space: nowrap;
 }
 
-/* Плитка без превью: показываем идентификатор и тип. Придумывать картинку
-   нечестно — у скиллов её просто нет, проверено: 1 из 26. */
-.thumb-text {
-    flex-direction: column;
-    justify-content: center;
-    gap: 6px;
-}
-
 .thumb-text em {
     font-family: var(--mono);
     font-style: normal;
@@ -1432,8 +1433,10 @@ summary:focus-visible {
 
 /* Выбор файла — не кнопка, а слово в тексте: путь запасной, он для тех, у
    кого картинка лежит в файлах, а не в буфере. */
-.pick {
-    color: var(--text);
+/* Раньше звалась .pick — а так же зовётся блок рекомендации на странице
+   «что взять». Два разных куска под одним именем портили друг друга. */
+.pick-file {
+    color: var(--ink);
     text-decoration: underline;
     text-underline-offset: 2px;
     cursor: pointer;

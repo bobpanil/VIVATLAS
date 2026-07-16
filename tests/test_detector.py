@@ -7,7 +7,7 @@ def d(files: dict[str, bytes]):
     return detect(read_archive(make_tar(files)))
 
 
-# --- реальные формы из git.example.com ---
+# --- реальные формы из живой Gitea ---
 
 
 def test_design_lib_repo():

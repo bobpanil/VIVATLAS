@@ -9,7 +9,7 @@ from skill_atlas.providers.base import RepoRef
 log = logging.getLogger(__name__)
 
 # Инстанс отвечает 403 на запросы без узнаваемого User-Agent — проверено на
-# git.example.com. Без этого заголовка не работает ни один запрос.
+# живой Gitea. Без этого заголовка не работает ни один запрос.
 _USER_AGENT = "Mozilla/5.0 (compatible; SkillAtlas/0.1)"
 
 _PAGE_SIZE = 50  # потолок Gitea, больше запрашивать бесполезно

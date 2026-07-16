@@ -270,3 +270,140 @@ class ScanRun(Base):
     repos_skipped_private: Mapped[int] = mapped_column(Integer, default=0)
 
     error: Mapped[str | None] = mapped_column(Text)
+
+
+# --- дверь -----------------------------------------------------------------
+#
+# Всё, что ниже, появилось ради одного: программу собираются выставить наружу
+# через туннель. До этого она стояла дома и замка ей не требовалось. Теперь
+# требуется, и здесь нет ничего "на вырост" — только то, без чего дверь не
+# дверь.
+
+
+class User(Base):
+    """Человек, который может войти.
+
+    Пароль не хранится нигде и никогда — только его хеш. Даже мы не можем
+    узнать пароль пользователя, и это не удобство, а требование: базу могут
+    украсть, и тогда украдут хеши, а не пароли.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Почта хранится в нижнем регистре: Boris@ и boris@ — один человек, и
+    # иначе на один ящик заведут два аккаунта.
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(128), default="")
+
+    password_hash: Mapped[str] = mapped_column(String(255))
+
+    # Первый вошедший становится хозяином. Хозяин решает, пускать ли других:
+    # программу ставят себе сами, и открытая регистрация по умолчанию означала
+    # бы, что любой прохожий заводит аккаунт в чужом каталоге.
+    is_owner: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+    # Двухэтапная проверка. Секрет здесь лежит зашифрованным: он равносилен
+    # второму паролю, и в открытом виде обесценивает всю затею.
+    totp_secret_enc: Mapped[str] = mapped_column(String(512), default="")
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Последний принятый код. Один и тот же код живёт 30 секунд, и без этой
+    # отметки подсмотренный код можно ввести второй раз в то же окно.
+    totp_last_code: Mapped[str] = mapped_column(String(16), default="")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Защита от перебора. Считаем неудачи и запираем на время.
+    failed_logins: Mapped[int] = mapped_column(default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    backup_codes: Mapped[list["BackupCode"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserSession(Base):
+    """Открытая сессия — то, что делает вход входом.
+
+    Держим в базе, а не только в подписанной куке: иначе «выйти на всех
+    устройствах» невозможно в принципе — подписанную куку не отозвать.
+
+    В базе лежит хеш ключа, а не сам ключ. Кто украдёт базу, не получит
+    готовых пропусков.
+    """
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+
+    # Для страницы «где я вошёл»: человек должен видеть чужой вход.
+    user_agent: Mapped[str] = mapped_column(String(256), default="")
+    ip: Mapped[str] = mapped_column(String(64), default="")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped["User"] = relationship(back_populates="sessions")
+
+
+class BackupCode(Base):
+    """Код восстановления — на случай потери телефона.
+
+    Хранится хешем. Показывается человеку ровно один раз, при выдаче: если
+    код можно подсмотреть в базе или на странице позже, он не защита.
+
+    Одноразовый: использованный помечается и больше не подходит.
+    """
+
+    __tablename__ = "backup_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(255))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    user: Mapped["User"] = relationship(back_populates="backup_codes")
+
+
+class Invite(Base):
+    """Приглашение. Хозяин зовёт, а не всякий заходит сам."""
+
+    __tablename__ = "invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(320), default="")  # пусто — для кого угодно
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    used_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class Setting(Base):
+    """Настройки программы, которые меняет хозяин из интерфейса.
+
+    Не в .env: .env читается при запуске, а эти вещи меняются на ходу и
+    переживают перезапуск.
+    """
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )

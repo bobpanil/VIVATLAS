@@ -22,13 +22,12 @@
             <div class="searchbox">
                 <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
                        placeholder="Найдите инструмент, опишите задачу или вставьте ссылку"
-                       aria-label="Поиск инструмента или ссылка"
-                       title="Ищет по смыслу: русский запрос находит английский инструмент. Ссылку на GitHub, сайт или рилс — разбирает. Скриншот из буфера — тоже.">
+                       aria-label="Поиск инструмента или ссылка">
                 {# Подробное описание — по наведению, чтобы не занимать место постоянно. #}
-                <p class="search-tip" role="tooltip">Ищет по смыслу — русский запрос находит
-                   англоязычный инструмент. Опишите задачу словами («оформить лендинг как
-                   Airbnb») или вставьте ссылку на GitHub, сайт или рилс — разберём.
-                   Скриншот из буфера примем здесь же.</p>
+                <p class="search-tip" role="tooltip">Ищет по смыслу, а не по совпадению букв —
+                   язык запроса не обязан совпадать с названием. Впишите название, опишите
+                   задачу словами («оформить лендинг как Airbnb») или вставьте ссылку на
+                   GitHub, сайт или рилс — разберём. Скриншот из буфера примем здесь же.</p>
             </div>
             {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
             {# Мягкая, а не жёлтая: жёлтая на всю программу одна, и она за
@@ -148,7 +147,11 @@
 {% if items %}
 <div class="grid">
     {% for it in items %}
-    <a class="card" href="/a/{{ it.id }}">
+    {# Карточка — не ссылка целиком, а контейнер: так внутри могут жить свои
+       кнопки (копировать ссылку). За переход отвечает растянутый .card-link. #}
+    <div class="card">
+        <a class="card-link" href="/a/{{ it.id }}"
+           aria-label="{{ it.owner }}/{{ it.name }} — открыть карточку"></a>
         {% if it.preview_url %}
         <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
         {% else %}
@@ -162,7 +165,8 @@
             <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
 
             {# Подвал: для чего, кто сделал, когда трогали. Всё настоящее —
-               автор берётся из источника, дата из коммита. Не знаем — молчим. #}
+               автор берётся из источника, дата из коммита. Не знаем — молчим.
+               Справа — копировать ссылку на репозиторий, не открывая карточку. #}
             <div class="card-foot">
                 <span class="pur" title="направление: {{ it.purpose.label }}">
                     <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
@@ -172,13 +176,28 @@
                 <span class="dot">·</span>
                 <span class="auth" title="автор оригинала">{{ it.author }}</span>
                 {% endif %}
-                {% if it.updated %}
-                <time class="when" title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}">{{ it.updated.strftime("%d.%m.%y") }}</time>
-                {% endif %}
+                <span class="card-foot-right">
+                    {% if it.updated %}
+                    <time class="when" title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}">{{ it.updated.strftime("%d.%m.%y") }}</time>
+                    {% endif %}
+                    {% if it.html_url %}
+                    <button class="card-copy" type="button" data-copy="{{ it.html_url }}"
+                            aria-label="Копировать ссылку на репозиторий"
+                            title="Копировать ссылку на репозиторий">
+                        <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M6.5 9.5a2.5 2.5 0 0 0 3.5 0l2-2a2.5 2.5 0 0 0-3.5-3.5l-1 1"/>
+                            <path d="M9.5 6.5a2.5 2.5 0 0 0-3.5 0l-2 2a2.5 2.5 0 0 0 3.5 3.5l1-1"/>
+                        </svg>
+                        <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M3.5 8.5l3 3 6-6.5"/>
+                        </svg>
+                    </button>
+                    {% endif %}
+                </span>
             </div>
             {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
         </div>
-    </a>
+    </div>
     {% endfor %}
 </div>
 {% elif not link %}
@@ -291,5 +310,45 @@ document.addEventListener('paste', function (e) {
         return;
     }
 });
+
+// Копировать ссылку на репозиторий прямо из карточки — чтобы вставить её,
+// например, в Claude Code, не открывая карточку ради адреса.
+(function () {
+    function flash(btn) {
+        btn.classList.add('ok');
+        var t = btn.getAttribute('title');
+        btn.setAttribute('title', 'Скопировано');
+        setTimeout(function () {
+            btn.classList.remove('ok');
+            btn.setAttribute('title', t);
+        }, 1200);
+    }
+    function copy(text, btn) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { flash(btn); },
+                function () { fallback(text, btn); });
+        } else {
+            fallback(text, btn);
+        }
+    }
+    function fallback(text, btn) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); flash(btn); } catch (e) { /* не вышло */ }
+        document.body.removeChild(ta);
+    }
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.card-copy') : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        copy(btn.getAttribute('data-copy'), btn);
+    });
+})();
 </script>
 {% endblock %}

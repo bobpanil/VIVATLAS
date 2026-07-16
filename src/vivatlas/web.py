@@ -181,6 +181,7 @@ def _card(session, a: Artifact, reasons: list[str]) -> dict:
         "type": a.artifact_type,
         "summary_short": a.summary_short,
         "preview_url": preview_url(a),
+        "html_url": a.repository.html_url,
         "reasons": reasons,
         "author": author_of(session, a),
         "created": a.repository.remote_created_at,

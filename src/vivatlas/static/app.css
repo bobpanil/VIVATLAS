@@ -887,6 +887,7 @@ summary:focus-visible {
    волос, 6px. Теней нет — набор их прямо запрещает, глубину тут даёт
    контраст белого с кремовым, а не подложенная тень. */
 .card {
+    position: relative;   /* якорь для растянутой ссылки и своих кнопок */
     background: var(--surface-card);
     border: 1px solid var(--hairline);
     border-radius: var(--r-md);
@@ -899,6 +900,16 @@ summary:focus-visible {
 
 .card:hover {
     border-color: var(--ink);
+}
+
+/* Растянутая ссылка: покрывает карточку и уводит на её страницу. Свои кнопки
+   (копировать) сидят выше по z-index и перехватывают клик у себя. */
+.card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    text-decoration: none;
 }
 
 .thumb {
@@ -1031,6 +1042,72 @@ summary:focus-visible {
     color: var(--faint);
     flex: none;
     padding-left: 6px;
+}
+
+/* Правый край подвала: дата и кнопка копирования жмутся вправо вместе. */
+.card-foot-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+}
+
+.card-foot-right .when {
+    margin-left: 0;   /* правый край держит уже сам блок */
+    padding-left: 0;
+}
+
+/* Кнопка копирования ссылки. Выше растянутой ссылки по z-index — перехватывает
+   свой клик, не открывая карточку. */
+.card-copy {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-card);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.card-copy:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.card-copy svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.card-copy .i-ok {
+    display: none;
+}
+
+/* После копирования — зелёная галочка на миг. */
+.card-copy.ok {
+    border-color: var(--accent-green, #2e7d32);
+    color: var(--accent-green, #2e7d32);
+}
+
+.card-copy.ok .i-link {
+    display: none;
+}
+
+.card-copy.ok .i-ok {
+    display: block;
 }
 
 .why {
@@ -2367,7 +2444,9 @@ summary:focus-visible {
 
 .usermenu {
     position: fixed;
-    top: 12px;
+    /* По центру ряда кнопок: шапка отступает сверху на --s-lg, кнопки высотой
+       44px → их центр на --s-lg + 22px; аватарка (38px) встаёт центром туда. */
+    top: calc(var(--s-lg) + 3px);
     right: 16px;
     z-index: 60;
 }

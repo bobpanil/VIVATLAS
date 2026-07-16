@@ -2,14 +2,14 @@
 
 {% block title %}Настройки — VivAtlas{% endblock %}
 {% block modal_title %}{% if step == 'qr' %}Привяжите приложение{% elif step == 'codes' %}{% if fresh %}Проверка включена{% else %}Новые коды восстановления{% endif %}{% else %}Настройки{% endif %}{% endblock %}
-{% block modal_help %}Двухэтажная проверка: при входе спросим код из приложения. Коды восстановления — на случай потери телефона.{% endblock %}
+{% block modal_help %}Двухэтапная проверка: при входе спросим код из приложения. Коды восстановления — на случай потери телефона.{% endblock %}
 
 {% block modal_body %}
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
 {% if step == 'security' %}
 <div class="box">
-    <h3>Двухэтажная проверка</h3>
+    <h3>Двухэтапная проверка</h3>
     {% if totp_on %}
     <p class="set-on">Включена. При входе спросим код из приложения.</p>
     <p class="legend">Кодов восстановления осталось: {{ backup_left }} из 10.
@@ -31,6 +31,21 @@
        меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.</p>
     <form method="post" action="/settings/2fa/start" id="enableform"></form>
     {% endif %}
+</div>
+
+{# Язык интерфейса. Программа рассчитана на тех, кто читает по-английски;
+   интерфейс переводим на три языка. Переключение появится, когда перевод
+   будет готов, — пока показываем, к чему идём. #}
+<div class="box">
+    <h3>Язык интерфейса</h3>
+    <p class="legend">Программа рассчитана на тех, кто читает по-английски. Интерфейс
+       переводим на три языка.</p>
+    <nav class="filters" aria-label="Язык интерфейса">
+        <span class="filter" aria-current="true">Русский</span>
+        <span class="filter">English</span>
+        <span class="filter" dir="rtl">עברית</span>
+    </nav>
+    <p class="legend">Переключение появится, когда перевод будет готов.</p>
 </div>
 {% endif %}
 

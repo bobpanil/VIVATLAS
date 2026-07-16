@@ -90,6 +90,12 @@ class Artifact(Base):
     confidence: Mapped[float] = mapped_column(default=0.0)
     detect_reasons: Mapped[str] = mapped_column(Text, default="")
 
+    # Своя категория-папка, если карточку туда положили. Пусто — лежит только
+    # под своим типом (автокатегорией). При удалении категории обнуляется.
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL")
+    )
+
     anchor_path: Mapped[str | None] = mapped_column(String(512))
     preview_path: Mapped[str | None] = mapped_column(String(512))
     doc_text: Mapped[str] = mapped_column(Text, default="")
@@ -407,6 +413,19 @@ class Setting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
     )
+
+
+class Category(Base):
+    """Категория-папка для каталога. Общая: владелец раскладывает инструменты,
+    и все видят один порядок. Автокатегории (типы) сюда не пишутся — они и так
+    есть у каждой карточки; здесь только свои, заведённые руками."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class Favorite(Base):

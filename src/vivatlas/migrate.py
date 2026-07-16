@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "artifacts": {
         "file_paths": "TEXT DEFAULT ''",
+        "category_id": "INTEGER",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",

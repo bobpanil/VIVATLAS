@@ -9,14 +9,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
+from sqlalchemy import func, select
 
 from vivatlas import auth, security, twofactor
+from vivatlas import filters as flt
 from vivatlas.db import session_scope
-from vivatlas.models import User
+from vivatlas.models import Category, User
 from vivatlas.web import _counts
 
 log = logging.getLogger(__name__)
@@ -49,7 +51,39 @@ def settings_page(request: Request) -> HTMLResponse:
             me=me,
             totp_on=bool(me.totp_enabled_at),
             backup_left=twofactor.unused_backup_count(me),
+            categories=flt.category_options(session),
         )
+
+
+# --- категории-папки (общие, раскладывает владелец) ------------------------
+
+
+@router.post("/settings/categories", response_class=HTMLResponse)
+def category_create(request: Request, name: Annotated[str, Form()] = "") -> RedirectResponse:
+    with session_scope() as session:
+        me = _me(session, request)
+        if not me.is_owner:
+            raise HTTPException(403, "заводить категории может владелец")
+        name = name.strip()
+        if name:
+            exists = session.scalar(select(Category).where(Category.name == name))
+            if exists is None:
+                pos = session.scalar(select(func.max(Category.position))) or 0
+                session.add(Category(name=name[:128], position=pos + 1))
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/categories/{cat_id}/delete", response_class=HTMLResponse)
+def category_delete(request: Request, cat_id: int) -> RedirectResponse:
+    with session_scope() as session:
+        me = _me(session, request)
+        if not me.is_owner:
+            raise HTTPException(403, "удалять категории может владелец")
+        cat = session.get(Category, cat_id)
+        if cat is not None:
+            # Карточки не трогаем — их category_id обнулится по ondelete=SET NULL.
+            session.delete(cat)
+    return RedirectResponse("/settings", status_code=303)
 
 
 # --- включение: показать QR ------------------------------------------------

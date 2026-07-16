@@ -156,8 +156,8 @@
     {% for it in items %}
     {# Карточка — не ссылка целиком, а контейнер: так внутри могут жить свои
        кнопки (копировать ссылку). За переход отвечает растянутый .card-link. #}
-    <div class="card">
-        <a class="card-link" href="/a/{{ it.id }}"
+    <div class="card" draggable="true" data-id="{{ it.id }}">
+        <a class="card-link" href="/a/{{ it.id }}" draggable="false"
            aria-label="{{ it.owner }}/{{ it.name }} — открыть карточку"></a>
         {% if it.preview_url %}
         <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
@@ -362,6 +362,68 @@ document.addEventListener('paste', function (e) {
         e.preventDefault();
         e.stopPropagation();
         copy(btn.getAttribute('data-copy'), btn);
+    });
+})();
+
+// Перетаскивание карточки в категорию-папку сайдбара. Тянем карточку, наводим
+// на «Все инструменты» — список раскрывается, бросаем на папку — карточка туда
+// ложится. Раскладывать может владелец; иначе сервер ответит отказом.
+(function () {
+    var dragId = null;
+    var sideCat = document.getElementById('side-cat');
+
+    document.addEventListener('dragstart', function (e) {
+        var card = e.target.closest ? e.target.closest('.card') : null;
+        if (!card) return;
+        dragId = card.getAttribute('data-id');
+        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); } catch (x) {}
+        card.classList.add('dragging');
+    });
+    document.addEventListener('dragend', function (e) {
+        var card = e.target.closest ? e.target.closest('.card') : null;
+        if (card) card.classList.remove('dragging');
+        dragId = null;
+        var lit = document.querySelectorAll('.side-drop.drag-over');
+        for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
+    });
+
+    // Наведение на «Все инструменты» при перетаскивании — раскрыть список папок.
+    if (sideCat) {
+        var summary = sideCat.querySelector('summary');
+        if (summary) {
+            summary.addEventListener('dragover', function (e) {
+                if (dragId) { e.preventDefault(); sideCat.open = true; }
+            });
+        }
+    }
+
+    document.addEventListener('dragover', function (e) {
+        var drop = e.target.closest ? e.target.closest('.side-drop') : null;
+        if (drop && dragId) {
+            e.preventDefault();
+            try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
+            drop.classList.add('drag-over');
+        }
+    });
+    document.addEventListener('dragleave', function (e) {
+        var drop = e.target.closest ? e.target.closest('.side-drop') : null;
+        if (drop) drop.classList.remove('drag-over');
+    });
+    document.addEventListener('drop', function (e) {
+        var drop = e.target.closest ? e.target.closest('.side-drop') : null;
+        if (!drop || !dragId) return;
+        e.preventDefault();
+        var id = dragId, cat = drop.getAttribute('data-cat');
+        drop.classList.remove('drag-over');
+        var body = new FormData();
+        body.append('cat', cat);
+        fetch('/artifact/' + id + '/category', {
+            method: 'POST', headers: { 'Accept': 'application/json' }, body: body
+        }).then(function (r) {
+            if (!r.ok) throw new Error('отказ');
+            return r.json();
+        }).then(function () { location.reload(); })
+          .catch(function () { alert('Не удалось положить карточку в категорию.'); });
     });
 })();
 

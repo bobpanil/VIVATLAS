@@ -25,6 +25,7 @@ from vivatlas.indexer import index_repository
 from vivatlas.models import (
     Artifact,
     ArtifactTag,
+    Category,
     Favorite,
     Repository,
     TagSuppression,
@@ -139,8 +140,9 @@ async def index(
     status: str = "",
     owner: str = "",
     fav: str = "",
+    cat: str = "",
 ) -> HTMLResponse:
-    f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner, fav=fav)
+    f = flt.Filters(type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat)
 
     # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
     # текста в карточках нет и быть не может. Раньше это молча возвращало
@@ -180,6 +182,7 @@ async def index(
                     "counts": counts,
                     "fav_count": len(fav_ids),
                     "types": flt.type_options(session),
+                    "categories": flt.category_options(session),
                     "owners": flt.owner_options(session),
                     "tag_groups": flt.tag_groups(session),
                     "periods": flt.period_options(session),
@@ -291,8 +294,37 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "purpose": pur.detect_for(session, a.id, a.name)[0],
                 "preview_url": preview_url(a),
                 "counts": _counts(session),
+                "types": flt.type_options(session),
+                "categories": flt.category_options(session),
             },
         )
+
+
+@router.post("/artifact/{artifact_id}/category")
+def set_category(
+    request: Request,
+    artifact_id: int,
+    cat: Annotated[str, Form()] = "",
+    next: Annotated[str, Form()] = "/",
+) -> Response:
+    """Положить карточку в категорию-папку (или вынуть, если cat пуст).
+    Категории общие — раскладывает владелец."""
+    if not getattr(request.state, "is_owner", False):
+        raise HTTPException(403, "раскладывать по категориям может владелец")
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None:
+            raise HTTPException(404, "карточка не найдена")
+        if cat and cat.isdigit() and session.get(Category, int(cat)) is not None:
+            art.category_id = int(cat)
+        else:
+            art.category_id = None
+        new_cat = art.category_id
+
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "cat": new_cat})
+    dest = next if next.startswith("/") else "/"
+    return RedirectResponse(dest, status_code=303)
 
 
 @router.get("/recommend")

@@ -448,6 +448,126 @@ a {
     margin: var(--s-xl) 0 0;
 }
 
+/* Развёртка «Все инструменты»: типы и свои категории-папки. */
+.side-cat {
+    margin: 0;
+}
+
+.side-cat > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.side-cat > summary::-webkit-details-marker {
+    display: none;
+}
+
+.cat-caret {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: #7d7a68;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    margin-left: 4px;
+    transition: transform 0.15s;
+}
+
+.side-cat[open] > summary .cat-caret {
+    transform: rotate(180deg);
+}
+
+.cat-list {
+    margin: 2px 0 var(--s-sm);
+    padding-left: 12px;
+    border-left: 1px solid var(--panel-line);
+    margin-left: 12px;
+}
+
+.side-sub {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    font-size: 13px;
+    color: var(--panel-text);
+    text-decoration: none;
+    padding: 5px 10px;
+    margin: 0 -10px 0 0;
+    border-radius: var(--r-sm);
+}
+
+.side-sub > :first-child {
+    flex: 1;
+}
+
+.side-sub b {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8a8672;
+}
+
+.side-sub:hover {
+    background: #141a2b;
+    color: var(--panel-bright);
+}
+
+.side-sub-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7d7a68;
+    margin: var(--s-sm) 0 2px;
+}
+
+.side-sub-hint {
+    font-size: 12px;
+    color: #7d7a68;
+    margin: 2px 0;
+}
+
+.side-sub-hint a {
+    color: var(--primary);
+}
+
+/* Цель перетаскивания: подсвечиваем папку, когда над ней тащат карточку. */
+.side-drop.drag-over {
+    background: #232c44;
+    color: var(--panel-bright);
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Управление категориями в настройках: список с удалением. */
+.cat-manage {
+    list-style: none;
+    margin: 0 0 var(--s-md);
+    padding: 0;
+}
+
+.cat-manage li {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hairline-soft);
+}
+
+.cat-manage-name {
+    flex: 1;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.cat-manage-count {
+    font-size: 12px;
+    color: var(--mute);
+}
+
+.cat-manage form {
+    margin: 0;
+}
+
 .topbar,
 .scrim {
     display: none;
@@ -900,6 +1020,11 @@ summary:focus-visible {
 
 .card:hover {
     border-color: var(--ink);
+}
+
+/* Пока карточку тащат — она бледнеет, чтобы было видно, что «взяли». */
+.card.dragging {
+    opacity: 0.5;
 }
 
 /* Растянутая ссылка: покрывает карточку и уводит на её страницу. Свои кнопки

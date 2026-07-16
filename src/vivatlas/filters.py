@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from vivatlas.models import Artifact, ArtifactTag, Repository, Tag, UpstreamLink
+from vivatlas.models import Artifact, ArtifactTag, Category, Repository, Tag, UpstreamLink
 
 # Порядок важен: сначала то, чем пользуются чаще.
 CATEGORY_ORDER = ["назначение", "платформа", "язык", "формат", "запуск", "тип", "прочее"]
@@ -32,9 +32,10 @@ class Filters:
     status: str = ""
     owner: str = ""
     fav: str = ""
+    cat: str = ""
 
     def active(self) -> bool:
-        return any((self.type, self.tag, self.days, self.status, self.owner, self.fav))
+        return any((self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat))
 
     def as_query(self, drop: str = "", **override) -> dict:
         """Для сборки ссылок: те же фильтры, но один снят или заменён."""
@@ -45,6 +46,7 @@ class Filters:
             "status": self.status,
             "owner": self.owner,
             "fav": self.fav,
+            "cat": self.cat,
         }
         out.update(override)
         if drop:
@@ -70,6 +72,8 @@ def apply(query: Select, f: Filters, fav_ids: set[int] | None = None) -> Select:
     if f.fav:
         # Избранное — личное: без известного пользователя показывать нечего.
         query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
+    if f.cat and f.cat.isdigit():
+        query = query.where(Artifact.category_id == int(f.cat))
     if f.type:
         query = query.where(Artifact.artifact_type == f.type)
     if f.owner:
@@ -119,6 +123,20 @@ def tag_groups(session: Session, limit_per_group: int = 8) -> list[FilterGroup]:
             continue
         groups.append(FilterGroup(key=category, title=category, options=options[:limit_per_group]))
     return groups
+
+
+def category_options(session: Session) -> list[Option]:
+    """Свои категории-папки со счётчиком. Показываем все, включая пустые:
+    в пустую надо иметь возможность перетащить первую карточку."""
+    counts = dict(
+        session.execute(
+            select(Artifact.category_id, func.count())
+            .where(Artifact.category_id.is_not(None))
+            .group_by(Artifact.category_id)
+        ).all()
+    )
+    cats = session.scalars(select(Category).order_by(Category.position, Category.name)).all()
+    return [Option(str(c.id), c.name, counts.get(c.id, 0)) for c in cats]
 
 
 def type_options(session: Session) -> list[Option]:

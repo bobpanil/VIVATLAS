@@ -73,9 +73,35 @@
 
         <nav class="side-nav" aria-label="Разделы">
             <p class="eyebrow">{{ icons.ic('catalog') }}Каталог</p>
-            <a class="side-item{% if nav == 'all' %} on{% endif %}" href="/">
-                {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
-            </a>
+
+            {# «Все инструменты» разворачивается: сверху — типы (автокатегории,
+               как пилюли), ниже — свои категории-папки. В папку можно перетащить
+               карточку из каталога. Без скрипта раскрыто по галочке details. #}
+            <details class="side-cat" id="side-cat" open>
+                <summary class="side-item{% if nav == 'all' %} on{% endif %}">
+                    {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
+                    <svg class="cat-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 6l3 3 3-3"/></svg>
+                </summary>
+                <div class="cat-list">
+                    <a class="side-sub" href="/">Показать все <b>{{ counts.artifacts }}</b></a>
+
+                    {% if types %}
+                    <p class="side-sub-eyebrow">Типы</p>
+                    {% for t in types %}
+                    <a class="side-sub" href="/?type={{ t.value }}">{{ type_name(t.value) }} <b>{{ t.count }}</b></a>
+                    {% endfor %}
+                    {% endif %}
+
+                    <p class="side-sub-eyebrow">Категории</p>
+                    {% for c in categories %}
+                    <a class="side-sub side-drop" data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{{ c.label }} <b>{{ c.count }}</b></a>
+                    {% endfor %}
+                    {% if not categories %}
+                    <p class="side-sub-hint">Пусто. Завести — в <a href="/settings" data-modal>настройках</a>.</p>
+                    {% endif %}
+                </div>
+            </details>
+
             <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal>
                 {{ icons.ic('changes') }}<span>Изменения</span>
             </a>

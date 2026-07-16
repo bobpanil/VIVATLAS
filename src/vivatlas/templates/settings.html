@@ -36,6 +36,35 @@
 {# Язык интерфейса. Программа рассчитана на тех, кто читает по-английски;
    интерфейс переводим на три языка. Переключение появится, когда перевод
    будет готов, — пока показываем, к чему идём. #}
+{# Категории-папки. Общие: владелец раскладывает каталог, все видят один
+   порядок. Карточки раскладываются перетаскиванием в сайдбаре. #}
+<div class="box">
+    <h3>Категории</h3>
+    <p class="legend">Свои папки для каталога. В сайдбаре «Все инструменты»
+       разворачивается на типы и эти папки. Карточку кладут перетаскиванием.</p>
+
+    {% if categories %}
+    <ul class="cat-manage">
+        {% for c in categories %}
+        <li>
+            <span class="cat-manage-name">{{ c.label }}</span>
+            <span class="cat-manage-count">{{ c.count }}</span>
+            <form method="post" action="/settings/categories/{{ c.value }}/delete">
+                <button class="btn-secondary" type="submit"
+                        title="Удалить категорию (карточки останутся, только выйдут из папки)">Удалить</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="post" action="/settings/categories" class="set-row">
+        <input type="text" name="name" placeholder="Название новой категории"
+               aria-label="Название категории" maxlength="128" required>
+        <button class="btn-secondary" type="submit">Завести</button>
+    </form>
+</div>
+
 <div class="box">
     <h3>Язык интерфейса</h3>
     <p class="legend">Программа рассчитана на тех, кто читает по-английски. Интерфейс

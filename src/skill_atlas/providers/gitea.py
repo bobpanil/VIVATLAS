@@ -163,6 +163,48 @@ class GiteaProvider:
         response = await self._client.delete(f"/repos/{owner}/{name}")
         response.raise_for_status()
 
+    async def org_exists(self, org: str) -> bool:
+        response = await self._client.get(f"/orgs/{org}")
+        if response.status_code == 404:
+            return False
+        response.raise_for_status()
+        return True
+
+    async def create_org(self, org: str) -> dict:
+        """Организация под владельца с GitHub.
+
+        Идемпотентно: если уже есть — возвращаем её, а не падаем. Перенос
+        может продолжиться после сбоя, и половина организаций уже создана.
+        """
+        if await self.org_exists(org):
+            response = await self._client.get(f"/orgs/{org}")
+            response.raise_for_status()
+            return response.json()
+        response = await self._client.post("/orgs", json={"username": org})
+        response.raise_for_status()
+        return response.json()
+
+    async def rename_repo(self, owner: str, name: str, new_name: str) -> None:
+        """Сменить имя в пределах того же владельца."""
+        if name == new_name:
+            return
+        response = await self._client.patch(f"/repos/{owner}/{name}", json={"name": new_name})
+        response.raise_for_status()
+
+    async def transfer_repo(self, owner: str, name: str, new_owner: str) -> None:
+        """Передать репозиторий другому владельцу, имя сохраняя.
+
+        Токен админский — передача проходит сразу, без подтверждения со
+        стороны получателя. 202 значит «принято».
+        """
+        if owner == new_owner:
+            return
+        response = await self._client.post(
+            f"/repos/{owner}/{name}/transfer", json={"new_owner": new_owner}
+        )
+        if response.status_code not in (200, 202):
+            response.raise_for_status()
+
 
 def _to_repo_ref(item: dict) -> RepoRef:
     return RepoRef(

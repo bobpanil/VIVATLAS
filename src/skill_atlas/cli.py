@@ -7,6 +7,7 @@ import typer
 from sqlalchemy import select
 
 from skill_atlas import changes as ch
+from skill_atlas import remap
 from skill_atlas.ai import build_embedding_model, build_text_model
 from skill_atlas.config import settings
 from skill_atlas.db import engine, session_scope
@@ -254,6 +255,75 @@ def import_cmd(
             await provider.aclose()
             await text_model.aclose()
             await embed_model.aclose()
+
+    asyncio.run(_run())
+
+
+@app.command("remap")
+def remap_cmd(
+    yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
+    limit: int = typer.Option(0, help="Перенести не больше стольких (0 — все). Для проверки."),
+) -> None:
+    """Переименовать репозитории по правилу «путь как на GitHub».
+
+    Без --yes только показывает, что переедет и куда. Ничего не трогает.
+
+    Переносит по одному и останавливается на первой же ошибке: половина
+    переноса — это состояние, из которого видно, где встали.
+    """
+
+    async def _run() -> None:
+        with session_scope() as session:
+            plan = remap.compute_plan(session)
+
+            typer.echo("")
+            typer.echo(f"  Переименовать : {len(plan.changes)}")
+            typer.echo(f"  Не трогать    : {len(plan.unchanged)} (источник не записан)")
+            typer.echo(f"  Уже по правилу: {len(plan.already)}")
+            if plan.new_orgs:
+                typer.echo(f"  Создать организации: {', '.join(plan.new_orgs)}")
+
+            typer.echo("")
+            shown = plan.changes if yes else plan.changes[:12]
+            for item in shown:
+                typer.echo(f"    {item.old_full}  ->  {item.new_full}")
+            if not yes and len(plan.changes) > 12:
+                typer.echo(f"    ... ещё {len(plan.changes) - 12}")
+
+            if not plan.changes:
+                typer.echo("\n  Переносить нечего.")
+                return
+
+            if not yes:
+                typer.echo("")
+                typer.echo("  Ничего не сделано. Повторите с --yes, чтобы выполнить.")
+                return
+
+            if not settings.gitea_token:
+                typer.echo("\n  Нет GITEA_TOKEN — писать нечем.")
+                raise typer.Exit(1)
+
+            provider = build_provider("gitea")
+            items = plan.changes[:limit] if limit else plan.changes
+            done = 0
+            try:
+                for i, item in enumerate(items, 1):
+                    try:
+                        await remap.apply_item(session, provider, item, settings.gitea_url)
+                        session.commit()
+                        done += 1
+                        typer.echo(f"  [{i}/{len(items)}] {item.old_full} -> {item.new_full}")
+                    except Exception as exc:
+                        session.rollback()
+                        typer.echo("")
+                        typer.echo(f"  ОСТАНОВКА на {item.old_full}: {exc}")
+                        typer.echo(f"  Перенесено успешно: {done}. Остальные не тронуты.")
+                        raise typer.Exit(1) from None
+            finally:
+                await provider.aclose()
+
+            typer.echo("")
+            typer.echo(f"  Готово: перенесено {done}.")
 
     asyncio.run(_run())
 

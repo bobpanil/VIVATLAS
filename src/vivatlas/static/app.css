@@ -251,18 +251,33 @@ a {
 .logo-tagline {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin: 10px 0 0;
-    font-size: 9px;
+    justify-content: center;
+    gap: 0.45em;
+    margin: 12px 0 0;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--panel-text);
+    color: var(--panel-bright);
 }
 
 .logo-tagline i {
     font-style: normal;
     color: var(--primary);
+}
+
+/* Сепаратор и большой отступ: кнопка и разделы отодвинуты от логотипа. */
+.side-sep {
+    border: 0;
+    border-top: 1px solid var(--panel-line);
+    margin: var(--s-xl) 0 var(--s-xl);
+}
+
+/* Иконки разделов. Красятся цветом текста рядом. */
+.ic {
+    width: 16px;
+    height: 16px;
+    flex: none;
 }
 
 /* Во всю ширину. В наборе содержимое ограничено 1280px — но там это
@@ -318,15 +333,42 @@ a {
     margin-bottom: var(--s-xl);
 }
 
+/* Подзаголовок группы фильтров: мельче раздела, с иконкой. */
+.fgroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #7d7a68;
+    margin: var(--s-lg) 0 var(--s-sm);
+}
+
+.fgroup .ic {
+    width: 13px;
+    height: 13px;
+    color: var(--mute);
+}
+
 /* Заголовок раздела панели. Верхний регистр набор разрешает только тут и в
    подписях — больше нигде. */
 .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     font-size: 12px;
     font-weight: 700;
     line-height: 1.33;
     text-transform: uppercase;
     color: var(--mute);
     margin: var(--s-xl) 0 var(--s-sm);
+}
+
+.eyebrow .ic {
+    width: 14px;
+    height: 14px;
 }
 
 /* На тёмной панели оливковый #565342 читается плохо — подписи там светлее. */
@@ -341,39 +383,58 @@ a {
 .side-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--s-sm);
     font-size: 14px;
     font-weight: 500;
     line-height: 1.43;
     color: var(--panel-text);
     text-decoration: none;
-    padding: 7px 10px;
+    padding: 8px 10px;
     margin: 0 -10px;
     border-radius: var(--r-sm);
-    min-height: 34px;
+    min-height: 36px;
+}
+
+.side-item > span {
+    flex: 1;   /* текст тянется, счётчик уезжает вправо */
+}
+
+.side-item .ic {
+    color: var(--mute);   /* иконка тусклее текста, пока пункт не активен */
 }
 
 .side-item:hover {
-    background: #131727;
+    background: #141a2b;
     color: var(--panel-bright);
 }
 
-/* Выбранный пункт подсвечен заливкой, как активная вкладка в наборе: там
-   белая карточка отрывается от кремового холста, тут светлая от чёрного.
-   Приём тот же — выделяем фоном, а не краской текста. */
-.side-item.on {
-    background: #161b2c;
+.side-item:hover .ic {
+    color: var(--panel-text);
+}
+
+/* Активный пункт должен быть ВИДНО. Прежний тёмный #161b2c почти сливался с
+   фоном. Теперь: заметно светлее подложка, оранжевая полоса слева и яркий
+   жирный текст. Полоса — через inset-тень, чтобы не дёргать отступы. */
+.side-item.on,
+.side-item.on:hover {
+    background: #232c44;
     color: var(--panel-bright);
     font-weight: 600;
-    border: 1px solid var(--panel-line);
-    padding: 6px 9px;
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.side-item.on .ic {
+    color: var(--primary);
 }
 
 .side-item b {
     font-size: 12px;
     font-weight: 600;
-    color: #7d7a68;
+    color: #8a8672;
+}
+
+.side-item.on b {
+    color: var(--panel-bright);
 }
 
 .side-foot {
@@ -2013,20 +2074,3 @@ summary:focus-visible {
     margin-top: var(--s-xl);
 }
 
-.side-out {
-    background: none;
-    border: 0;
-    color: var(--panel-text);
-    font-size: 13px;
-    cursor: pointer;
-    padding: 6px 10px;
-    margin: 2px -10px 0;
-    border-radius: var(--r-sm);
-    text-align: left;
-    width: calc(100% + 20px);
-}
-
-.side-out:hover {
-    background: #131727;
-    color: var(--panel-bright);
-}

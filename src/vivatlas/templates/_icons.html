@@ -1,0 +1,28 @@
+{# Иконки разделов панели. Один набор, зовётся макросом ic('имя').
+   16×16, обводка currentColor — красятся цветом текста рядом. #}
+{% macro ic(name) -%}
+<svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"
+     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if name == 'catalog' -%}
+<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
+{%- elif name == 'all' -%}
+<path d="M8 1.8 2 5v6l6 3.2L14 11V5z"/><path d="M2 5l6 3.2L14 5"/><path d="M8 8.2V14.4"/>
+{%- elif name == 'recommend' -%}
+<circle cx="8" cy="8" r="6"/><path d="M10.6 5.4 6.9 6.9 5.4 10.6 9.1 9.1z"/>
+{%- elif name == 'changes' -%}
+<path d="M2.5 8a5.5 5.5 0 1 1 1.6 3.9"/><path d="M2.2 12.4 2.5 9l3.4.3"/><path d="M8 5.2V8l2 1.3"/>
+{%- elif name == 'filter' -%}
+<path d="M2.5 3h11l-4.3 5v4l-2.4 1.3V8z"/>
+{%- elif name == 'type' -%}
+<path d="M8.6 2H3v5.6l6.4 6.4a1.4 1.4 0 0 0 2 0l3.6-3.6a1.4 1.4 0 0 0 0-2z"/><circle cx="5.6" cy="5" r="0.9" fill="currentColor" stroke="none"/>
+{%- elif name == 'source' -%}
+<circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="6" r="1.8"/><path d="M4 5.8v4.4"/><path d="M4 8h4a3 3 0 0 0 3-3"/>
+{%- elif name == 'updated' -%}
+<circle cx="8" cy="8.5" r="5.5"/><path d="M8 5.5v3l2 1.3"/><path d="M8 1.2v1.6M5.5 1.5l.6 1.4"/>
+{%- elif name == 'settings' -%}
+<circle cx="8" cy="8" r="2.3"/><path d="M8 1.5v1.7M8 12.8v1.7M14.5 8h-1.7M3.2 8H1.5M12.6 3.4l-1.2 1.2M4.6 11.4l-1.2 1.2M12.6 12.6l-1.2-1.2M4.6 4.6 3.4 3.4"/>
+{%- elif name == 'logout' -%}
+<path d="M6 2H3v12h3"/><path d="M10 4.5 13.5 8 10 11.5"/><path d="M13.5 8H6"/>
+{%- endif -%}
+</svg>
+{%- endmacro %}

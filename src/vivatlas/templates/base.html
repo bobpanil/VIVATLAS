@@ -1,4 +1,4 @@
-<!doctype html>
+{% import "_icons.html" as icons %}<!doctype html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
@@ -38,9 +38,7 @@
     <label class="scrim" for="navt" aria-hidden="true"></label>
 
     <aside class="side">
-        {# Логотип столбиком по центру: значок, под ним слово VivAtlas, под ним
-           девиз во всю ширину панели. Девиз — живым текстом: в картинке при
-           такой ширине он стал бы нечитаемой полоской. #}
+        {# Логотип столбиком по центру: значок, слово, девиз. #}
         <a class="logo" href="/">
             <img class="logo-mark" src="/static/logo-mark.webp" width="166" height="220"
                  alt="VivAtlas — на главную">
@@ -50,21 +48,27 @@
             <span>Organize</span><i>·</i><span>Connect</span><i>·</i><span>Empower</span>
         </div>
 
-        {# Единственная жёлтая кнопка во всей программе. Набор требует: не
-           больше одной на экран, и только на главное действие. На самой
-           странице добавления её нет: там жёлтая — кнопка записи, а две
-           жёлтых на экране набор запрещает прямо. #}
+        {# Сепаратор и большой отступ: кнопка и разделы отодвинуты вниз, чтобы
+           визуально отделиться от логотипа. #}
+        <hr class="side-sep">
+
+        {# Единственная жёлтая кнопка во всей программе — только на главное
+           действие. На странице добавления её нет: там жёлтая — кнопка записи. #}
         {% if nav != 'add' %}
         <a class="cta side-cta" href="/add">Добавить инструмент</a>
         {% endif %}
 
         <nav class="side-nav" aria-label="Разделы">
-            <p class="eyebrow">Каталог</p>
+            <p class="eyebrow">{{ icons.ic('catalog') }}Каталог</p>
             <a class="side-item{% if nav == 'all' %} on{% endif %}" href="/">
-                Все инструменты <b>{{ counts.artifacts }}</b>
+                {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
             </a>
-            <a class="side-item{% if nav == 'recommend' %} on{% endif %}" href="/recommend">Что взять?</a>
-            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes">Изменения</a>
+            <a class="side-item{% if nav == 'recommend' %} on{% endif %}" href="/recommend">
+                {{ icons.ic('recommend') }}<span>Что взять?</span>
+            </a>
+            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes">
+                {{ icons.ic('changes') }}<span>Изменения</span>
+            </a>
         </nav>
 
         {% block sidebar %}{% endblock %}
@@ -73,11 +77,8 @@
             {% if request.state.user_name %}
             <p class="eyebrow">Вы · {{ request.state.user_name }}</p>
             <a class="side-item{% if nav == 'settings' %} on{% endif %}" href="/settings">
-                Настройки
+                {{ icons.ic('settings') }}<span>Настройки</span>
             </a>
-            <form method="post" action="/logout">
-                <button type="submit" class="side-out">Выйти</button>
-            </form>
             {% endif %}
             <p class="side-foot">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</p>
         </div>

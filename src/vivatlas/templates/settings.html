@@ -74,5 +74,17 @@
         <p class="note"><a class="cta" href="/settings">Я сохранил, дальше</a></p>
     </div>
     {% endif %}
+
+    {# Выход перенесён сюда из панели: там он мозолил глаза, а нужен редко. #}
+    {% if step == 'security' %}
+    <div class="box">
+        <h3>Выход</h3>
+        <p class="legend">Закроет эту сессию на этом устройстве. Войти снова — по паролю
+           {% if totp_on %}и коду{% endif %}.</p>
+        <form method="post" action="/logout">
+            <button class="btn-secondary" type="submit">Выйти из VivAtlas</button>
+        </form>
+    </div>
+    {% endif %}
 </section>
 {% endblock %}

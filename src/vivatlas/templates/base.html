@@ -14,6 +14,19 @@
     <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
+    {# Если обычная страница (каталог, карточка) открылась внутри окна-рамки —
+       например, после импорта «Тащить», который уводит на карточку, — вынесем
+       её адрес на всю вкладку и закроем наложение. #}
+    <script>
+    if (window.self !== window.top) {
+        try {
+            if (window.parent && window.parent.absorbModalNav) {
+                window.parent.absorbModalNav(window.location.href);
+            }
+        } catch (e) { /* чужая рамка — не наше дело */ }
+    }
+    </script>
+
     <a class="skip" href="#main">К содержимому</a>
 
     {# Выдвижная панель на галочке, а не на скрипте: панель — это навигация,
@@ -32,7 +45,7 @@
         <a class="logo logo-sm" href="/">
             <img src="/static/logo-dark.webp" width="640" height="197" alt="VivAtlas">
         </a>
-        {% if nav != 'add' %}<a class="cta cta-sm" href="/add">Добавить</a>{% endif %}
+        {% if nav != 'add' %}<a class="cta cta-sm" href="/add" data-modal>Добавить</a>{% endif %}
     </header>
 
     <label class="scrim" for="navt" aria-hidden="true"></label>
@@ -55,7 +68,7 @@
         {# Единственная жёлтая кнопка во всей программе — только на главное
            действие. На странице добавления её нет: там жёлтая — кнопка записи. #}
         {% if nav != 'add' %}
-        <a class="cta side-cta" href="/add">Добавить инструмент</a>
+        <a class="cta side-cta" href="/add" data-modal>Добавить инструмент</a>
         {% endif %}
 
         <nav class="side-nav" aria-label="Разделы">
@@ -63,7 +76,7 @@
             <a class="side-item{% if nav == 'all' %} on{% endif %}" href="/">
                 {{ icons.ic('all') }}<span>Все инструменты</span><b>{{ counts.artifacts }}</b>
             </a>
-            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes">
+            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal>
                 {{ icons.ic('changes') }}<span>Изменения</span>
             </a>
         </nav>
@@ -72,10 +85,10 @@
 
         <div class="side-user">
             {% if request.state.user_name %}
-            <a class="side-item{% if nav == 'help' %} on{% endif %}" href="/help">
+            <a class="side-item{% if nav == 'help' %} on{% endif %}" href="/help" data-modal>
                 {{ icons.ic('help') }}<span>Помощь</span>
             </a>
-            <a class="side-item{% if nav == 'settings' %} on{% endif %}" href="/settings">
+            <a class="side-item{% if nav == 'settings' %} on{% endif %}" href="/settings" data-modal>
                 {{ icons.ic('settings') }}<span>Настройки</span>
             </a>
             {% endif %}
@@ -92,7 +105,7 @@
                 aria-label="Аккаунт: {{ request.state.user_name }}">{{ request.state.user_initials }}</button>
         <div class="usermenu-pop" id="usermenu-pop" hidden role="menu">
             <p class="usermenu-name">{{ request.state.user_name }}</p>
-            <a class="usermenu-item" href="/settings" role="menuitem">{{ icons.ic('settings') }}<span>Настройки</span></a>
+            <a class="usermenu-item" href="/settings" role="menuitem" data-modal>{{ icons.ic('settings') }}<span>Настройки</span></a>
             <form method="post" action="/logout">
                 <button class="usermenu-item" type="submit" role="menuitem">{{ icons.ic('logout') }}<span>Выйти</span></button>
             </form>
@@ -103,6 +116,69 @@
     <main class="main" id="main">
         {% block content %}{% endblock %}
     </main>
+
+    {# Наложение: окно поверх каталога. Модалка грузится в рамку над затемняющим
+       слоем — каталог остаётся виден сзади. Ссылки помечены data-modal; без
+       скрипта они просто открывают ту же модалку отдельной страницей. #}
+    <div class="modalhost" id="modalhost" aria-hidden="true">
+        <div class="modalhost-scrim" id="modalhost-scrim"></div>
+        <iframe class="modalframe" id="modalframe" title="Окно" src="about:blank"></iframe>
+    </div>
+
+    <script>
+    (function () {
+        var host = document.getElementById('modalhost');
+        var frame = document.getElementById('modalframe');
+        var scrim = document.getElementById('modalhost-scrim');
+        if (!host || !frame) return;
+        if (window.self !== window.top) return;   // сами внутри рамки — не наш случай
+
+        function show(url) {
+            frame.src = url;
+            host.classList.add('open');
+            host.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+        }
+        function hide() {
+            host.classList.remove('open');
+            host.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('modal-open');
+            frame.src = 'about:blank';
+        }
+
+        window.openModalHost = function (url) {
+            show(url);
+            try { history.pushState({ vivModal: url }, '', url); } catch (e) { /* ok */ }
+        };
+
+        // Закрытие: снимаем окно и возвращаем адрес каталога через историю.
+        window.closeModalHost = function (opts) {
+            if (opts && opts.navigate) { hide(); location.href = opts.navigate; return; }
+            if (history.state && history.state.vivModal) { history.back(); }
+            else { hide(); }
+        };
+
+        // Каталог/карточка, открывшиеся внутри рамки, выносят себя наружу.
+        window.absorbModalNav = function (url) { window.closeModalHost({ navigate: url }); };
+
+        // Клик по помеченной ссылке — открыть в наложении, а не переходить.
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest ? e.target.closest('a[data-modal]') : null;
+            if (!a) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // новая вкладка — не мешаем
+            e.preventDefault();
+            window.openModalHost(a.getAttribute('href'));
+        });
+
+        scrim.addEventListener('click', function () { window.closeModalHost(); });
+
+        // Кнопка «назад» браузера закрывает окно; «вперёд» — открывает снова.
+        window.addEventListener('popstate', function (e) {
+            if (e.state && e.state.vivModal) { show(e.state.vivModal); }
+            else if (host.classList.contains('open')) { hide(); }
+        });
+    })();
+    </script>
 
     {% if request.state.user_name %}
     <script>

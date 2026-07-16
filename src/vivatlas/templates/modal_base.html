@@ -29,10 +29,31 @@
     </div>
 
     <script>
-    // Закрыть по Esc — как ждут от модалки.
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') window.location = {{ (close_href | default('/')) | tojson }};
-    });
+    (function () {
+        // Внутри наложения (рамки) окно принадлежит родителю: крестик, тёмный
+        // фон, «Закрыть/Выйти» и Esc закрывают наложение, а не переходят на
+        // отдельную страницу. Иначе (прямой заход по адресу) — как прежде.
+        var host = null;
+        try {
+            if (window.self !== window.top && window.parent && window.parent.closeModalHost) {
+                host = window.parent.closeModalHost;
+            }
+        } catch (e) { host = null; }
+
+        if (host) {
+            document.body.classList.add('inframe');
+            var close = function (e) { if (e) e.preventDefault(); host(); };
+            document.querySelectorAll('.modal-close, .modal-scrim, .modal-foot a[href="/"]')
+                .forEach(function (el) { el.addEventListener('click', close); });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') close(e);
+            });
+        } else {
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') window.location = {{ (close_href | default('/')) | tojson }};
+            });
+        }
+    })();
     </script>
     {% block scripts %}{% endblock %}
 </body>

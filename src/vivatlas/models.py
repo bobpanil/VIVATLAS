@@ -40,6 +40,11 @@ class Source(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
+    # Токен доступа к частному источнику — зашифрован (как секрет 2FA). У общих
+    # источников пусто: они ходят под общими ключами из .env. В открытом виде не
+    # хранится нигде: украдут базу — украдут шифртекст, а не токен.
+    token_enc: Mapped[str] = mapped_column(String(512), default="")
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     repositories: Mapped[list["Repository"]] = relationship(back_populates="source")

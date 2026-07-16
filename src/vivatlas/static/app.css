@@ -669,6 +669,102 @@ a {
     margin: 0;
 }
 
+/* Свои репозитории в настройках: список + форма подключения. */
+.src-manage {
+    list-style: none;
+    margin: 0 0 var(--s-md);
+    padding: 0;
+}
+
+.src-manage li {
+    display: flex;
+    align-items: center;
+    gap: var(--s-md);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline-soft);
+}
+
+.src-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.src-name {
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.src-kind {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mute);
+    background: var(--surface-soft);
+    padding: 1px 7px;
+    border-radius: var(--r-full);
+    margin-left: 4px;
+}
+
+.src-url {
+    font-size: 12px;
+    color: var(--mute);
+    word-break: break-all;
+}
+
+.src-token {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--body-ink);
+}
+
+.src-notoken {
+    font-family: var(--sans);
+    color: var(--accent-red, #a32d2d);
+}
+
+.src-manage form {
+    margin: 0;
+    flex: none;
+}
+
+.src-add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-sm);
+}
+
+.src-add-row {
+    display: flex;
+    gap: var(--s-sm);
+}
+
+.src-add select {
+    flex: none;
+}
+
+.src-add input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.src-add input,
+.src-add select {
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 8px 10px;
+    min-height: 38px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+}
+
+.src-add button {
+    align-self: flex-start;
+}
+
 .topbar,
 .scrim {
     display: none;

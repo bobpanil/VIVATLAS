@@ -18,8 +18,11 @@ from sqlalchemy import func, select
 from vivatlas import auth, security, twofactor
 from vivatlas import filters as flt
 from vivatlas.db import session_scope
-from vivatlas.models import Category, User
+from vivatlas.models import Category, Source, User
 from vivatlas.web import _counts
+
+# Какие хостинги можно подключить своим источником. Значение — как в scanner.
+SOURCE_KINDS = [("github", "GitHub"), ("gitea", "Gitea")]
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +33,27 @@ router = APIRouter()
 
 def _me(session, request: Request) -> User | None:
     return auth.current_user(session, request)
+
+
+def _my_sources(session, user_id: int) -> list[dict]:
+    """Свои частные источники. Токен наружу — только замаскированным."""
+    rows = session.scalars(
+        select(Source).where(Source.owner_user_id == user_id).order_by(Source.created_at)
+    ).all()
+    kinds = dict(SOURCE_KINDS)
+    return [
+        {
+            "id": s.id,
+            "kind": kinds.get(s.kind, s.kind),
+            "display_name": s.display_name,
+            "base_url": s.base_url,
+            "has_token": bool(s.token_enc),
+            "token_mask": security.mask_secret(security.decrypt_secret(s.token_enc))
+            if s.token_enc
+            else "",
+        }
+        for s in rows
+    ]
 
 
 def _page(request: Request, session, step: str, **extra) -> HTMLResponse:
@@ -52,6 +76,8 @@ def settings_page(request: Request) -> HTMLResponse:
             totp_on=bool(me.totp_enabled_at),
             backup_left=twofactor.unused_backup_count(me),
             categories=flt.category_options(session),
+            my_sources=_my_sources(session, me.id),
+            source_kinds=SOURCE_KINDS,
         )
 
 
@@ -83,6 +109,49 @@ def category_delete(request: Request, cat_id: int) -> RedirectResponse:
         if cat is not None:
             # Карточки не трогаем — их category_id обнулится по ondelete=SET NULL.
             session.delete(cat)
+    return RedirectResponse("/settings", status_code=303)
+
+
+# --- свои репозитории (частная зона) ---------------------------------------
+# У каждого свои источники с токеном. Токен вводит сам человек и только он —
+# программа его не набирает и не подставляет; на сервере он ложится
+# зашифрованным и наружу выходит лишь замаскированным.
+
+
+@router.post("/settings/sources", response_class=HTMLResponse)
+def source_create(
+    request: Request,
+    kind: Annotated[str, Form()] = "",
+    display_name: Annotated[str, Form()] = "",
+    base_url: Annotated[str, Form()] = "",
+    token: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    with session_scope() as session:
+        me = _me(session, request)
+        kinds = {k for k, _ in SOURCE_KINDS}
+        base_url = base_url.strip()
+        if kind in kinds and base_url:
+            session.add(
+                Source(
+                    kind=kind,
+                    display_name=(display_name.strip() or base_url)[:128],
+                    base_url=base_url[:512],
+                    owner_user_id=me.id,
+                    token_enc=security.encrypt_secret(token.strip()) if token.strip() else "",
+                    enabled=True,
+                )
+            )
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/sources/{source_id}/delete", response_class=HTMLResponse)
+def source_delete(request: Request, source_id: int) -> RedirectResponse:
+    with session_scope() as session:
+        me = _me(session, request)
+        src = session.get(Source, source_id)
+        # Удалить можно только свой источник — и только общий трогать нельзя.
+        if src is not None and src.owner_user_id == me.id:
+            session.delete(src)
     return RedirectResponse("/settings", status_code=303)
 
 

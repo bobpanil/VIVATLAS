@@ -65,6 +65,53 @@
     </form>
 </div>
 
+{# Свои репозитории — частная зона. Токен вводит и хранит человек; программа
+   его не набирает. На сервере он лежит зашифрованным. #}
+<div class="box">
+    <h3>Свои репозитории</h3>
+    <p class="legend">Подключите свои GitHub или Gitea с токеном — их инструменты
+       лягут в вашу частную зону (замок в подвале), видную только вам. Токенов
+       можно сколько угодно. Токен вводите вы; мы храним его зашифрованным и
+       показываем только замаскированным.</p>
+
+    {% if my_sources %}
+    <ul class="src-manage">
+        {% for s in my_sources %}
+        <li>
+            <div class="src-main">
+                <span class="src-name">{{ s.display_name }} <span class="src-kind">{{ s.kind }}</span></span>
+                <span class="src-url">{{ s.base_url }}</span>
+                {% if s.has_token %}<span class="src-token">токен: {{ s.token_mask }}</span>
+                {% else %}<span class="src-token src-notoken">без токена</span>{% endif %}
+            </div>
+            <form method="post" action="/settings/sources/{{ s.id }}/delete">
+                <button class="btn-secondary" type="submit">Удалить</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="post" action="/settings/sources" class="src-add">
+        <div class="src-add-row">
+            <select name="kind" aria-label="Хостинг">
+                {% for value, label in source_kinds %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="display_name" placeholder="Название (для себя)"
+                   aria-label="Название источника" maxlength="128">
+        </div>
+        <input type="url" name="base_url" placeholder="Адрес, напр. https://github.com/ваш-логин"
+               aria-label="Адрес источника" required>
+        <input type="password" name="token" placeholder="Токен доступа (вводите сами)"
+               aria-label="Токен доступа" autocomplete="off" spellcheck="false">
+        <p class="note">Сканирование частных источников подключим следующим шагом —
+           пока источник просто сохраняется.</p>
+        <button class="btn-secondary" type="submit">Подключить</button>
+    </form>
+</div>
+
 <div class="box">
     <h3>Язык интерфейса</h3>
     <p class="legend">Программа рассчитана на тех, кто читает по-английски. Интерфейс

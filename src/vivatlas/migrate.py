@@ -27,6 +27,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     },
     "sources": {
         "owner_user_id": "INTEGER",
+        "token_enc": "VARCHAR(512) DEFAULT ''",
     },
 }
 

@@ -559,7 +559,8 @@ a {
    рамка синеет и утолщается — это описано в наборе как text-input-focused. */
 
 .searchbar {
-    padding: 0 0 var(--s-xl);
+    padding: 0 54px 0 0;   /* справа место под аватарку в углу */
+    margin-bottom: var(--s-xl);
 }
 
 .searchform {
@@ -2278,5 +2279,112 @@ summary:focus-visible {
 
     body.sheet-open {
         overflow: hidden;
+    }
+}
+
+/* Сепараторы между группами фильтров в шторке — линией цвета иконок. */
+.sheet-body .fgroup + .fgroup,
+.sheet-body .filters + .fgroup {
+    border-top: 1px solid var(--hairline);
+    padding-top: var(--s-md);
+    margin-top: var(--s-md);
+}
+
+/* --- аватарка в правом верхнем углу ---------------------------------------
+   Имя переехало сюда из панели: кружок с инициалами, по нажатию — меню. */
+
+.usermenu {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 60;
+}
+
+.avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--ink);
+    color: var(--on-dark);
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar:hover {
+    background: var(--charcoal);
+}
+
+.usermenu-pop {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 200px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.25);
+    padding: 6px;
+}
+
+.usermenu-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    padding: 6px 10px 8px;
+    margin: 0;
+    border-bottom: 1px solid var(--hairline-soft);
+}
+
+.usermenu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--body-ink);
+    text-decoration: none;
+    padding: 8px 10px;
+    border: 0;
+    background: none;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    text-align: left;
+}
+
+.usermenu-item:hover {
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
+.usermenu-item .ic {
+    width: 16px;
+    height: 16px;
+    color: var(--mute);
+}
+
+.usermenu form {
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    /* На телефоне место справа занято кнопкой «Добавить»; аккаунт — через
+       меню-бургер (Настройки внизу). Аватарку прячем, чтобы не налезала. */
+    .usermenu {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Аватарки на телефоне нет — правый отступ под неё не нужен. */
+    .searchbar {
+        padding-right: 0;
     }
 }

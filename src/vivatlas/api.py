@@ -44,8 +44,14 @@ async def require_login(request: Request, call_next):
             # Кладём простыми значениями, а не объект: сессия сейчас закроется,
             # и объект стал бы отвязанным. Шаблонам этого хватает.
             request.state.user_id = user.id
-            request.state.user_name = user.display_name or user.email
+            name = user.display_name or user.email
+            request.state.user_name = name
             request.state.is_owner = user.is_owner
+            # Инициалы для аватарки: по первым буквам слов имени, максимум две.
+            parts = [p for p in name.replace(".", " ").split() if p]
+            request.state.user_initials = (
+                "".join(p[0] for p in parts[:2]).upper() or name[0].upper()
+            )
 
     if user is not None:
         return await call_next(request)

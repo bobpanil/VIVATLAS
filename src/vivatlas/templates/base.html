@@ -72,7 +72,6 @@
 
         <div class="side-user">
             {% if request.state.user_name %}
-            <p class="eyebrow">Вы · {{ request.state.user_name }}</p>
             <a class="side-item{% if nav == 'help' %} on{% endif %}" href="/help">
                 {{ icons.ic('help') }}<span>Помощь</span>
             </a>
@@ -84,8 +83,48 @@
         </div>
     </aside>
 
+    {# Аватарка в правом верхнем углу. Имя переехало сюда из панели: кружок с
+       инициалами, по нажатию — меню с именем, настройками и выходом. #}
+    {% if request.state.user_name %}
+    <div class="usermenu">
+        <button class="avatar" id="avatar-btn" type="button" aria-haspopup="menu"
+                aria-expanded="false" title="{{ request.state.user_name }}"
+                aria-label="Аккаунт: {{ request.state.user_name }}">{{ request.state.user_initials }}</button>
+        <div class="usermenu-pop" id="usermenu-pop" hidden role="menu">
+            <p class="usermenu-name">{{ request.state.user_name }}</p>
+            <a class="usermenu-item" href="/settings" role="menuitem">{{ icons.ic('settings') }}<span>Настройки</span></a>
+            <form method="post" action="/logout">
+                <button class="usermenu-item" type="submit" role="menuitem">{{ icons.ic('logout') }}<span>Выйти</span></button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
     <main class="main" id="main">
         {% block content %}{% endblock %}
     </main>
+
+    {% if request.state.user_name %}
+    <script>
+    // Меню аватарки: имя, настройки, выход. Закрывается по клику вне, по Esc.
+    (function () {
+        var btn = document.getElementById('avatar-btn');
+        var pop = document.getElementById('usermenu-pop');
+        if (!btn || !pop) return;
+        function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            pop.hidden = !pop.hidden;
+            btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+        });
+        document.addEventListener('click', function (e) {
+            if (!pop.hidden && !pop.contains(e.target)) close();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>

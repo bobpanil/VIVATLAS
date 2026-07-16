@@ -105,6 +105,23 @@ def totp_confirm(request: Request, code: Annotated[str, Form()] = "") -> HTMLRes
         # восстановления: без них потеря телефона запирает снаружи навсегда.
         me.totp_enabled_at = datetime.now(UTC)
         codes = twofactor.make_backup_codes(session, me)
+        user_id = me.id
+
+        # Делаем запись прочной ПРЯМО СЕЙЧАС, до того как что-то рисуем: если
+        # включение не переживёт этот момент, человек не должен увидеть коды,
+        # которых в базе нет.
+        session.commit()
+
+        # Самопроверка отдельной сессией: правда ли включение легло в базу.
+        # Была жалоба, что после сохранения кодов проверка отключалась — эта
+        # строчка в журнале скажет точно, дошла запись или откатилась.
+        with session_scope() as check:
+            stuck = check.get(User, user_id)
+            if stuck and stuck.totp_enabled_at is not None:
+                log.info("2FA включена и записана: пользователь %s", user_id)
+            else:
+                log.error("2FA НЕ записалась после подтверждения: пользователь %s", user_id)
+
         return _page(request, session, "codes", codes=codes, fresh=True)
 
 

@@ -147,7 +147,13 @@ def current_user(session: Session, request: Request) -> User | None:
     )
     if row is None or row.revoked_at is not None or _aware(row.expires_at) <= _now():
         return None
-    row.last_seen_at = _now()
+    # «Последний раз видели» обновляем не чаще раза в пару минут. Иначе каждый
+    # показ любой страницы становился записью в базу, а SQLite пускает одного
+    # писателя разом — это лишняя запись на ровном месте и лишний повод для
+    # блокировок. Для «где я вошёл» минутная точность и не нужна.
+    seen = _aware(row.last_seen_at)
+    if seen is None or (_now() - seen) > timedelta(minutes=2):
+        row.last_seen_at = _now()
     user = session.get(User, row.user_id)
     if user is None or not user.is_active:
         return None

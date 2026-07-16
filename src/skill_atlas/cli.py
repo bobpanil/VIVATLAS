@@ -541,6 +541,20 @@ def serve(
             typer.echo(f"    с телефона         : http://{ip}:{port}")
         typer.echo("")
         typer.echo("  Телефон должен быть в той же сети.")
+
+    # Журнал самой программы (не уборщик запросов uvicorn) — в файл. По нему
+    # видно, что происходит внутри: включилась ли 2FA, откатилась ли запись.
+    import pathlib
+
+    logdir = pathlib.Path("logs")
+    logdir.mkdir(exist_ok=True)
+    handler = logging.FileHandler(logdir / f"serve-{port}.log", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    app_log = logging.getLogger("skill_atlas")
+    app_log.addHandler(handler)
+    app_log.setLevel(logging.INFO)
+    typer.echo(f"  Журнал: logs/serve-{port}.log")
+
     typer.echo("")
     uvicorn.run("skill_atlas.api:app", host=host, port=port, log_level="warning")
 

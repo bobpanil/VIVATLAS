@@ -18,6 +18,10 @@ def _sqlite_pragmas(dbapi_connection, _record) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
+        # Ждать освобождения базы, а не падать с «database is locked». SQLite
+        # пускает одного писателя разом; при двух серверах на одном файле без
+        # ожидания второй писатель сразу получал бы отказ. 5 секунд с запасом.
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
 

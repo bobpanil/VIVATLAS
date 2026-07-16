@@ -444,4 +444,4 @@ async def add_run(
         await text_model.aclose()
         await embed_model.aclose()
 
-    return RedirectResponse(f"/artifact/{artifact_id}", status_code=303)
+    return RedirectResponse(f"/a/{artifact_id}", status_code=303)

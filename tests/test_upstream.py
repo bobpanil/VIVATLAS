@@ -1,8 +1,8 @@
 import io
 import tarfile
 
-from skill_atlas.archive import read_archive
-from skill_atlas.upstream import (
+from vivatlas.archive import read_archive
+from vivatlas.upstream import (
     decide_status,
     detect_from_mirror,
     detect_from_readme,

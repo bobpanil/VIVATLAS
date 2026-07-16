@@ -1,4 +1,4 @@
-from skill_atlas.config import Settings
+from vivatlas.config import Settings
 
 
 def make(**kw) -> Settings:

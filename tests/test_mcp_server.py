@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from skill_atlas import mcp_server
-from skill_atlas.models import Artifact, ArtifactTag, Repository, Source, Tag
+from vivatlas import mcp_server
+from vivatlas.models import Artifact, ArtifactTag, Repository, Source, Tag
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
-from skill_atlas.archive import read_archive
-from skill_atlas.detector import detect
 from tests.test_archive import make_tar
+from vivatlas.archive import read_archive
+from vivatlas.detector import detect
 
 
 def d(files: dict[str, bytes]):

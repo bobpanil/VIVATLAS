@@ -1,8 +1,8 @@
 import pytest
 
-from skill_atlas import auth, security, twofactor
-from skill_atlas.config import settings
-from skill_atlas.models import User
+from vivatlas import auth, security, twofactor
+from vivatlas.config import settings
+from vivatlas.models import User
 
 
 @pytest.fixture

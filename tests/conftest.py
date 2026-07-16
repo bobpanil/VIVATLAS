@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from skill_atlas.migrate import create_fts_table
-from skill_atlas.models import Base
+from vivatlas.migrate import create_fts_table
+from vivatlas.models import Base
 
 
 @pytest.fixture

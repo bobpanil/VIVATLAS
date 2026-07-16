@@ -3,12 +3,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from skill_atlas import changes
-from skill_atlas.indexer import index_repository
-from skill_atlas.models import Artifact, Change, Repository, Source
-from skill_atlas.providers.base import RepoRef
-from skill_atlas.scanner import get_or_create_source, scan_source
 from tests.test_archive import make_tar
+from vivatlas import changes
+from vivatlas.indexer import index_repository
+from vivatlas.models import Artifact, Change, Repository, Source
+from vivatlas.providers.base import RepoRef
+from vivatlas.scanner import get_or_create_source, scan_source
 
 
 @pytest.fixture

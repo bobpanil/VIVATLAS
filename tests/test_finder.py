@@ -1,6 +1,6 @@
 import pytest
 
-from skill_atlas.finder import (
+from vivatlas.finder import (
     Candidate,
     Finder,
     classify,

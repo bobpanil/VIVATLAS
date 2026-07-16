@@ -1,5 +1,5 @@
 [project]
-name = "skill-atlas"
+name = "vivatlas"
 version = "0.1.0"
 description = "Каталог скиллов, агентов и инструментов из Git-репозиториев"
 requires-python = ">=3.12"
@@ -41,14 +41,14 @@ dev = [
 ]
 
 [project.scripts]
-skill-atlas = "skill_atlas.cli:app"
+vivatlas = "vivatlas.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/skill_atlas"]
+packages = ["src/vivatlas"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

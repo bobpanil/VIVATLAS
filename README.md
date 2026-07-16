@@ -1,4 +1,4 @@
-# Skill Atlas
+# VivAtlas
 
 Каталог скиллов, агентов и инструментов из ваших Git-репозиториев.
 
@@ -17,9 +17,9 @@ python -m venv .venv
 
 cp .env.example .env      # при необходимости поправить адрес Gitea
 
-.venv/Scripts/python.exe -m skill_atlas.cli init-db    # создать базу
-.venv/Scripts/python.exe -m skill_atlas.cli scan       # забрать репозитории
-.venv/Scripts/python.exe -m uvicorn skill_atlas.api:app --reload
+.venv/Scripts/python.exe -m vivatlas.cli init-db    # создать базу
+.venv/Scripts/python.exe -m vivatlas.cli scan       # забрать репозитории
+.venv/Scripts/python.exe -m uvicorn vivatlas.api:app --reload
 ```
 
 Проверить: <http://127.0.0.1:8000/health>
@@ -48,7 +48,7 @@ cp .env.example .env      # при необходимости поправить
 ## Устройство
 
 ```
-src/skill_atlas/
+src/vivatlas/
   config.py            настройки из .env
   db.py                подключение к SQLite
   models.py            таблицы

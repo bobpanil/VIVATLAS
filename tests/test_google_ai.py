@@ -2,7 +2,7 @@ import httpx
 import pytest
 import respx
 
-from skill_atlas.ai.google import GoogleAIError, GoogleEmbeddingModel, GoogleTextModel
+from vivatlas.ai.google import GoogleAIError, GoogleEmbeddingModel, GoogleTextModel
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 KEY = "test-secret-key-12345"

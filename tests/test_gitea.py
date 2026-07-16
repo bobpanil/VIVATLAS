@@ -2,7 +2,7 @@ import httpx
 import pytest
 import respx
 
-from skill_atlas.providers.gitea import _PAGE_SIZE, GiteaProvider
+from vivatlas.providers.gitea import _PAGE_SIZE, GiteaProvider
 
 BASE = "https://git.example.com"
 API = f"{BASE}/api/v1"
@@ -107,7 +107,7 @@ async def test_http_error_is_raised_not_swallowed():
 def test_provider_really_has_all_its_methods():
     # Однажды методы записи оказались дописаны внутрь другой функции, а не в
     # класс. Программа собиралась, тесты шли, а импорт падал на живом запуске.
-    from skill_atlas.providers.gitea import GiteaProvider
+    from vivatlas.providers.gitea import GiteaProvider
 
     for name in (
         "list_repositories",
@@ -125,7 +125,7 @@ def test_provider_really_has_all_its_methods():
 
 
 def test_provider_satisfies_the_common_interface():
-    from skill_atlas.providers.base import GitProvider
-    from skill_atlas.providers.gitea import GiteaProvider
+    from vivatlas.providers.base import GitProvider
+    from vivatlas.providers.gitea import GiteaProvider
 
     assert isinstance(GiteaProvider(BASE), GitProvider)

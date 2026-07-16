@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
 sys.path.insert(0, str(ROOT / "src"))
 
-from skill_atlas.net import lan_addresses  # noqa: E402
+from vivatlas.net import lan_addresses  # noqa: E402
 
 # Порты постоянные. 8710 — ваш, 8711 — Клода. Разные намеренно: Клод свой
 # перезапускает по многу раз, и это не должно ронять страницу, которую вы в
@@ -62,7 +62,7 @@ def start(who: str) -> int:
         return 1
 
     subprocess.Popen(
-        [str(PY), "-m", "skill_atlas.cli", "serve", "--host", host, "--port", str(port)],
+        [str(PY), "-m", "vivatlas.cli", "serve", "--host", host, "--port", str(port)],
         cwd=str(ROOT),
         creationflags=subprocess.CREATE_NEW_CONSOLE,
     )

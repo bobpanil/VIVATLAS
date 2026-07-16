@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from skill_atlas.models import Artifact, ArtifactTag, Base, Repository, Source, Tag, TagSuppression
-from skill_atlas.tagger import (
+from vivatlas.models import Artifact, ArtifactTag, Base, Repository, Source, Tag, TagSuppression
+from vivatlas.tagger import (
     add_manual_tag,
     apply_tags,
     derive_tags,

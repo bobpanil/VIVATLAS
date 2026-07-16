@@ -1,6 +1,6 @@
 import pytest
 
-from skill_atlas.importer import ImportError_, parse_url
+from vivatlas.importer import ImportError_, parse_url
 
 # --- целый репозиторий ---
 

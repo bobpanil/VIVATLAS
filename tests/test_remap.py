@@ -1,4 +1,4 @@
-from skill_atlas.remap import _leaf, target_for
+from vivatlas.remap import _leaf, target_for
 
 
 def test_leaf_of_a_folder():

@@ -1,7 +1,7 @@
 import io
 import tarfile
 
-from skill_atlas.archive import is_secret_file, read_archive
+from vivatlas.archive import is_secret_file, read_archive
 
 
 def make_tar(files: dict[str, bytes], top: str = "repo-abc123") -> bytes:
@@ -55,7 +55,7 @@ def test_secret_files_are_never_read():
 
 
 def test_secret_content_never_reaches_doc_text():
-    from skill_atlas.detector import detect
+    from vivatlas.detector import detect
 
     contents = read_archive(make_tar({"SKILL.md": b"# Tool", ".env": b"SECRET_TOKEN=abcdef123456"}))
     detection = detect(contents)
@@ -82,7 +82,7 @@ def test_big_anchor_file_is_still_read():
 
 
 def test_absurdly_big_file_is_still_skipped():
-    from skill_atlas.archive import MAX_TEXT_BYTES
+    from vivatlas.archive import MAX_TEXT_BYTES
 
     contents = read_archive(make_tar({"huge.md": b"x" * (MAX_TEXT_BYTES + 1)}))
     assert contents.get("huge.md").text is None

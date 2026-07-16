@@ -4,9 +4,9 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from skill_atlas.models import Base, Repository
-from skill_atlas.providers.base import RepoRef
-from skill_atlas.scanner import get_or_create_source, is_scannable, scan_source
+from vivatlas.models import Base, Repository
+from vivatlas.providers.base import RepoRef
+from vivatlas.scanner import get_or_create_source, is_scannable, scan_source
 
 
 def make_repo(**kw) -> RepoRef:
@@ -92,7 +92,7 @@ async def test_private_repos_never_reach_the_database(session):
 
 
 async def test_repo_missing_private_flag_is_treated_as_private():
-    from skill_atlas.providers.gitea import _to_repo_ref
+    from vivatlas.providers.gitea import _to_repo_ref
 
     # Если хостинг не сказал, приватный ли репозиторий, считаем что да.
     # Ошибиться в эту сторону безопасно, в обратную — нет.

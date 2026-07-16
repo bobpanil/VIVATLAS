@@ -1,9 +1,9 @@
 import pytest
 from sqlalchemy import select
 
-from skill_atlas.embeddings import to_blob
-from skill_atlas.models import Artifact, Embedding, Repository, Source
-from skill_atlas.recommender import NO_MATCH_THRESHOLD, recommend
+from vivatlas.embeddings import to_blob
+from vivatlas.models import Artifact, Embedding, Repository, Source
+from vivatlas.recommender import NO_MATCH_THRESHOLD, recommend
 
 
 @pytest.fixture

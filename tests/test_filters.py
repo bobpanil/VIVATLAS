@@ -3,8 +3,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from skill_atlas import filters
-from skill_atlas.models import Artifact, ArtifactTag, Repository, Source, Tag, UpstreamLink
+from vivatlas import filters
+from vivatlas.models import Artifact, ArtifactTag, Repository, Source, Tag, UpstreamLink
 
 
 @pytest.fixture

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}{{ a.name }} — VivAtlas{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← ко всем</a>
+
+<article class="art">
+    <div>
+        <h1><span class="art-owner">{{ a.repository.owner }}/</span>{{ a.name }}</h1>
+        <p class="lede">{{ a.summary_short or "Описание не готово." }}</p>
+
+        {% if a.summary_error %}
+        <p class="warn">Описание не получилось: {{ a.summary_error }}</p>
+        {% endif %}
+
+        {% if a.summary_normal %}
+        <section class="level">
+            <h2>Что это</h2>
+            <p>{{ a.summary_normal }}</p>
+        </section>
+        {% endif %}
+
+        {% if a.summary_technical %}
+        <section class="level">
+            <h2>Как устроено</h2>
+            <p>{{ a.summary_technical }}</p>
+        </section>
+        {% endif %}
+
+        <section class="level">
+            <h2>Почему такой тип</h2>
+            <p>{{ a.detect_reasons or "—" }}{% if a.confidence < 0.5 %} · уверенность низкая, тип стоит проверить руками{% endif %}</p>
+        </section>
+    </div>
+
+    <aside class="art-side">
+        {% if preview_url %}
+        <div class="preview"><img src="{{ preview_url }}" alt="Превью {{ a.name }}"></div>
+        {% endif %}
+
+        <div class="box">
+            <h3>Теги</h3>
+            {% if tags %}
+            <div class="tags">
+                {% for t in tags %}
+                <span class="tag" data-src="{{ t.source }}"
+                      title="{{ t.origin }}, уверенность {{ '%.2f'|format(t.confidence) }}">
+                    {{ t.slug }}{% if t.source == 'ai' %}<em>{{ '%.0f'|format(t.confidence * 100) }}</em>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+            <p class="legend">
+                <span class="l-derived"></span>правило — выведено из файлов<br>
+                <span class="l-ai"></span>модель — догадка, число это уверенность<br>
+                <span class="l-manual"></span>вы — поставлено руками
+            </p>
+            {% else %}
+            <p class="legend">тегов пока нет</p>
+            {% endif %}
+
+            {% if suppressed %}
+            <p class="banned">запрещены навсегда: {% for s in suppressed %}<s>{{ s.slug }}</s>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+            {% endif %}
+        </div>
+
+        {% if upstream %}
+        <div class="box">
+            <h3>Источник</h3>
+            <p class="up-status" data-st="{{ upstream.status }}">{{ status_name(upstream.status) }}</p>
+            <dl class="facts">
+                <dt>откуда</dt><dd><a href="{{ upstream.upstream_url }}">{{ upstream.upstream_repo }}</a></dd>
+                {% if upstream.upstream_path %}<dt>файл</dt><dd>{{ upstream.upstream_path }}</dd>{% endif %}
+                <dt>как нашли</dt><dd>{{ upstream.discovered_by }}</dd>
+                {% if upstream.baseline_at %}<dt>отметка</dt><dd>{{ upstream.baseline_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
+                {% if upstream.last_checked_at %}<dt>проверено</dt><dd>{{ upstream.last_checked_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
+            </dl>
+            {% if upstream.status == 'update-available' %}
+            <p class="legend">Поставить новую версию:<br><code>vivatlas update {{ a.name }}</code></p>
+            {% endif %}
+            {% if upstream.check_error %}<p class="warn">{{ upstream.check_error }}</p>{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="box">
+            <h3>Паспорт</h3>
+            <dl class="facts">
+                <dt>направление</dt>
+                <dd class="pur-big">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">{{ purpose.icon|safe }}</svg>
+                    {{ purpose.label }}
+                </dd>
+                <dt>автор</dt>
+                <dd>{% if author %}{{ author }}{% else %}<span class="unk">неизвестен — источник не записан</span>{% endif %}</dd>
+                <dt>создан</dt>
+                <dd>{{ a.repository.remote_created_at.strftime("%d.%m.%Y") if a.repository.remote_created_at else "—" }}</dd>
+                <dt>изменён</dt>
+                <dd>{{ a.repository.remote_updated_at.strftime("%d.%m.%Y") if a.repository.remote_updated_at else "—" }}</dd>
+                <dt>тип</dt><dd>{{ type_name(a.artifact_type) }}</dd>
+                <dt>файлов</dt><dd>{{ a.file_count }}</dd>
+                {% if a.anchor_path %}<dt>опора</dt><dd>{{ a.anchor_path }}</dd>{% endif %}
+                <dt>коммит</dt><dd>{{ (a.source_commit or "—")[:8] }}</dd>
+                <dt>собрано</dt><dd>{{ a.updated_at.strftime("%d.%m.%Y") if a.updated_at else "—" }}</dd>
+                {% if a.summary_model %}<dt>описал</dt><dd>{{ a.summary_model }}</dd>{% endif %}
+                <dt>исходник</dt><dd><a href="{{ a.repository.html_url }}">открыть в Gitea</a></dd>
+            </dl>
+        </div>
+    </aside>
+</article>
+{% endblock %}

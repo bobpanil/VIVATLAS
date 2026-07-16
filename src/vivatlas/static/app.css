@@ -1,0 +1,2003 @@
+/* IBM Plex Sans — единственный шрифт набора PostHog. Лежит рядом с
+   программой, а не тянется из интернета: каталог самодостаточный, и открывать
+   его надо уметь при мёртвой сети. Разбит по алфавитам — русской странице
+   латинские хвосты не качаются.
+
+   Вес только 400-700. В наборе для крупных заголовков записан 800, но у
+   IBM Plex Sans такого веса не существует: Google на запрос 800 отдаёт
+   страницу с ошибкой. Поставить 800 — значит заставить браузер подделать
+   жирность, и буквы поплывут. Берём 700, самый жирный настоящий. */
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-cyrillic-ext.woff2') format('woff2');
+    unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-cyrillic.woff2') format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/static/fonts/plex-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Оформление взято из набора design-lib/posthog — того самого, что лежит в
+   этом же каталоге. Значения не придуманы: они прочитаны из его DESIGN.md, и
+   имена здесь те же, что там.
+
+   Главное в этой системе:
+     - холст кремовый (#eeefe9), НЕ белый. В наборе это отдельный запрет;
+     - жёлтая кнопка — единственный громкий цвет. Набор требует: не больше
+       одной жёлтой кнопки на экран;
+     - карточки плоские: тонкая оливковая рамка, теней нет вообще;
+     - иерархия строится жирностью и размером, а не цветом.
+
+   Тёмной темы тут нет намеренно. В наборе она не описана, а придумать её —
+   значит выдать свою выдумку за фирменный стиль PostHog. */
+
+:root {
+    color-scheme: light;
+
+    /* --- цвета набора --- */
+    --primary: #f7a501;
+    --primary-pressed: #dd9001;
+    --on-primary: #23251d;
+
+    --ink: #23251d;
+    --body-ink: #4d4f46;
+    --charcoal: #33342d;
+    --mute: #6c6e63;
+    --ash: #9b9c92;
+    --stone: #b6b7af;
+
+    --hairline: #bfc1b7;
+    --hairline-soft: #dcdfd2;
+
+    --canvas: #eeefe9;
+    --surface-soft: #e5e7e0;
+    --surface-card: #ffffff;
+    --surface-doc: #fcfcfa;
+    --surface-dark: #23251d;
+    --on-dark: #ffffff;
+
+    --link-teal: #1078a3;
+    --accent-blue: #2c84e0;
+    --accent-blue-soft: #dceaf6;
+    --accent-red: #cd4239;
+    --accent-red-soft: #f7d6d3;
+    --accent-green: #2c8c66;
+    --accent-green-soft: #d9eddf;
+    --accent-purple: #7c44a6;
+    --accent-purple-soft: #e7d8ee;
+    --focus-ring: rgba(59, 130, 246, 0.5);
+
+    /* --- шрифты набора --- */
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
+
+    /* --- скругления и отступы набора --- */
+    --r-xs: 2px;
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 8px;
+    --r-full: 9999px;
+    --radius: var(--r-md);
+
+    --s-xs: 4px;
+    --s-sm: 8px;
+    --s-md: 12px;
+    --s-lg: 16px;
+    --s-xl: 24px;
+    --s-xxl: 32px;
+
+    --sidebar-w: 240px;
+
+    /* --- тёмная панель ------------------------------------------------------
+       Фон взят не из набора PostHog, а из самого логотипа: он приходит своим
+       чёрным #06080f, и если панель сделать другим оттенком, вокруг картинки
+       будет виден прямоугольник. Панель продолжает холст логотипа.
+
+       Это осознанный отход от набора: там doc-sidebar кремовый. Но главный
+       логотип нарисован светлым по чёрному, и на кремовом его пришлось бы
+       менять — а он тут главнее.
+
+       Палитра логотипа и палитра PostHog почти совпадают: фирменный оранжевый
+       на листе объявлен #f39e05, у PostHog #f7a501 — разница на волос. Поэтому
+       жёлтая кнопка остаётся жёлтой кнопкой набора и с логотипом не спорит. */
+    --panel: #04060d;
+    --panel-text: #b9b2a2;   /* stone из палитры логотипа */
+    --panel-bright: #eae7dc; /* cream оттуда же */
+    --panel-mute: #565342;   /* olive оттуда же */
+    --panel-line: #1c2030;
+
+    /* Сколько карточек в ряду. Меняется ручкой над сеткой и запоминается. */
+    --cols: 4;
+
+    /* Старые имена оставлены ссылками на новые: их держат больше тысячи строк
+       ниже, и переписывать каждую ради переименования — верный способ
+       наделать опечаток на ровном месте. */
+    --bg: var(--canvas);
+    --surface: var(--surface-card);
+    --surface-2: var(--surface-doc);
+    --text: var(--ink);
+    --muted: var(--body-ink);
+    --faint: var(--mute);
+    --line: var(--hairline-soft);
+    --line-strong: var(--hairline);
+    --shadow: none;  /* набор запрещает тени: карточки лежат на холсте плоско */
+    --step: 4px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--body-ink);
+    font-family: var(--sans);
+    font-size: 16px;   /* body-md набора */
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: inherit;
+}
+
+/* --- оболочка: боковая панель и содержимое ---------------------------------
+   Панель 240px, кремовая, липкая — как doc-sidebar набора. На узком экране
+   уезжает за край и выходит по кнопке; жёлтая кнопка «Добавить» при этом
+   переезжает в верхнюю полосу, чтобы остаться видимой на любой ширине. */
+
+.skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--ink);
+    color: var(--on-dark);
+    padding: 10px 16px;
+    z-index: 100;
+}
+
+.skip:focus {
+    left: 8px;
+    top: 8px;
+}
+
+/* Галочка, которой открывается панель. Спрятана от глаз, но не от клавиатуры:
+   display: none отобрал бы её у тех, кто ходит по странице табом. */
+.navt {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+}
+
+.vh-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--panel);
+    color: var(--panel-text);
+    border-right: 1px solid var(--panel-line);
+    padding: var(--s-lg) var(--s-lg) var(--s-xl);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 30;
+}
+
+/* Логотип. Приходит со своим чёрным фоном — панель под него подогнана, шва
+   нет. Растягиваем на всю ширину панели: он и есть её шапка. */
+.logo {
+    display: block;
+    margin: 0 0 var(--s-lg);
+}
+
+.logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* Во всю ширину. В наборе содержимое ограничено 1280px — но там это
+   рекламная страница с текстом, а тут витрина: лишние сантиметры экрана
+   становятся лишними карточками, а не воздухом по краям. */
+.main {
+    margin-left: var(--sidebar-w);
+    padding: var(--s-xl) var(--s-xl) 80px;
+}
+
+.brand {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.brand span {
+    color: var(--primary);   /* единственная жёлтая точка, кроме кнопки */
+}
+
+/* button-primary набора: жёлтый #f7a501, тёмно-оливковый текст, 40px, 6px. */
+.cta {
+    display: block;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    padding: 9px 16px;
+    min-height: 40px;
+    border: 0;
+    border-radius: var(--r-md);
+    cursor: pointer;
+}
+
+.cta:active {
+    background: var(--primary-pressed);
+}
+
+.cta-sm {
+    padding: 8px 14px;
+    min-height: 36px;
+    font-size: 13px;
+}
+
+.side-cta {
+    margin-bottom: var(--s-xl);
+}
+
+/* Заголовок раздела панели. Верхний регистр набор разрешает только тут и в
+   подписях — больше нигде. */
+.eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.33;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin: var(--s-xl) 0 var(--s-sm);
+}
+
+/* На тёмной панели оливковый #565342 читается плохо — подписи там светлее. */
+.side .eyebrow {
+    color: #7d7a68;
+}
+
+.side-nav .eyebrow:first-child {
+    margin-top: 0;
+}
+
+.side-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-sm);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.43;
+    color: var(--panel-text);
+    text-decoration: none;
+    padding: 7px 10px;
+    margin: 0 -10px;
+    border-radius: var(--r-sm);
+    min-height: 34px;
+}
+
+.side-item:hover {
+    background: #131727;
+    color: var(--panel-bright);
+}
+
+/* Выбранный пункт подсвечен заливкой, как активная вкладка в наборе: там
+   белая карточка отрывается от кремового холста, тут светлая от чёрного.
+   Приём тот же — выделяем фоном, а не краской текста. */
+.side-item.on {
+    background: #161b2c;
+    color: var(--panel-bright);
+    font-weight: 600;
+    border: 1px solid var(--panel-line);
+    padding: 6px 9px;
+}
+
+.side-item b {
+    font-size: 12px;
+    font-weight: 600;
+    color: #7d7a68;
+}
+
+.side-foot {
+    font-size: 12px;
+    color: #7d7a68;
+    border-top: 1px solid var(--panel-line);
+    padding-top: var(--s-md);
+    margin: var(--s-xl) 0 0;
+}
+
+.topbar,
+.scrim {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Полоса тёмная, как панель: логотип приходит со своим чёрным фоном, и
+       на кремовой полосе он был бы чёрным прямоугольником. Обрамление тёмное,
+       содержимое кремовое — так это читается как замысел, а не как заплатка. */
+    .topbar {
+        display: flex;
+        align-items: center;
+        gap: var(--s-md);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        height: 56px;
+        padding: 0 var(--s-md);
+        background: var(--panel);
+        border-bottom: 1px solid var(--panel-line);
+    }
+
+    .logo-sm {
+        margin: 0 auto 0 0;
+    }
+
+    .logo-sm img {
+        width: auto;
+        height: 30px;
+    }
+
+    .burger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin-left: -8px;
+        border-radius: var(--r-sm);
+        cursor: pointer;
+    }
+
+    .burger svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: var(--panel-bright);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+    }
+
+    .burger:hover {
+        background: #131727;
+    }
+
+    .navt:focus-visible + .topbar .burger {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+    }
+
+    .side {
+        transform: translateX(-100%);
+        transition: transform 0.18s ease-out;
+        box-shadow: none;
+        width: min(300px, 86vw);
+    }
+
+    .navt:checked ~ .side {
+        transform: none;
+    }
+
+    .navt:checked ~ .scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 25;
+        background: rgba(35, 37, 29, 0.4);
+    }
+
+    /* В выдвинутой панели своя жёлтая кнопка была бы второй на экране — набор
+       разрешает одну. Тут её роль играет кнопка в верхней полосе. */
+    .side-cta {
+        display: none;
+    }
+
+    /* И логотип в панели тоже лишний: он уже стоит в полосе прямо над ней. */
+    .side > .logo {
+        display: none;
+    }
+
+    .side {
+        padding-top: var(--s-xl);
+    }
+
+    .main {
+        margin-left: 0;
+        padding: var(--s-lg) var(--s-lg) 64px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side {
+        transition: none;
+    }
+}
+
+/* --- поиск ---------------------------------------------------------------
+   text-input набора: белая карточка, оливковая рамка в волос, 6px. При фокусе
+   рамка синеет и утолщается — это описано в наборе как text-input-focused. */
+
+.searchbar {
+    padding: 0 0 var(--s-xl);
+}
+
+.searchform {
+    display: flex;
+    gap: var(--s-sm);
+}
+
+.searchform input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--sans);
+    font-size: 16px;   /* меньше — и Safari на телефоне зумит страницу */
+    padding: 9px 12px;
+    min-height: 40px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+}
+
+.searchform input::placeholder {
+    color: var(--mute);
+}
+
+.searchform input:focus {
+    outline: none;
+    border: 2px solid var(--accent-blue);
+    padding: 8px 11px;   /* рамка стала толще на 1px — отступ на столько же меньше */
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.searchform .btn-secondary {
+    flex: 0 0 auto;
+}
+
+a:focus-visible,
+button:focus-visible,
+label:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+
+.hint {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--mute);
+    margin: var(--s-md) 0 0;
+}
+
+/* button-secondary набора: мягкая кремово-серая заливка, без жёлтого. */
+.btn-secondary {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    padding: 9px 16px;
+    min-height: 40px;
+    white-space: nowrap;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-soft);
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: var(--surface-card);
+}
+
+/* --- полоса-подсказка ------------------------------------------------------
+   banner-tip набора: мягкая пастель, тёмный текст, 6px. В наборе такие
+   полосы живут только внутри документации — тут ровно тот же случай:
+   пояснение по ходу дела, а не украшение. */
+
+.banner {
+    display: flex;
+    align-items: center;
+    gap: var(--s-lg);
+    flex-wrap: wrap;
+    padding: var(--s-lg) 20px;
+    border-radius: var(--r-md);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: var(--s-xl);
+}
+
+.banner > div {
+    flex: 1;
+    min-width: 220px;
+}
+
+.banner b {
+    font-weight: 600;
+}
+
+.banner-blue {
+    background: var(--accent-blue-soft);
+}
+
+.banner-green {
+    background: var(--accent-green-soft);
+}
+
+.banner-red {
+    background: var(--accent-red-soft);
+}
+
+/* --- фильтры ---------------------------------------------------------------
+   pill-tab набора: прозрачная таблетка, а выбранная переворачивается в
+   тёмную. Цветом не красим — набор строит выделение заливкой. */
+
+.filters {
+    display: flex;
+    gap: var(--s-xs);
+    flex-wrap: wrap;
+    margin-bottom: var(--s-sm);
+}
+
+.filter {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 7px 12px;
+    border: 1px solid var(--hairline-soft);
+    border-radius: var(--r-full);
+    text-decoration: none;
+    color: var(--body-ink);
+    background: transparent;
+    white-space: nowrap;
+}
+
+.filter:hover {
+    background: var(--surface-card);
+    border-color: var(--hairline);
+    color: var(--ink);
+}
+
+.filter[aria-current="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--on-dark);
+}
+
+.filter b {
+    font-weight: 500;
+    color: var(--mute);
+    margin-left: 4px;
+}
+
+.filter[aria-current="true"] b {
+    color: var(--on-dark);
+    opacity: 0.65;
+}
+
+.side-filters {
+    border-top: 1px solid var(--panel-line);
+    margin-top: var(--s-xl);
+}
+
+/* Фишки фильтров на тёмной панели. Приём набора сохранён: выбранная
+   переворачивается — только наоборот, светлым по тёмному. */
+.side .filter {
+    color: var(--panel-text);
+    border-color: var(--panel-line);
+}
+
+.side .filter:hover {
+    background: #131727;
+    border-color: #2a3145;
+    color: var(--panel-bright);
+}
+
+.side .filter[aria-current="true"] {
+    background: var(--panel-bright);
+    border-color: var(--panel-bright);
+    color: var(--panel);
+}
+
+.side .filter b {
+    color: #7d7a68;
+}
+
+.side .filter[aria-current="true"] b {
+    color: var(--panel);
+    opacity: 0.6;
+}
+
+.side .fmore summary {
+    color: var(--panel-text);
+    border-bottom-color: var(--panel-line);
+}
+
+.side .fmore summary:hover {
+    color: var(--panel-bright);
+}
+
+.side .fmore summary::before {
+    color: #7d7a68;
+}
+
+.side .fclear {
+    color: #7d7a68;
+}
+
+.side .fclear a {
+    color: var(--primary);
+}
+
+.fclear {
+    font-size: 13px;
+    color: var(--mute);
+    margin: var(--s-lg) 0 0;
+}
+
+.fclear a {
+    color: var(--link-teal);
+}
+
+/* --- сетка --- */
+
+/* Сколько карточек в ряду — решает человек ручкой над сеткой.
+   Считаем ширину под нужное число колонок, но не даём карточке стать уже
+   140px: на телефоне «восемь в ряд» превратилось бы в восемь ниточек.
+   auto-fill доложит столько, сколько влезет, — поэтому на узком экране
+   ряд сам собой становится короче, без отдельных правил. */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(max(140px, calc((100% - (var(--cols) - 1) * var(--s-lg)) / var(--cols))), 1fr)
+    );
+    gap: var(--s-lg);   /* 16px — шаг сетки набора */
+    padding-bottom: 48px;
+}
+
+/* --- ручка размера --------------------------------------------------------
+   Меняет вид сразу, без перезагрузки, и запоминается на этом устройстве.
+   Без скриптов останется значение по умолчанию — сетка всё равно рабочая. */
+
+.viewbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--s-md);
+    margin-bottom: var(--s-md);
+}
+
+.viewbar label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--mute);
+}
+
+.viewbar output {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--body-ink);
+    min-width: 7ch;
+}
+
+.viewbar input[type="range"] {
+    width: 160px;
+    accent-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .viewbar {
+        justify-content: space-between;
+    }
+
+    .viewbar input[type="range"] {
+        flex: 1;
+        max-width: 200px;
+    }
+}
+
+/* product-card набора: белая карточка на кремовом холсте, оливковая рамка в
+   волос, 6px. Теней нет — набор их прямо запрещает, глубину тут даёт
+   контраст белого с кремовым, а не подложенная тень. */
+.card {
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.12s;
+}
+
+.card:hover {
+    border-color: var(--ink);
+}
+
+.thumb {
+    aspect-ratio: 16 / 10;
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--hairline-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+}
+
+/* У скиллов превью нет. Показываем сам идентификатор — он и есть их лицо. */
+.thumb-text {
+    aspect-ratio: 16 / 10;
+    background: var(--surface-doc);
+    border-bottom: 1px solid var(--hairline-soft);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-xs);
+    padding: var(--s-lg);
+    overflow: hidden;
+}
+
+.thumb-text span {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    color: var(--stone);
+    word-break: break-all;
+    line-height: 1.2;
+}
+
+.card-body {
+    padding: var(--s-lg);   /* 16px: карточки каталога плотные, это не витрина */
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-sm);
+    flex: 1;
+}
+
+/* heading-sm-mixed набора: 18px/600. Имя набрано моноширинным намеренно —
+   это идентификатор в Git, а не заголовок статьи. */
+.card-name {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    word-break: break-all;
+}
+
+.card-owner {
+    color: var(--stone);
+    font-weight: 400;
+}
+
+.card-sum {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Подвал карточки. Отделён чертой: это не описание, а паспорт —
+   направление, автор, дата. */
+.card-foot {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 0;
+}
+
+.pur {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Значок одноцветный: цвет на странице принадлежит превью брендов. */
+.pur svg {
+    width: 13px;
+    height: 13px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.75;
+}
+
+.dot {
+    color: var(--line-strong);
+    flex: none;
+}
+
+.auth {
+    color: var(--faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.when {
+    margin-left: auto;
+    color: var(--faint);
+    flex: none;
+    padding-left: 6px;
+}
+
+.why {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+}
+
+/* --- теги: рамка говорит, откуда тег взялся --- */
+
+.tags {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 100px;
+    white-space: nowrap;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+    background: var(--surface);
+}
+
+/* правило — сплошная рамка: выведено однозначно, всегда одинаково */
+.tag[data-src="derived"] {
+    border-style: solid;
+    color: var(--text);
+}
+
+/* модель — пунктир: это догадка */
+.tag[data-src="ai"] {
+    border-style: dashed;
+}
+
+/* человек — заливка: решение принято */
+.tag[data-src="manual"] {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--surface);
+}
+
+.tag em {
+    font-style: normal;
+    opacity: 0.5;
+    margin-left: 5px;
+}
+
+/* --- страница карточки --- */
+
+.back {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 20px 0 0;
+}
+
+.back:hover {
+    color: var(--text);
+}
+
+.art {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 36px;
+    padding: 16px 0 64px;
+    align-items: start;
+}
+
+.art h1 {
+    font-family: var(--mono);
+    font-size: clamp(20px, 4vw, 30px);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    margin: 0 0 4px;
+    word-break: break-all;
+    line-height: 1.15;
+}
+
+.art h1 a {
+    text-decoration: none;
+}
+
+.art h1 a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.art-owner {
+    color: var(--faint);
+}
+
+.lede {
+    font-size: 17px;
+    line-height: 1.5;
+    margin: 14px 0 28px;
+}
+
+/* Три уровня описания. Не вкладки: читаются подряд, каждый следующий глубже
+   предыдущего — так видно, где кончается пересказ и начинается техника. */
+.level {
+    border-top: 1px solid var(--line);
+    padding: 18px 0;
+}
+
+.level h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin: 0 0 8px;
+}
+
+.level p {
+    margin: 0;
+    color: var(--text);
+}
+
+/* Боковой блок карточки. Раньше звался .side — и это имя столкнулось с
+   панелью навигации: правило шло ниже и побеждало, отчего панель на КАЖДОЙ
+   странице теряла крепление к экрану, съезжала на 74px и растягивала
+   страницу на свою высоту. Имя разведено.
+
+   74px был высотой старой липкой шапки, которой больше нет. */
+.art-side {
+    position: sticky;
+    top: var(--s-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-xl);
+}
+
+.preview {
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.preview img {
+    display: block;
+    width: 100%;
+}
+
+.box h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin: 0 0 10px;
+}
+
+.facts {
+    font-family: var(--mono);
+    font-size: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 14px;
+    margin: 0;
+}
+
+.facts dt {
+    color: var(--faint);
+}
+
+.facts dd {
+    margin: 0;
+    word-break: break-all;
+}
+
+.legend {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    line-height: 1.8;
+    margin: 10px 0 0;
+}
+
+/* Команда на карточке — её сюда пришли скопировать, а не прочитать. */
+.legend code {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    display: inline-block;
+    margin-top: 3px;
+    user-select: all;
+}
+
+.legend span {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 100px;
+    margin-right: 6px;
+    vertical-align: baseline;
+}
+
+.legend .l-derived {
+    border: 1px solid var(--text);
+}
+
+.legend .l-ai {
+    border: 1px dashed var(--line-strong);
+}
+
+.legend .l-manual {
+    background: var(--text);
+    border: 1px solid var(--text);
+}
+
+.banned {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    margin-top: 12px;
+}
+
+.banned s {
+    color: var(--muted);
+}
+
+.empty {
+    padding: 56px 0 80px;
+    color: var(--muted);
+    max-width: 46ch;
+}
+
+.empty b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* banner-tip-red набора: предупреждения — мягкая красная полоса, а не
+   пунктирная рамка. В наборе это готовый словарь для «осторожно», и свой
+   изобретать незачем. */
+.warn {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--accent-red-soft);
+    border-radius: var(--r-md);
+    padding: var(--s-md) var(--s-lg);
+}
+
+@media (max-width: 860px) {
+    .art {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+
+    .art-side {
+        position: static;
+        order: -1;
+    }
+
+    .counts {
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
+
+/* --- рекомендации --- */
+
+.verdict {
+    padding: 18px 0 6px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.verdict-title {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+    width: 100%;
+}
+
+.verdict-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 6px 0 0;
+    max-width: 68ch;
+}
+
+.conf,
+.basis {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 100px;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+}
+
+/* Уверенность — единственное место, где цвет несёт смысл, а не украшает. */
+.conf[data-level="high"] {
+    border-color: var(--text);
+    color: var(--text);
+}
+
+.conf[data-level="low"] {
+    border-style: dashed;
+    color: var(--faint);
+}
+
+.sugg {
+    margin: 14px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 68ch;
+}
+
+.sugg li {
+    margin-bottom: 4px;
+}
+
+.pick {
+    border-top: 1px solid var(--line);
+    padding: 22px 0;
+    max-width: 74ch;
+}
+
+.pick-rank {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin-bottom: 8px;
+}
+
+.pick-best .pick-rank {
+    color: var(--text);
+}
+
+.pick h2 {
+    font-family: var(--mono);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+    word-break: break-all;
+}
+
+.pick h2 a {
+    text-decoration: none;
+}
+
+.pick h2 a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.pick-why {
+    margin: 0 0 10px;
+}
+
+.pick-lim {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.pick-lim b {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.chain,
+.nope {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.chain li,
+.nope li {
+    margin-bottom: 8px;
+}
+
+.chain a,
+.nope a {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+}
+
+.pick-no {
+    padding-bottom: 56px;
+}
+
+.navlink {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--line-strong);
+}
+
+.navlink:hover {
+    color: var(--text);
+}
+
+/* --- источник --- */
+
+.up-status {
+    font-family: var(--mono);
+    font-size: 12px;
+    margin: 0 0 10px;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+    display: inline-block;
+}
+
+/* Единственное состояние, требующее действия — оно и выделено. */
+.up-status[data-st="update-available"] {
+    border-color: var(--text);
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Правил ты — трогать нельзя. Пунктир как у догадок: тут тоже "осторожно". */
+.up-status[data-st="locally-modified"],
+.up-status[data-st="diverged"] {
+    border-style: dashed;
+}
+
+/* --- лента изменений --- */
+
+.page-h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 0;
+}
+
+.feed {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 56px;
+}
+
+.ev {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 11px 0;
+    border-top: 1px solid var(--line);
+}
+
+/* Знак несёт смысл, поэтому он единственный тут выделен формой. */
+.ev-mark {
+    font-family: var(--mono);
+    font-size: 13px;
+    width: 20px;
+    flex: none;
+    text-align: center;
+    color: var(--faint);
+}
+
+.ev-mark[data-k="added"] { color: var(--text); font-weight: 700; }
+.ev-mark[data-k="removed"] { color: var(--text); }
+.ev-mark[data-k="stale"] { color: var(--text); font-weight: 700; }
+
+.ev-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+}
+
+.ev-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    word-break: break-all;
+}
+
+.ev-det {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.ev-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    flex: none;
+    white-space: nowrap;
+}
+
+.thumb-text em {
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--stone);
+}
+
+.fmore {
+    margin-top: var(--s-lg);
+}
+
+.fmore summary {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--body-ink);
+    cursor: pointer;
+    padding: 5px 0;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px dotted var(--line-strong);
+    width: fit-content;
+}
+
+.fmore summary::-webkit-details-marker {
+    display: none;
+}
+
+.fmore summary::before {
+    content: "+";
+    font-weight: 700;
+    color: var(--mute);
+}
+
+.fmore[open] summary::before {
+    content: "−";
+}
+
+.fmore summary:hover {
+    color: var(--ink);
+}
+
+.fmore[open] > .filters:first-of-type {
+    padding-top: 10px;
+}
+
+.pur-big {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pur-big svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Незаполненное показываем как незаполненное, а не прочерком: прочерк
+   выглядит как ошибка, а тут просто нет сведений. */
+.unk {
+    color: var(--faint);
+    font-style: italic;
+}
+
+/* --- добавление ---------------------------------------------------------
+   Одна колонка: сюда приходят с телефона, увидев рилс в ленте. Ширину держим
+   читаемой, а не растягиваем на весь экран. */
+
+.add {
+    max-width: 640px;
+    margin: 0 auto;
+    padding-bottom: 60px;
+}
+
+/* display-lg набора: 24px, самый жирный настоящий вес, тракинг -0.6px.
+   В наборе тут записан вес 800, но у IBM Plex Sans его не существует. */
+.add h1 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.33;
+    letter-spacing: -0.6px;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
+}
+
+.add-form {
+    margin-top: 24px;
+}
+
+/* Поле имени на шаге "что будет сделано" — единственное обычное поле. */
+.fld {
+    display: block;
+    margin-bottom: 16px;
+}
+
+.fld span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    margin-bottom: 6px;
+}
+
+.fld input[type="text"] {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 16px; /* меньше 16px — Safari на телефоне зумит страницу */
+    padding: 12px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+}
+
+/* --- одно окно на всё -----------------------------------------------------
+   Ссылка, картинка из буфера, перетащенный файл, просто слова. Разные
+   устройства умеют разное, поэтому путей внутрь три, а окно одно. */
+
+.drop {
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 18px;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.drop:focus-within {
+    border-style: solid;
+    border-color: var(--text);
+}
+
+.drop.over {
+    border-style: solid;
+    border-color: var(--text);
+    background: var(--surface-2);
+}
+
+.drop-in {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 16px; /* меньше 16px — Safari на телефоне зумит страницу */
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+}
+
+.drop-in:focus { outline: none; }
+
+.drop-in::placeholder { color: var(--faint); }
+
+.drop-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    line-height: 1.8;
+    margin: 14px 0 0;
+}
+
+/* Выбор файла — не кнопка, а слово в тексте: путь запасной, он для тех, у
+   кого картинка лежит в файлах, а не в буфере. */
+/* Раньше звалась .pick — а так же зовётся блок рекомендации на странице
+   «что взять». Два разных куска под одним именем портили друг друга. */
+.pick-file {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+/* Своё display перебивает встроенное скрытие по атрибуту hidden — окно с
+   файлом висело на экране, когда файла не было. Правило общее: та же ловушка
+   ждёт любой элемент с display в правилах. */
+[hidden] {
+    display: none !important;
+}
+
+.drop-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.drop-file img {
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+}
+
+.drop-file span {
+    flex: 1;
+    word-break: break-all;
+}
+
+.chip-x {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 9px;
+    cursor: pointer;
+}
+
+.chip-x:hover {
+    color: var(--text);
+    border-color: var(--line-strong);
+}
+
+/* Настоящее поле выбора файла: спрятано от глаз, но не от клавиатуры и не от
+   тех, кто читает экран голосом. display:none отобрал бы его у них. */
+.vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Широкая кнопка: на странице добавления действие ровно одно, и оно должно
+   быть под пальцем целиком. */
+.cta-wide {
+    width: 100%;
+    margin-top: var(--s-lg);
+}
+
+.note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    margin: 10px 0 0;
+    line-height: 1.7;
+}
+
+.heard {
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+    color: var(--mute);
+}
+
+/* Пересказ по-русски. Набран заметнее оригинала: если ролик на иврите, читать
+   будут именно эту строчку, а оригинал остаётся доказательством, что мы не
+   выдумали. */
+.gist {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: var(--s-sm) 0 0;
+}
+
+.notes {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    line-height: 1.9;
+}
+
+.notes li::before {
+    content: "· ";
+}
+
+.cands {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0;
+}
+
+.cand {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 16px;
+    margin-bottom: 10px;
+}
+
+.cand-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.cand-name {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.cand-name:hover { text-decoration: underline; }
+
+.cand-mark {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+/* Адрес был написан прямо — это не то же самое, что "похоже нашлось поиском". */
+.cand-mark[data-exact="yes"] {
+    color: var(--text);
+    border-color: var(--line-strong);
+}
+
+.cand-stars {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin: 8px 0 0;
+}
+
+.cand-desc {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 6px 0 0;
+}
+
+.cand form { margin-top: 12px; }
+
+.files {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.9;
+}
+
+.refused-line {
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 0 0 8px;
+}
+
+.hint form, form.hint { margin: 0 0 8px; }
+
+/* --- экран входа ----------------------------------------------------------
+   Своя оболочка, без боковой панели: пока не вошёл, каталога нет. Тёмный фон
+   логотипа на весь экран, кремовая карточка по центру — как обрамление всего
+   остального в программе, только крупнее. */
+
+.auth-body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--s-xl) var(--s-lg);
+}
+
+.auth-wrap {
+    width: 100%;
+    max-width: 380px;
+}
+
+.auth-logo {
+    display: block;
+    width: 200px;
+    max-width: 70%;
+    height: auto;
+    margin: 0 auto var(--s-xl);
+}
+
+.auth-card {
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: var(--s-xl);
+}
+
+.auth-card h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
+}
+
+.auth-lede {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--body-ink);
+    margin: 0 0 var(--s-lg);
+}
+
+.auth-card .fld input {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 16px;   /* меньше — и Safari на телефоне зумит при касании */
+    padding: 10px 12px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+}
+
+.auth-card .fld input:focus {
+    outline: none;
+    border: 2px solid var(--accent-blue);
+    padding: 9px 11px;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.auth-card .cta-wide {
+    margin-top: var(--s-sm);
+}
+
+/* banner-tip-red набора: отказ — мягкая красная полоса, не голый красный текст. */
+.auth-err {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--accent-red-soft);
+    border-radius: var(--r-md);
+    padding: 10px 14px;
+    margin: 0 0 var(--s-lg);
+}
+
+.auth-note {
+    font-size: 12px;
+    color: var(--mute);
+    line-height: 1.6;
+    margin: var(--s-md) 0 0;
+}
+
+.auth-alt {
+    margin: var(--s-md) 0 0;
+    text-align: center;
+}
+
+.auth-link {
+    background: none;
+    border: 0;
+    color: var(--link-teal);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+/* --- настройки ------------------------------------------------------------ */
+
+.settings {
+    max-width: 560px;
+}
+
+.settings h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--ink);
+    margin: 0 0 var(--s-lg);
+}
+
+.set-on {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-green);
+    margin: 0 0 var(--s-sm);
+}
+
+.set-row {
+    display: flex;
+    gap: var(--s-sm);
+    flex-wrap: wrap;
+    margin-top: var(--s-md);
+}
+
+.set-row input {
+    flex: 1;
+    min-width: 140px;
+    font-family: var(--sans);
+    font-size: 16px;
+    padding: 8px 12px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+}
+
+/* QR-код: белый квадрат на карточке, чтобы сканер брал в любой теме. */
+.qr {
+    width: 200px;
+    max-width: 100%;
+    margin: var(--s-lg) 0;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+}
+
+.qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.set-secret {
+    font-size: 13px;
+    color: var(--body-ink);
+    word-break: break-all;
+}
+
+.set-secret code {
+    background: var(--surface-soft);
+    padding: 2px 6px;
+    border-radius: var(--r-xs);
+    font-family: var(--mono);
+    user-select: all;
+}
+
+.set-confirm {
+    margin-top: var(--s-lg);
+}
+
+/* Коды восстановления — крупно, моноширинным, чтобы переписать без ошибок. */
+.codes-list {
+    list-style: none;
+    padding: var(--s-lg);
+    margin: var(--s-lg) 0;
+    background: var(--surface-doc);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--s-sm) var(--s-lg);
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--ink);
+    user-select: all;
+}
+
+.side-user {
+    margin-top: var(--s-xl);
+}
+
+.side-out {
+    background: none;
+    border: 0;
+    color: var(--panel-text);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 10px;
+    margin: 2px -10px 0;
+    border-radius: var(--r-sm);
+    text-align: left;
+    width: calc(100% + 20px);
+}
+
+.side-out:hover {
+    background: #131727;
+    color: var(--panel-bright);
+}

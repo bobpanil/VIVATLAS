@@ -1,5 +1,5 @@
-from skill_atlas import purposes
-from skill_atlas.purposes import detect
+from vivatlas import purposes
+from vivatlas.purposes import detect
 
 # --- настоящие карточки из каталога ---
 

@@ -1,9 +1,9 @@
 import pytest
 from sqlalchemy import select
 
-from skill_atlas.import_run import execute, record_upstream
-from skill_atlas.importer import ImportFile, ImportPlan, ImportSource
-from skill_atlas.models import Artifact, Repository, UpstreamLink
+from vivatlas.import_run import execute, record_upstream
+from vivatlas.importer import ImportFile, ImportPlan, ImportSource
+from vivatlas.models import Artifact, Repository, UpstreamLink
 
 
 @pytest.fixture
@@ -183,7 +183,7 @@ async def test_record_upstream_overwrites_existing_link(session):
     # Сборка карточки уже заводит источник по original_url, который мы сами и
     # проставили. Наши сведения точнее — у нас слепки. Надо перезаписать, а не
     # упасть на "такая запись уже есть".
-    from skill_atlas.models import UpstreamLink
+    from vivatlas.models import UpstreamLink
 
     gitea = FakeGitea()
     await execute(session, gitea, make_plan(), "https://git.example.com")

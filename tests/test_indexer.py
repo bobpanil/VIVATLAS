@@ -1,10 +1,10 @@
 import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
-from tests.test_archive import make_tar
 
-from skill_atlas.indexer import index_repository
-from skill_atlas.models import Artifact, Base, Repository, Source
+from tests.test_archive import make_tar
+from vivatlas.indexer import index_repository
+from vivatlas.models import Artifact, Base, Repository, Source
 
 
 @pytest.fixture
@@ -150,7 +150,7 @@ async def test_work_survives_a_crash_midway(session):
     # Была ошибка: всё сохранялось одной транзакцией в конце. Прогон оборвался
     # на 56-м репозитории из 99 — и вся работа откатилась. Теперь каждая
     # карточка сохраняется сразу, и обрыв уносит с собой только текущую.
-    from skill_atlas.indexer import index_all
+    from vivatlas.indexer import index_all
 
     source = session.scalar(select(Source))
     for i in range(2, 5):
@@ -199,7 +199,7 @@ async def test_no_ai_mode_creates_card_without_summary(session):
 async def test_counters_do_not_double_count_a_failed_row(session):
     # Была ошибка: строка считалась и "обработанной", и "ошибочной" сразу,
     # из-за чего в отчёте выходило больше строк, чем репозиториев.
-    from skill_atlas.indexer import index_all
+    from vivatlas.indexer import index_all
 
     class AlwaysFailing(FakeProvider):
         async def download_archive(self, repo, ref):

@@ -1,6 +1,6 @@
 # Доступ из ChatGPT и Claude Code
 
-Skill Atlas умеет отвечать не только вам через браузер, но и вашим ИИ-помощникам.
+VivAtlas умеет отвечать не только вам через браузер, но и вашим ИИ-помощникам.
 Спрашиваете у Claude Code «что у меня есть для оформления лендинга?» — он лезет
 в ваш каталог и отвечает по факту, а не выдумывает.
 
@@ -24,10 +24,10 @@ Skill Atlas умеет отвечать не только вам через бр
 ```json
 {
   "mcpServers": {
-    "skill-atlas": {
-      "command": "D:\Software\Dev\Skill Atlas\.venv\Scripts\python.exe",
-      "args": ["-m", "skill_atlas.cli", "mcp"],
-      "cwd": "D:\Software\Dev\Skill Atlas"
+    "vivatlas": {
+      "command": "D:\Software\Dev\VivAtlas\.venv\Scripts\python.exe",
+      "args": ["-m", "vivatlas.cli", "mcp"],
+      "cwd": "D:\Software\Dev\VivAtlas"
     }
   }
 }
@@ -40,7 +40,7 @@ Skill Atlas умеет отвечать не только вам через бр
 Нужен адрес, доступный из интернета — тот самый Cloudflare Tunnel.
 
 ```
-skill-atlas serve --host 0.0.0.0
+vivatlas serve --host 0.0.0.0
 ```
 
 Адрес сервера: `https://ваш-домен/mcp-server/mcp`

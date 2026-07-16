@@ -1,7 +1,7 @@
 import pytest
 
-from skill_atlas import security
-from skill_atlas.config import settings
+from vivatlas import security
+from vivatlas.config import settings
 
 # --- пароли ---
 

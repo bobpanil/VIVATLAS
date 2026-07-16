@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from skill_atlas.models import Artifact, Repository, Source, UpstreamLink
-from skill_atlas.updater import UpdateRefused, apply_update, plan_update
+from vivatlas.models import Artifact, Repository, Source, UpstreamLink
+from vivatlas.updater import UpdateRefused, apply_update, plan_update
 
 
 @pytest.fixture

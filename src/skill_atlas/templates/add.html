@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Добавить — Skill Atlas{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← ко всем</a>
+
+{% if step == 'start' %}
+<section class="add">
+    <h1>Добавить инструмент</h1>
+    <p class="lede">Ссылка на рилс, на GitHub, на сайт — или скриншот, где виден
+       репозиторий. Разберём, что это, и покажем, что нашлось.</p>
+
+    {% if error %}<p class="warn">{{ error }}</p>{% endif %}
+
+    <form class="add-form" method="post" action="/add" enctype="multipart/form-data"
+          onsubmit="working(this)">
+        <label class="fld">
+            <span>Ссылка или название</span>
+            <input type="text" name="source" value="{{ source or '' }}" autofocus
+                   placeholder="https://www.facebook.com/share/r/… или github.com/владелец/имя">
+        </label>
+
+        <p class="or">или</p>
+
+        <label class="fld">
+            <span>Скриншот, картинка, ролик</span>
+            <input type="file" name="file" accept="image/*,video/*">
+        </label>
+
+        <button class="go" type="submit">Разобрать</button>
+        <p class="note">Ничего не создаётся. Сначала покажем, что нашлось.</p>
+    </form>
+</section>
+{% endif %}
+
+{% if step == 'found' %}
+<section class="add">
+    <h1>Что нашлось</h1>
+    <p class="lede">{{ given }}</p>
+
+    {% if result.heard %}
+    <div class="box">
+        <h3>Прочитано</h3>
+        <p class="heard">{{ result.heard[:400] }}</p>
+        {% if result.tool_name %}<p class="legend">название: {{ result.tool_name }}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if result.notes %}
+    <ul class="notes">
+        {% for n in result.notes %}<li>{{ n }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if result.candidates %}
+    <p class="lede">Выберите нужный. Мы ничего не решаем за вас: название на слух
+       и с картинки распознаётся неточно.</p>
+
+    <ul class="cands">
+        {% for c in result.candidates %}
+        <li class="cand">
+            <div class="cand-head">
+                <a class="cand-name" href="https://github.com/{{ c.repo }}" target="_blank"
+                   rel="noopener">{{ c.repo }}</a>
+                <span class="cand-mark" data-exact="{{ 'yes' if c.exact else 'no' }}">
+                    {{ 'адрес точный' if c.exact else 'найден поиском' }}
+                </span>
+            </div>
+            {% if c.stars %}<p class="cand-stars">{{ '{:,}'.format(c.stars).replace(',', ' ') }} звёзд</p>{% endif %}
+            {% if c.description %}<p class="cand-desc">{{ c.description }}</p>{% endif %}
+            <p class="legend">{{ c.why }}</p>
+            <form method="post" action="/add/plan" onsubmit="working(this)">
+                <input type="hidden" name="url" value="https://github.com/{{ c.repo }}">
+                <button class="go small" type="submit">Показать, что будет</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="warn">Ничего не нашлось. Попробуйте дать ссылку на GitHub прямо.</p>
+    {% endif %}
+
+    <p class="note"><a href="/add">← другой источник</a></p>
+</section>
+{% endif %}
+
+{% if step == 'plan' %}
+<section class="add">
+    <h1>Что будет сделано</h1>
+
+    <div class="box">
+        <dl class="facts">
+            <dt>откуда</dt>
+            <dd>github.com/{{ plan.source.full_repo }}{% if plan.source.path %}/{{ plan.source.path }}{% endif %}</dd>
+            <dt>создастся</dt><dd>{{ plan.target_owner }}/{{ plan.target_name }}</dd>
+            <dt>файлов</dt><dd>{{ plan.files|length }}, {{ '%.0f'|format(plan.total_bytes / 1024) }} КБ</dd>
+        </dl>
+    </div>
+
+    <ul class="files">
+        {% for f in plan.files[:8] %}<li>{{ f.path }}</li>{% endfor %}
+        {% if plan.files|length > 8 %}<li class="legend">… ещё {{ plan.files|length - 8 }}</li>{% endif %}
+    </ul>
+
+    {% for w in plan.warnings %}<p class="warn">{{ w }}</p>{% endfor %}
+
+    <form method="post" action="/add/run" onsubmit="working(this)">
+        <input type="hidden" name="url" value="{{ url }}">
+        <input type="hidden" name="to" value="{{ to }}">
+        <label class="fld">
+            <span>Имя у себя</span>
+            <input type="text" name="name" value="{{ plan.target_name }}">
+        </label>
+        <button class="go write" type="submit">Тащить в Gitea</button>
+        <p class="note">Вот теперь запишем. Займёт с полминуты: скачать, залить,
+           собрать карточку, расставить теги.</p>
+    </form>
+
+    <p class="note"><a href="/add">← отмена</a></p>
+</section>
+{% endif %}
+
+{% if step == 'refused' %}
+<section class="add">
+    <h1>Так не получится</h1>
+
+    {# Отказ бывает полезным: "это целый проект, а вот папки внутри, похожие на
+       инструменты". Ссылки из него делаем кнопками — по ним можно продолжить. #}
+    {% for line in message.split('\n') %}
+        {% if 'https://github.com/' in line %}
+        <form method="post" action="/add/plan" class="hint" onsubmit="working(this)">
+            <input type="hidden" name="url" value="{{ line.strip() }}">
+            {# Из ссылки показываем только путь к папке: ветка тут лишний шум. #}
+            <button class="go small" type="submit">{{ line.strip().split('/tree/')[-1].split('/', 1)[-1] }}</button>
+        </form>
+        {% elif line.strip() %}
+        <p class="refused-line">{{ line }}</p>
+        {% endif %}
+    {% endfor %}
+
+    <p class="note"><a href="/add">← другой источник</a></p>
+</section>
+{% endif %}
+
+<script>
+// Работа идёт на сервере и занимает секунды: скачать ролик, спросить модель,
+// залить файлы. Без этого кнопка выглядит мёртвой, и на неё жмут второй раз —
+// а второе нажатие на последнем шаге это второй импорт.
+function working(form) {
+    var b = form.querySelector('button');
+    if (b) { b.disabled = true; b.textContent = 'Работаю…'; }
+}
+</script>
+{% endblock %}

@@ -1,9 +1,12 @@
 """Страницы для человека. API для программ живёт в api.py."""
 
+import os
+import tempfile
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
@@ -11,12 +14,20 @@ from skill_atlas import changes as ch
 from skill_atlas import filters as flt
 from skill_atlas import purposes as pur
 from skill_atlas.ai import build_embedding_model, build_text_model
+from skill_atlas.config import settings
 from skill_atlas.db import session_scope
-from skill_atlas.models import Artifact, ArtifactTag, TagSuppression, UpstreamLink
+from skill_atlas.embeddings import embed_artifact
+from skill_atlas.finder import MAX_MEDIA_BYTES, Finder
+from skill_atlas.import_run import execute, record_upstream
+from skill_atlas.importer import GitHubFetcher, ImportError_, plan_import
+from skill_atlas.indexer import index_repository
+from skill_atlas.models import Artifact, ArtifactTag, Repository, TagSuppression, UpstreamLink
+from skill_atlas.providers import build_provider
 from skill_atlas.recommender import NO_MATCH_THRESHOLD
 from skill_atlas.recommender import recommend as do_recommend
-from skill_atlas.search import Mode
+from skill_atlas.search import Mode, index_artifact_for_words
 from skill_atlas.search import search as do_search
+from skill_atlas.tagger import tag_artifact
 from skill_atlas.upstream import STATUS_NAMES
 
 BASE = Path(__file__).parent
@@ -282,3 +293,157 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
                 "counts": _counts(session),
             },
         )
+
+
+# --- добавление ---------------------------------------------------------
+#
+# Три шага, и порядок тут — не украшение:
+#
+#   1. что дали  -> ищем, показываем кандидатов. Ничего не пишем.
+#   2. выбрали   -> показываем план: что создастся, сколько файлов. Не пишем.
+#   3. нажали    -> пишем.
+#
+# Автоматически не тащим никогда. Название на слух и с картинки распознаётся
+# неточно, модель иногда выдумывает адрес — на живом рилсе выдала
+# skills/last-30-day, которого не существует. Решает человек, глазами.
+
+
+def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
+    with session_scope() as session:
+        return templates.TemplateResponse(
+            request,
+            "add.html",
+            {"step": step, "counts": _counts(session), **extra},
+        )
+
+
+@router.get("/add", response_class=HTMLResponse)
+def add_start(request: Request) -> HTMLResponse:
+    return _add_page(request, "start")
+
+
+@router.post("/add", response_class=HTMLResponse)
+async def add_find(
+    request: Request,
+    source: Annotated[str, Form()] = "",
+    file: Annotated[UploadFile | None, File()] = None,
+) -> HTMLResponse:
+    """Шаг 1: что дали — то и разбираем. Ничего не пишем."""
+    tmp: Path | None = None
+    src = source.strip()
+
+    if file is not None and file.filename:
+        # Расширение сохраняем: по нему finder отличает картинку от ролика.
+        suffix = Path(file.filename).suffix or ".bin"
+        data = await file.read()
+        if len(data) > MAX_MEDIA_BYTES:
+            return _add_page(
+                request,
+                "start",
+                error=f"Файл больше {MAX_MEDIA_BYTES // 1_000_000} МБ — модель такой не примет.",
+                source=src,
+            )
+        fd, name = tempfile.mkstemp(suffix=suffix)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        tmp = Path(name)
+        src = str(tmp)
+
+    if not src:
+        return _add_page(request, "start", error="Дайте ссылку, скриншот или хотя бы название.")
+
+    finder = Finder(github_token=settings.github_token)
+    model = build_text_model() if settings.google_api_key else None
+    try:
+        result = await finder.find(src, model)
+    except Exception as exc:
+        return _add_page(request, "start", error=f"Не получилось разобрать: {exc}", source=source)
+    finally:
+        await finder.aclose()
+        if model is not None:
+            await model.aclose()
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
+
+    return _add_page(
+        request,
+        "found",
+        result=result,
+        given=file.filename if (file and file.filename) else source,
+    )
+
+
+@router.post("/add/plan", response_class=HTMLResponse)
+async def add_plan(
+    request: Request,
+    url: Annotated[str, Form()],
+    to: Annotated[str, Form()] = "skills-lib",
+    name: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    """Шаг 2: что именно будет создано. По-прежнему ничего не пишем."""
+    fetcher = GitHubFetcher(token=settings.github_token)
+    try:
+        plan = await plan_import(fetcher, url, target_owner=to, target_name=name)
+    except ImportError_ as exc:
+        # Отказ бывает полезным: "это целый проект, а вот папки внутри,
+        # похожие на инструменты" — со ссылками, по которым можно продолжить.
+        return _add_page(request, "refused", message=str(exc), url=url, to=to)
+    except Exception as exc:
+        return _add_page(request, "refused", message=f"Не получилось: {exc}", url=url, to=to)
+    finally:
+        await fetcher.aclose()
+
+    return _add_page(request, "plan", plan=plan, url=url, to=to)
+
+
+@router.post("/add/run")
+async def add_run(
+    request: Request,
+    url: Annotated[str, Form()],
+    to: Annotated[str, Form()] = "skills-lib",
+    name: Annotated[str, Form()] = "",
+):
+    """Шаг 3: записываем. Только сюда и только по нажатию.
+
+    План строим заново, а не храним между шагами. Лишняя закачка архива, зато
+    никакого устаревшего плана: между "показали" и "нажали" человек мог уйти
+    пить чай, а у источника за это время всё поменялось.
+    """
+    if not settings.gitea_token:
+        return _add_page(request, "refused", message="Нет GITEA_TOKEN — писать нечем.", url=url)
+
+    fetcher = GitHubFetcher(token=settings.github_token)
+    try:
+        plan = await plan_import(fetcher, url, target_owner=to, target_name=name)
+    except Exception as exc:
+        await fetcher.aclose()
+        return _add_page(request, "refused", message=str(exc), url=url, to=to)
+    await fetcher.aclose()
+
+    provider = build_provider("gitea")
+    text_model = build_text_model()
+    embed_model = build_embedding_model()
+    try:
+        with session_scope() as session:
+            result = await execute(session, provider, plan, settings.gitea_url)
+            session.commit()
+
+            repo = session.get(Repository, result.repository_id)
+            await index_repository(session, provider, text_model, repo, force=True)
+            session.commit()
+
+            art = session.scalar(select(Artifact).where(Artifact.repository_id == repo.id))
+            record_upstream(session, art.id, plan)
+            await embed_artifact(session, embed_model, art)
+            await tag_artifact(session, art, text_model)
+            index_artifact_for_words(session, art)
+            session.commit()
+            artifact_id = art.id
+    except Exception as exc:
+        return _add_page(request, "refused", message=f"Не получилось: {exc}", url=url, to=to)
+    finally:
+        await provider.aclose()
+        await text_model.aclose()
+        await embed_model.aclose()
+
+    return RedirectResponse(f"/artifact/{artifact_id}", status_code=303)

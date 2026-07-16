@@ -108,14 +108,20 @@ def preview_url(artifact: Artifact) -> str | None:
     return f"{artifact.repository.html_url}/raw/branch/{branch}/{artifact.preview_path}"
 
 
-def _counts(session) -> dict:
+def _counts(session, user_id: int | None = None) -> dict:
+    # Считаем только видимое этому человеку: общее плюс своё частное.
+    vis = flt.visible_ids(user_id)
     by_type = session.execute(
         select(Artifact.artifact_type, func.count())
+        .where(Artifact.id.in_(vis))
         .group_by(Artifact.artifact_type)
         .order_by(func.count().desc())
     ).all()
     return {
-        "artifacts": session.scalar(select(func.count()).select_from(Artifact)) or 0,
+        "artifacts": session.scalar(
+            select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
+        )
+        or 0,
         "tags": session.scalar(select(func.count(func.distinct(ArtifactTag.tag_id)))) or 0,
         "by_type": by_type,
     }
@@ -152,24 +158,27 @@ async def index(
     model = build_embedding_model() if q and not link else None
     try:
         with session_scope() as session:
-            counts = _counts(session)
             user_id = getattr(request.state, "user_id", None)
+            counts = _counts(session, user_id)
             fav_ids = _fav_ids(session, user_id)
 
             if link:
                 items = []
             elif q:
                 # Поиск уже отобрал по смыслу — фильтры применяем к его выдаче,
-                # а не к базе: иначе порядок по близости потеряется.
+                # а не к базе: иначе порядок по близости потеряется. Зона входит
+                # в apply, поэтому чужое частное отсеется и в поиске.
                 hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
-                allowed = {a for a in session.scalars(flt.apply(select(Artifact.id), f, fav_ids))}
+                allowed = {
+                    a for a in session.scalars(flt.apply(select(Artifact.id), f, fav_ids, user_id))
+                }
                 items = [
                     _card(session, h.artifact, h.reasons, fav_ids)
                     for h in hits
                     if h.artifact.id in allowed
                 ][:60]
             else:
-                query = flt.apply(select(Artifact), f, fav_ids).order_by(Artifact.name)
+                query = flt.apply(select(Artifact), f, fav_ids, user_id).order_by(Artifact.name)
                 items = [_card(session, a, [], fav_ids) for a in session.scalars(query)]
 
             return templates.TemplateResponse(
@@ -251,8 +260,14 @@ def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozense
 @router.get("/a/{artifact_id}", response_class=HTMLResponse)
 def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
     with session_scope() as session:
+        user_id = getattr(request.state, "user_id", None)
         a = session.get(Artifact, artifact_id)
         if a is None:
+            raise HTTPException(404, "карточка не найдена")
+        # Зона: чужое частное не показываем даже по прямой ссылке. «Не найдена»,
+        # а не «нельзя» — незачем подтверждать, что такая карточка существует.
+        owner_id = a.repository.source.owner_user_id
+        if owner_id is not None and owner_id != user_id:
             raise HTTPException(404, "карточка не найдена")
 
         links = session.scalars(
@@ -294,7 +309,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "author": author_of(session, a),
                 "purpose": pur.detect_for(session, a.id, a.name)[0],
                 "preview_url": preview_url(a),
-                "counts": _counts(session),
+                "counts": _counts(session, user_id),
                 "categories": flt.category_options(session),
             },
         )
@@ -342,14 +357,16 @@ def recommend_redirect(task: str = "") -> RedirectResponse:
 @router.get("/help", response_class=HTMLResponse)
 def help_page(request: Request) -> HTMLResponse:
     with session_scope() as session:
+        user_id = getattr(request.state, "user_id", None)
         return templates.TemplateResponse(
-            request, "help.html", {"counts": _counts(session), "nav": "help"}
+            request, "help.html", {"counts": _counts(session, user_id), "nav": "help"}
         )
 
 
 @router.get("/changes", response_class=HTMLResponse)
 def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLResponse:
     with session_scope() as session:
+        user_id = getattr(request.state, "user_id", None)
         stale_mode = bool(stale)
         stale_items = ch.stale(session) if stale_mode else []
         oldest, newest = ch.oldest_and_newest(session)
@@ -375,7 +392,7 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
                 "nav": "changes",
                 "oldest": oldest,
                 "newest": newest,
-                "counts": _counts(session),
+                "counts": _counts(session, user_id),
             },
         )
 
@@ -395,10 +412,11 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
 
 def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
     with session_scope() as session:
+        user_id = getattr(request.state, "user_id", None)
         return templates.TemplateResponse(
             request,
             "add.html",
-            {"step": step, "counts": _counts(session), "nav": "add", **extra},
+            {"step": step, "counts": _counts(session, user_id), "nav": "add", **extra},
         )
 
 

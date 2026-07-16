@@ -73,7 +73,7 @@ def admin_page(request: Request) -> HTMLResponse:
             {
                 "users": rows,
                 "keys": _masked_keys(),
-                "counts": _counts(session),
+                "counts": _counts(session, me.id),
                 "nav": "admin",
             },
         )

@@ -57,10 +57,11 @@ def _my_sources(session, user_id: int) -> list[dict]:
 
 
 def _page(request: Request, session, step: str, **extra) -> HTMLResponse:
+    user_id = getattr(request.state, "user_id", None)
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"step": step, "counts": _counts(session), "nav": "settings", **extra},
+        {"step": step, "counts": _counts(session, user_id), "nav": "settings", **extra},
     )
 
 

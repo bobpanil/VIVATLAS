@@ -1,14 +1,13 @@
-{% extends "base.html" %}
+{% extends "modal_base.html" %}
 {% block title %}Изменения — VivAtlas{% endblock %}
+{% block modal_title %}Изменения{% endblock %}
 
-{% block content %}
-<div class="searchbar">
-    <h1 class="page-h1">Что происходило</h1>
-    <p class="hint">Записывается в момент сканирования. Задним числом такое не восстановить — после удаления репозитория узнать, что он был, уже неоткуда.</p>
-</div>
+{% block modal_body %}
+<p class="hint">Записывается в момент сканирования. Задним числом такое не восстановить —
+   после удаления репозитория узнать, что он был, уже неоткуда.</p>
 
-<nav class="filters">
-    <a class="filter" href="/changes" {% if not kind %}aria-current="true"{% endif %}>всё <b>{{ total }}</b></a>
+<nav class="filters" style="margin: var(--s-md) 0 var(--s-lg)">
+    <a class="filter" href="/changes" {% if not kind and not stale_mode %}aria-current="true"{% endif %}>всё <b>{{ total }}</b></a>
     {% for k, n in counts_by_kind.items() %}
     <a class="filter" href="/changes?kind={{ k }}" {% if kind == k %}aria-current="true"{% endif %}>{{ kind_name(k) }} <b>{{ n }}</b></a>
     {% endfor %}
@@ -59,4 +58,10 @@
     Записывать начали только что, поэтому истории ещё нет. Она появится после следующих сканирований.
 </div>
 {% endif %}
+{% endblock %}
+
+{% block modal_foot %}
+<footer class="modal-foot">
+    <a class="btn-secondary" href="/">Закрыть</a>
+</footer>
 {% endblock %}

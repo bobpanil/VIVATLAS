@@ -1,90 +1,77 @@
-{% extends "base.html" %}
+{% extends "modal_base.html" %}
 
 {% block title %}Настройки — VivAtlas{% endblock %}
+{% block modal_title %}{% if step == 'qr' %}Привяжите приложение{% elif step == 'codes' %}{% if fresh %}Проверка включена{% else %}Новые коды восстановления{% endif %}{% else %}Настройки{% endif %}{% endblock %}
 
-{% block content %}
-<a class="back" href="/">← ко всем</a>
+{% block modal_body %}
+{% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
-<section class="settings">
-    <h1>Настройки</h1>
+{% if step == 'security' %}
+<div class="box">
+    <h3>Двухэтажная проверка</h3>
+    {% if totp_on %}
+    <p class="set-on">Включена. При входе спросим код из приложения.</p>
+    <p class="legend">Кодов восстановления осталось: {{ backup_left }} из 10.
+       Это на случай потери телефона.</p>
 
-    {% if error %}<p class="warn">{{ error }}</p>{% endif %}
+    <form method="post" action="/settings/2fa/backup" class="set-row">
+        <input type="text" name="code" inputmode="numeric" placeholder="код из приложения"
+               aria-label="Код из приложения" required>
+        <button class="btn-secondary" type="submit">Новые коды восстановления</button>
+    </form>
 
-    {% if step == 'security' %}
-    <div class="box">
-        <h3>Двухэтажная проверка</h3>
-        {% if totp_on %}
-        <p class="set-on">Включена. При входе спросим код из приложения.</p>
-        <p class="legend">Кодов восстановления осталось: {{ backup_left }} из 10.
-           Это на случай потери телефона.</p>
-
-        <form method="post" action="/settings/2fa/backup" class="set-row">
-            <input type="text" name="code" inputmode="numeric" placeholder="код из приложения"
-                   aria-label="Код из приложения" required>
-            <button class="btn-secondary" type="submit">Новые коды восстановления</button>
-        </form>
-
-        <form method="post" action="/settings/2fa/disable" class="set-row">
-            <input type="password" name="password" placeholder="ваш пароль"
-                   aria-label="Пароль" autocomplete="current-password" required>
-            <button class="btn-secondary" type="submit">Выключить проверку</button>
-        </form>
-        {% else %}
-        <p class="legend">Пароль можно подсмотреть один раз и пользоваться. Код из приложения
-           меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.</p>
-        <form method="post" action="/settings/2fa/start">
-            <button class="cta" type="submit">Включить</button>
-        </form>
-        {% endif %}
-    </div>
+    <form method="post" action="/settings/2fa/disable" class="set-row">
+        <input type="password" name="password" placeholder="ваш пароль"
+               aria-label="Пароль" autocomplete="current-password" required>
+        <button class="btn-secondary" type="submit">Выключить проверку</button>
+    </form>
+    {% else %}
+    <p class="legend">Пароль можно подсмотреть один раз и пользоваться. Код из приложения
+       меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.</p>
+    <form method="post" action="/settings/2fa/start" id="enableform"></form>
     {% endif %}
+</div>
+{% endif %}
 
+{% if step == 'qr' %}
+<p class="legend">Откройте Google Authenticator, Aegis или другое подобное и наведите на QR.
+   Нет сканера — впишите ключ руками.</p>
+
+<div class="qr">{{ qr }}</div>
+
+<p class="set-secret">Ключ вручную: <code>{{ secret }}</code></p>
+
+<form method="post" action="/settings/2fa/confirm" id="qrform" class="set-confirm">
+    <label class="fld"><span>Код из приложения — чтобы проверить связь</span>
+        <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+               placeholder="000000" autofocus required></label>
+</form>
+{% endif %}
+
+{% if step == 'codes' %}
+<p class="warn">Эти коды показываются один раз. Сохраните их сейчас — потом подсмотреть будет
+   негде, в базе лежат только их отпечатки.</p>
+<p class="legend">Каждый код входит вместо телефона ровно один раз. Держите там, где не
+   держите пароль: в менеджере паролей или на бумаге.</p>
+
+<ul class="codes-list">
+    {% for c in codes %}<li>{{ c }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
+
+{% block modal_foot %}
+<footer class="modal-foot">
     {% if step == 'qr' %}
-    <div class="box">
-        <h3>Привяжите приложение</h3>
-        <p class="legend">Откройте Google Authenticator, Aegis или другое подобное и
-           наведите на QR. Нет сканера — впишите ключ руками.</p>
-
-        <div class="qr">{{ qr }}</div>
-
-        <p class="set-secret">Ключ вручную: <code>{{ secret }}</code></p>
-
-        <form method="post" action="/settings/2fa/confirm" class="set-confirm">
-            <label class="fld"><span>Код из приложения — чтобы проверить связь</span>
-                <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
-                       placeholder="000000" autofocus required></label>
-            <button class="cta cta-wide" type="submit">Подтвердить и включить</button>
-        </form>
-        <p class="note"><a href="/settings">← отмена</a></p>
-    </div>
+    <a class="btn-secondary foot-left" href="/settings">← отмена</a>
+    <button class="cta" type="submit" form="qrform">Подтвердить и включить</button>
+    {% elif step == 'codes' %}
+    <a class="cta" href="/settings">Я сохранил, дальше</a>
+    {% elif step == 'security' and not totp_on %}
+    <a class="btn-secondary foot-left" href="/">Закрыть</a>
+    <button class="cta" type="submit" form="enableform">Включить проверку</button>
+    {% else %}
+    <a class="btn-secondary" href="/">Закрыть</a>
     {% endif %}
-
-    {% if step == 'codes' %}
-    <div class="box">
-        <h3>{% if fresh %}Проверка включена{% else %}Новые коды восстановления{% endif %}</h3>
-        <p class="warn">Эти коды показываются один раз. Сохраните их сейчас — потом
-           подсмотреть будет негде, в базе лежат только их отпечатки.</p>
-        <p class="legend">Каждый код входит вместо телефона ровно один раз. Держите там,
-           где не держите пароль: в менеджере паролей или на бумаге.</p>
-
-        <ul class="codes-list">
-            {% for c in codes %}<li>{{ c }}</li>{% endfor %}
-        </ul>
-
-        <p class="note"><a class="cta" href="/settings">Я сохранил, дальше</a></p>
-    </div>
-    {% endif %}
-
-    {# Выход перенесён сюда из панели: там он мозолил глаза, а нужен редко. #}
-    {% if step == 'security' %}
-    <div class="box">
-        <h3>Выход</h3>
-        <p class="legend">Закроет эту сессию на этом устройстве. Войти снова — по паролю
-           {% if totp_on %}и коду{% endif %}.</p>
-        <form method="post" action="/logout">
-            <button class="btn-secondary" type="submit">Выйти из VivAtlas</button>
-        </form>
-    </div>
-    {% endif %}
-</section>
+</footer>
 {% endblock %}

@@ -1,0 +1,39 @@
+{% import "_icons.html" as icons %}<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#0e1017">
+    <title>{% block title %}VivAtlas{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.png" sizes="32x32">
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+{# Модалка-страница: тёмный фон, по центру карточка 880px — шапка, тело, футер.
+   Формы внутри работают как обычно (переход), поэтому 2FA и загрузка файла
+   ничего не ломают. Клик по тёмному фону или крестик — закрыть. #}
+<body class="modalpage">
+    <a class="modal-scrim" href="{{ close_href|default('/') }}" aria-label="Закрыть" tabindex="-1"></a>
+
+    <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <header class="modal-head">
+            <h2 id="modal-title">{% block modal_title %}{% endblock %}</h2>
+            <a class="modal-close" href="{{ close_href|default('/') }}" aria-label="Закрыть">×</a>
+        </header>
+
+        <div class="modal-body">
+            {% block modal_body %}{% endblock %}
+        </div>
+
+        {% block modal_foot %}{% endblock %}
+    </div>
+
+    <script>
+    // Закрыть по Esc — как ждут от модалки.
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.location = {{ (close_href | default('/')) | tojson }};
+    });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

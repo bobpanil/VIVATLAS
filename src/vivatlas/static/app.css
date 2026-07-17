@@ -2095,6 +2095,8 @@ summary:focus-visible {
     flex: none;
 }
 
+/* Тот же размер и форма, что у кнопки «скопировать источник»: рамкой обведённый
+   квадрат. Цвет значка сохраняет смысл зоны (глобус зелёный / замок янтарный). */
 .zone-btn {
     position: relative;
     z-index: 2;
@@ -2102,27 +2104,28 @@ summary:focus-visible {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    border: 0;
-    background: none;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: transparent;
     cursor: pointer;
+    transition: filter 0.12s, background 0.12s;
 }
 
 .zone-btn svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.3;
+    stroke-width: 1.6;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
 .zone-btn:hover {
-    background: var(--surface-soft);
-    border-radius: var(--r-sm);
+    border-color: var(--ink);
 }
 
 /* Показываем ровно один значок под текущую зону. */
@@ -3482,6 +3485,70 @@ summary:focus-visible {
 .help p {
     line-height: 1.6;
     margin: var(--s-sm) 0 0;
+}
+
+/* Демо-карточка в справке: выглядит как настоящая, но не нажимается. */
+.card-guide {
+    display: flex;
+    justify-content: center;
+    margin: var(--s-md) 0;
+}
+
+.guide-card {
+    width: 240px;
+    max-width: 100%;
+    pointer-events: none;   /* только показать, не нажимать */
+}
+
+/* Расшифровка значков: значок-образец слева, объяснение справа. */
+.help-legend {
+    list-style: none;
+    margin: var(--s-md) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.help-legend li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    line-height: 1.5;
+}
+
+.help-legend b {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* Колонка образцов одной ширины — объяснения выстраиваются в ровный столбец. */
+.lg-ic {
+    flex: none;
+    width: 72px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* Значки в легенде не нажимаются — это образцы. */
+.lg-ic .zone-btn,
+.lg-ic .fav-btn,
+.lg-ic .card-copy,
+.lg-badge {
+    pointer-events: none;
+}
+
+/* Бейдж в легенде — обычным потоком, не в углу карточки. */
+.lg-badge {
+    position: static;
+    border-radius: var(--r-sm);
+}
+
+/* Вне подвала карточки цвет направления не задан — даём образцу свой. */
+.lg-ic .pur {
+    --pur-color: var(--accent-blue);
 }
 
 .help code {

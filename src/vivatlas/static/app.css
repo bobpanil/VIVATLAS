@@ -2113,7 +2113,6 @@ summary:focus-visible {
     align-items: center;
     flex: none;
     color: var(--pur-color);
-    cursor: help;
 }
 
 .cat-mark .cicon {

@@ -1096,63 +1096,71 @@ a {
     padding: 0;
 }
 
-.src-manage li {
-    display: flex;
-    align-items: center;
-    gap: var(--s-md);
+/* Строка источника — редактируемая: хостинг, название, адрес, токен. */
+.src-row {
     padding: 10px 0;
     border-bottom: 1px solid var(--hairline-soft);
 }
 
-.src-main {
-    flex: 1;
-    min-width: 0;
+.src-edit {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--s-sm);
+    margin: 0;
 }
 
-.src-name {
-    font-weight: 500;
+.src-edit-top {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+}
+
+.src-edit-top select {
+    flex: none;
+}
+
+.src-edit-top input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.src-edit-top button {
+    flex: none;
+}
+
+.src-edit input,
+.src-edit select {
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 7px 10px;
+    min-height: 36px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
     color: var(--ink);
 }
 
-.src-kind {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--mute);
-    background: var(--surface-soft);
-    padding: 1px 7px;
-    border-radius: var(--r-full);
-    margin-left: 4px;
-}
-
-.src-url {
-    font-size: 12px;
-    color: var(--mute);
-    word-break: break-all;
-}
-
-.src-token {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--body-ink);
-}
-
-.src-notoken {
-    font-family: var(--sans);
-    color: var(--accent-red, #a32d2d);
-}
-
-.src-manage form {
-    margin: 0;
-    flex: none;
+.src-del:hover {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
 }
 
 .src-add {
     display: flex;
     flex-direction: column;
     gap: var(--s-sm);
+    margin-top: var(--s-md);
+    padding-top: var(--s-md);
+    border-top: 1px solid var(--hairline-soft);
+}
+
+.src-add-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mute);
+    margin: 0;
 }
 
 .src-add-row {

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from sqlalchemy import func, select
@@ -38,6 +38,17 @@ def _me(session, request: Request) -> User | None:
     return auth.current_user(session, request)
 
 
+def _mask_token(enc: str) -> str:
+    """Замаскированный токен. Если не расшифровался (сменился ключ) — не роняем
+    страницу, а честно говорим, что нечитаем."""
+    if not enc:
+        return ""
+    try:
+        return security.mask_secret(security.decrypt_secret(enc))
+    except Exception:
+        return "нечитаем — впишите заново"
+
+
 def _my_sources(session, user_id: int) -> list[dict]:
     """Свои частные источники. Токен наружу — только замаскированным."""
     rows = session.scalars(
@@ -47,16 +58,37 @@ def _my_sources(session, user_id: int) -> list[dict]:
     return [
         {
             "id": s.id,
+            "kind_raw": s.kind,
             "kind": kinds.get(s.kind, s.kind),
             "display_name": s.display_name,
             "base_url": s.base_url,
             "has_token": bool(s.token_enc),
-            "token_mask": security.mask_secret(security.decrypt_secret(s.token_enc))
-            if s.token_enc
-            else "",
+            "token_mask": _mask_token(s.token_enc),
         }
         for s in rows
     ]
+
+
+def _valid_url(u: str) -> bool:
+    return u.startswith("http://") or u.startswith("https://")
+
+
+def _security_page(request: Request, session, me, error: str = "") -> HTMLResponse:
+    """Полная страница настроек (раздел security) — с ошибкой или без. Одна
+    точка сборки контекста, чтобы ошибка показывалась в окне, а не роняла его."""
+    return _page(
+        request,
+        session,
+        "security",
+        me=me,
+        totp_on=bool(me.totp_enabled_at),
+        backup_left=twofactor.unused_backup_count(me),
+        categories=flt.category_options(session, me.id),
+        cat_icons=caticons.ICON_SLUGS,
+        my_sources=_my_sources(session, me.id),
+        source_kinds=SOURCE_KINDS,
+        error=error,
+    )
 
 
 def _page(request: Request, session, step: str, **extra) -> HTMLResponse:
@@ -72,18 +104,7 @@ def _page(request: Request, session, step: str, **extra) -> HTMLResponse:
 def settings_page(request: Request) -> HTMLResponse:
     with session_scope() as session:
         me = _me(session, request)
-        return _page(
-            request,
-            session,
-            "security",
-            me=me,
-            totp_on=bool(me.totp_enabled_at),
-            backup_left=twofactor.unused_backup_count(me),
-            categories=flt.category_options(session, me.id),
-            cat_icons=caticons.ICON_SLUGS,
-            my_sources=_my_sources(session, me.id),
-            source_kinds=SOURCE_KINDS,
-        )
+        return _security_page(request, session, me)
 
 
 # --- категории-папки (общие, раскладывает владелец) ------------------------
@@ -191,22 +212,63 @@ def source_create(
     display_name: Annotated[str, Form()] = "",
     base_url: Annotated[str, Form()] = "",
     token: Annotated[str, Form()] = "",
-) -> RedirectResponse:
+) -> Response:
     with session_scope() as session:
         me = _me(session, request)
         kinds = {k for k, _ in SOURCE_KINDS}
         base_url = base_url.strip()
-        if kind in kinds and base_url:
-            session.add(
-                Source(
-                    kind=kind,
-                    display_name=(display_name.strip() or base_url)[:128],
-                    base_url=base_url[:512],
-                    owner_user_id=me.id,
-                    token_enc=security.encrypt_secret(token.strip()) if token.strip() else "",
-                    enabled=True,
-                )
+        # Ошибку показываем В окне, а не роняем его: неверный адрес — обычное
+        # дело, из-за него терять всё окно нельзя.
+        if kind not in kinds:
+            return _security_page(request, session, me, error="Выберите хостинг: GitHub или Gitea.")
+        if not _valid_url(base_url):
+            return _security_page(
+                request, session, me,
+                error="Адрес должен начинаться с http:// или https:// — проверьте ссылку.",
             )
+        session.add(
+            Source(
+                kind=kind,
+                display_name=(display_name.strip() or base_url)[:128],
+                base_url=base_url[:512],
+                owner_user_id=me.id,
+                token_enc=security.encrypt_secret(token.strip()) if token.strip() else "",
+                enabled=True,
+            )
+        )
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/sources/{source_id}/update", response_class=HTMLResponse)
+def source_update(
+    request: Request,
+    source_id: int,
+    kind: Annotated[str, Form()] = "",
+    display_name: Annotated[str, Form()] = "",
+    base_url: Annotated[str, Form()] = "",
+    token: Annotated[str, Form()] = "",
+) -> Response:
+    """Править свой источник: хостинг, название, адрес, токен. Токен меняем
+    только если вписан новый — пустое поле оставляет прежний."""
+    with session_scope() as session:
+        me = _me(session, request)
+        src = session.get(Source, source_id)
+        if src is None or src.owner_user_id != me.id:
+            raise HTTPException(404, "источник не найден")
+        kinds = {k for k, _ in SOURCE_KINDS}
+        base_url = base_url.strip()
+        if base_url and not _valid_url(base_url):
+            return _security_page(
+                request, session, me,
+                error="Адрес должен начинаться с http:// или https:// — проверьте ссылку.",
+            )
+        if kind in kinds:
+            src.kind = kind
+        if base_url:
+            src.base_url = base_url[:512]
+        src.display_name = (display_name.strip() or src.base_url)[:128]
+        if token.strip():
+            src.token_enc = security.encrypt_secret(token.strip())
     return RedirectResponse("/settings", status_code=303)
 
 

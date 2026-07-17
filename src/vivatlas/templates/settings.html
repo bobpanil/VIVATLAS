@@ -94,15 +94,26 @@
     {% if my_sources %}
     <ul class="src-manage">
         {% for s in my_sources %}
-        <li>
-            <div class="src-main">
-                <span class="src-name">{{ s.display_name }} <span class="src-kind">{{ s.kind }}</span></span>
-                <span class="src-url">{{ s.base_url }}</span>
-                {% if s.has_token %}<span class="src-token">токен: {{ s.token_mask }}</span>
-                {% else %}<span class="src-token src-notoken">без токена</span>{% endif %}
-            </div>
-            <form method="post" action="/settings/sources/{{ s.id }}/delete">
-                <button class="btn-secondary" type="submit">Удалить</button>
+        {# Каждый источник — правится на месте: хостинг, название, адрес, токен.
+           Токен пустой — прежний остаётся; вписали новый — заменится. #}
+        <li class="src-row">
+            <form method="post" action="/settings/sources/{{ s.id }}/update" class="src-edit">
+                <div class="src-edit-top">
+                    <select name="kind" aria-label="Хостинг">
+                        {% for value, label in source_kinds %}
+                        <option value="{{ value }}"{% if value == s.kind_raw %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" name="display_name" value="{{ s.display_name }}"
+                           placeholder="Название (для себя)" aria-label="Название" maxlength="128">
+                    <button type="submit" class="btn-secondary" title="Сохранить">Сохранить</button>
+                    <button type="submit" class="btn-secondary src-del"
+                            formaction="/settings/sources/{{ s.id }}/delete" title="Удалить">Удалить</button>
+                </div>
+                <input type="url" name="base_url" value="{{ s.base_url }}" required aria-label="Адрес">
+                <input type="password" name="token" autocomplete="off" spellcheck="false"
+                       aria-label="Токен доступа"
+                       placeholder="{% if s.has_token %}Токен: {{ s.token_mask }} — впишите новый, чтобы заменить{% else %}Токен доступа (вводите сами){% endif %}">
             </form>
         </li>
         {% endfor %}
@@ -110,6 +121,7 @@
     {% endif %}
 
     <form method="post" action="/settings/sources" class="src-add">
+        <p class="src-add-title">Подключить новый</p>
         <div class="src-add-row">
             <select name="kind" aria-label="Хостинг">
                 {% for value, label in source_kinds %}

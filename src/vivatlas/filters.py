@@ -80,6 +80,7 @@ def visible_ids(user_id: int | None) -> Select:
         .join(Repository, Artifact.repository_id == Repository.id)
         .join(Source, Repository.source_id == Source.id)
         .where(
+            Artifact.hidden.is_(False),
             (Source.owner_user_id.is_(None)) | (Source.owner_user_id == user_id),
             (Artifact.private_to_user_id.is_(None)) | (Artifact.private_to_user_id == user_id),
         )

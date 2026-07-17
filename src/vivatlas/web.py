@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
+from vivatlas import caticons
 from vivatlas import changes as ch
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
@@ -75,19 +76,7 @@ def basis_name(slug: str) -> str:
     return BASIS_NAMES.get(slug, slug or "не указано")
 
 
-def _caticon(slug: str) -> str:
-    """Полный svg иконки категории по ключу (пусто — ничего)."""
-    from markupsafe import Markup
-
-    from vivatlas.caticons import icon_inner
-
-    inner = icon_inner(slug)
-    if not inner:
-        return ""
-    return Markup(f'<svg class="cicon" viewBox="0 0 16 16" aria-hidden="true">{inner}</svg>')
-
-
-templates.env.globals["caticon"] = _caticon
+templates.env.globals["caticon"] = caticons.caticon_svg
 templates.env.globals["type_name"] = type_name
 templates.env.globals["basis_name"] = basis_name
 templates.env.globals["status_name"] = lambda s: STATUS_NAMES.get(s, s)

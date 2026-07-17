@@ -49,3 +49,14 @@ ICON_SLUGS: list[str] = list(ICONS.keys())
 def icon_inner(slug: str) -> str:
     """Внутренность svg по ключу, или пусто."""
     return ICONS.get(slug, "")
+
+
+def caticon_svg(slug: str):
+    """Готовый <svg> иконки для шаблонов. Пусто — ничего. Регистрируется как
+    глобал caticon в КАЖДОМ окружении шаблонов, где нужен (у модулей свои env)."""
+    from markupsafe import Markup
+
+    inner = ICONS.get(slug, "")
+    if not inner:
+        return ""
+    return Markup(f'<svg class="cicon" viewBox="0 0 16 16" aria-hidden="true">{inner}</svg>')

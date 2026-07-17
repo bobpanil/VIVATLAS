@@ -117,6 +117,11 @@ class Artifact(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
+    # Спрятана из каталога, но НЕ удалена (данные и связь с источником целы).
+    # Так помечен первичный «затравочный» массив: показываем только то, что
+    # человек добавил сам (импортом, черновиком, своим источником с токеном).
+    hidden: Mapped[bool] = mapped_column(default=False, index=True)
+
     anchor_path: Mapped[str | None] = mapped_column(String(512))
     preview_path: Mapped[str | None] = mapped_column(String(512))
     doc_text: Mapped[str] = mapped_column(Text, default="")

@@ -28,6 +28,9 @@ log = logging.getLogger(__name__)
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
+# У этого модуля свой env шаблонов — глобалы web.py сюда не попадают, поэтому
+# иконки категорий регистрируем и здесь.
+templates.env.globals["caticon"] = caticons.caticon_svg
 router = APIRouter()
 
 

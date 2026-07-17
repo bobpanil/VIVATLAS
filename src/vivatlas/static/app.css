@@ -2447,7 +2447,9 @@ summary:focus-visible {
 }
 
 .art-meta {
-    --pur-color: var(--muted);
+    /* --pur-color задаёт data-pur на самом .art-meta — цвет направления тот же,
+       что у значка на карточке. Свой дефолт тут не ставим: он перебивал бы
+       data-pur (оба на одном элементе, а он идёт позже) и красил значок серым. */
     display: flex;
     align-items: center;
     gap: var(--s-sm);
@@ -2920,6 +2922,9 @@ summary:focus-visible {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    /* Цвет направления — тот же, что у значка на карточке (data-pur задаёт
+       --pur-color). Значок и подпись в цвете раздела, как в шапке карточки. */
+    color: var(--pur-color, var(--body-ink));
 }
 
 .pur-big svg {
@@ -2931,6 +2936,11 @@ summary:focus-visible {
     stroke-width: 1.4;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+/* Залитые части значка (точки палитры) — тоже в цвет направления. */
+.pur-big svg [fill="currentColor"] {
+    fill: var(--pur-color);
 }
 
 /* Незаполненное показываем как незаполненное, а не прочерком: прочерк

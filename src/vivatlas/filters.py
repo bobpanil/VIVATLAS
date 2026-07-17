@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from vivatlas.models import Artifact, ArtifactTag, Category, Repository, Source, Tag, UpstreamLink
+from vivatlas.models import Artifact, ArtifactTag, Category, Repository, Tag, UpstreamLink
 
 # Порядок важен: сначала то, чем пользуются чаще.
 CATEGORY_ORDER = ["назначение", "платформа", "язык", "формат", "запуск", "тип", "прочее"]
@@ -72,18 +72,16 @@ class FilterGroup:
 
 
 def visible_ids(user_id: int | None) -> Select:
-    """id карточек, которые вправе видеть этот человек: всё из общей зоны плюс
-    своё частное. Чужое частное — никогда. Граница зон в одном месте, чтобы её
-    нельзя было забыть на каком-то экране."""
-    return (
-        select(Artifact.id)
-        .join(Repository, Artifact.repository_id == Repository.id)
-        .join(Source, Repository.source_id == Source.id)
-        .where(
-            Artifact.hidden.is_(False),
-            (Source.owner_user_id.is_(None)) | (Source.owner_user_id == user_id),
-            (Artifact.private_to_user_id.is_(None)) | (Artifact.private_to_user_id == user_id),
-        )
+    """id карточек, которые вправе видеть этот человек. Зона решается одной
+    отметкой private_to_user_id: пусто — публичная, видят все; задан
+    пользователь — личная, видит только он. Чужое личное — никогда.
+
+    Скан личного источника ставит private_to_user_id = владельцу, так что всё
+    приходит приватным; кнопка «публичная» на карточке снимает отметку. Граница
+    зон в одном месте, чтобы её нельзя было забыть на каком-то экране."""
+    return select(Artifact.id).where(
+        Artifact.hidden.is_(False),
+        (Artifact.private_to_user_id.is_(None)) | (Artifact.private_to_user_id == user_id),
     )
 
 

@@ -286,6 +286,32 @@ def scan_dismiss(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
+@router.get("/scan/cards")
+def scan_cards(request: Request, after: int = 0) -> JSONResponse:
+    """Готовая разметка карточек, добавленных после `after` (id больше него).
+    Пока идёт скан, главная опрашивает это и вставляет новые карточки поштучно,
+    не перезагружая страницу; заодно отдаём свежий общий счётчик для пилюли."""
+    user_id = getattr(request.state, "user_id", None)
+    with session_scope() as session:
+        fav_ids = _fav_ids(session, user_id)
+        arts = session.scalars(
+            select(Artifact)
+            .where(
+                Artifact.id.in_(flt.visible_ids(user_id)),
+                Artifact.id > after,
+                Artifact.artifact_type != "draft",
+            )
+            .order_by(Artifact.id)
+        ).all()
+        tmpl = templates.get_template("_carditem.html")
+        html = "".join(
+            tmpl.render(it=_card(session, a, [], fav_ids), next_path="/") for a in arts
+        )
+        max_id = arts[-1].id if arts else after
+        total = _counts(session, user_id)["artifacts"]
+    return JSONResponse({"html": html, "total": total, "max_id": max_id, "count": len(arts)})
+
+
 _CAT_STOP = {"и", "для", "по", "the", "and", "for", "of", "или", "с", "на"}
 
 
@@ -321,11 +347,9 @@ def _auto_category(session, art: Artifact) -> int | None:
 
 
 def _zone(a: Artifact) -> str:
-    """Итоговая зона карточки: частная, если помечена личной или её источник
-    частный; иначе общая."""
-    if a.private_to_user_id is not None or a.repository.source.owner_user_id is not None:
-        return "private"
-    return "common"
+    """Зона карточки по одной отметке: частная, если помечена личной
+    (private_to_user_id задан); иначе общая (публичная)."""
+    return "private" if a.private_to_user_id is not None else "common"
 
 
 def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozenset()) -> dict:
@@ -343,6 +367,7 @@ def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozense
         "source_url": a.repository.original_url or a.repository.html_url,
         "favorite": a.id in fav_ids,
         "zone": _zone(a),
+        "is_new": a.is_new,
         "reasons": reasons,
         "author": author_of(session, a),
         "created": a.repository.remote_created_at,
@@ -360,12 +385,13 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
             raise HTTPException(404, "карточка не найдена")
         # Зона: чужое частное не показываем даже по прямой ссылке. «Не найдена»,
         # а не «нельзя» — незачем подтверждать, что такая карточка существует.
-        src_owner = a.repository.source.owner_user_id
         priv = a.private_to_user_id
-        if (src_owner is not None and src_owner != user_id) or (
-            priv is not None and priv != user_id
-        ):
+        if priv is not None and priv != user_id:
             raise HTTPException(404, "карточка не найдена")
+
+        # Открыл — значит увидел: гасим бейдж «новое».
+        if a.is_new:
+            a.is_new = False
 
         links = session.scalars(
             select(ArtifactTag).where(ArtifactTag.artifact_id == artifact_id)
@@ -443,6 +469,41 @@ def set_category(
     return RedirectResponse(dest, status_code=303)
 
 
+@router.post("/artifact/{artifact_id}/visibility")
+def toggle_visibility(
+    request: Request, artifact_id: int, next: Annotated[str, Form()] = "/"
+) -> Response:
+    """Переключить зону карточки: частная (видна только владельцу) ↔ публичная
+    (видят все). После скана карточки приходят частными; кнопкой в футере человек
+    публикует нужные. Менять может хозяин каталога, владелец источника карточки
+    или тот, кому она уже частная."""
+    user_id = getattr(request.state, "user_id", None)
+    if user_id is None:
+        raise HTTPException(401, "нужно войти")
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None:
+            raise HTTPException(404, "карточка не найдена")
+        cur = art.private_to_user_id
+        src_owner = art.repository.source.owner_user_id
+        is_owner = getattr(request.state, "is_owner", False)
+        if not (is_owner or src_owner == user_id or cur == user_id):
+            raise HTTPException(403, "менять зону может владелец")
+        if cur is None:
+            art.private_to_user_id = user_id  # сделать частной
+            now_private = True
+        else:
+            art.private_to_user_id = None  # опубликовать
+            now_private = False
+
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse(
+            {"private": now_private, "zone": "private" if now_private else "common"}
+        )
+    dest = next if next.startswith("/") else "/"
+    return RedirectResponse(dest, status_code=303)
+
+
 # Хостинги, которые сейчас умеет сканировать провайдер Gitea. Codeberg — это
 # Forgejo (форк Gitea), тот же API.
 _GITEA_KINDS = {"gitea", "codeberg"}
@@ -509,31 +570,43 @@ def launch_user_scan(user_id: int, source_id: int, source_name: str) -> None:
         "source": source_name,
         "error": "",
     }
-    task = asyncio.create_task(_run_user_scan(user_id, source_id))
+    # Ручной запуск — полная пересборка (force): человек нажал и ждёт свежего.
+    task = asyncio.create_task(_run_user_scan(user_id, source_id, _SCANS[user_id], force=True))
     _SCAN_TASKS.add(task)
     task.add_done_callback(_SCAN_TASKS.discard)
 
 
-async def _run_user_scan(user_id: int, source_id: int) -> None:
-    """Фоновая часть целиком: получить список репозиториев, затем по одному —
-    скачать, описать, разложить в частную зону. Каждый шаг двигает полосу
-    прогресса. Сбой на одном репозитории не роняет остальные; общий сбой
-    (доступ, сеть) помечает полосу как ошибку — её видно на главной."""
-    prog = _SCANS[user_id]
-    # Токен берём из базы здесь, в фоне: в prepare его не расшифровываем дольше
-    # нужного. Источник свой — уже проверено в precheck_user_scan.
+async def _run_user_scan(
+    user_id: int, source_id: int, progress: dict | None = None, force: bool = False
+) -> None:
+    """Фоновый обход источника целиком: получить список репозиториев, затем по
+    одному — скачать, описать, разложить в частную зону владельца. С progress
+    (ручной запуск) двигаем полосу на главной; без него (ежедневный авто-скан)
+    работаем тихо. force — полная пересборка (ручной); без него авто-скан
+    пропускает неизменившиеся репозитории, тратя ИИ только на новые. Сбой на
+    одном репозитории не роняет остальные; общий сбой помечает полосу ошибкой."""
+
+    def bump(key: str, n: int = 1) -> None:
+        if progress is not None:
+            progress[key] = progress.get(key, 0) + n
+
+    def setp(**kw) -> None:
+        if progress is not None:
+            progress.update(kw)
+
+    # Токен берём из базы здесь, в фоне: в precheck его не расшифровываем дольше
+    # нужного. Источник свой — уже проверено (ручной запуск) либо это личный
+    # источник из авто-обхода.
     with session_scope() as session:
         src = session.get(Source, source_id)
         base_url, token_enc = (src.base_url, src.token_enc) if src else ("", "")
     try:
         token = security.decrypt_secret(token_enc) if token_enc else ""
     except Exception:
-        prog["state"], prog["error"] = "error", "Токен стал нечитаем."
+        setp(state="error", error="Токен стал нечитаем.")
         return
 
-    provider = GiteaProvider(
-        base_url=base_url, token=token, timeout=settings.http_timeout_seconds
-    )
+    provider = GiteaProvider(base_url=base_url, token=token, timeout=settings.http_timeout_seconds)
     text_model = build_text_model()
     embed_model = build_embedding_model()
     try:
@@ -551,28 +624,38 @@ async def _run_user_scan(user_id: int, source_id: int) -> None:
                     )
                 )
             )
-        prog["total"] = len(repo_ids)
+        setp(total=len(repo_ids))
         for rid in repo_ids:
             try:
                 with session_scope() as session:
                     repo = session.get(Repository, rid)
-                    await index_repository(session, provider, text_model, repo, force=True)
+                    result = await index_repository(
+                        session, provider, text_model, repo, force=force
+                    )
                     art = session.scalar(select(Artifact).where(Artifact.repository_id == rid))
-                    if art is not None:
+                    # «unchanged» — коммит тот же, карточка уже собрана: не тратим
+                    # ИИ впустую (важно для ежедневного авто-скана).
+                    if art is not None and not result.startswith("unchanged"):
                         await embed_artifact(session, embed_model, art)
                         await tag_artifact(session, art, text_model)
                         index_artifact_for_words(session, art)
-                        art.hidden = False  # ваши источники видимы (в вашей зоне)
-                        art.category_id = _auto_category(session, art)
-                        prog["added"] += 1
+                        # Новую карточку кладём приватной владельцу (публикует он
+                        # сам кнопкой) и помечаем «новинкой». У уже существующей
+                        # зону и категорию не трогаем — уважаем выбор человека.
+                        if result.startswith("created"):
+                            art.hidden = False
+                            art.private_to_user_id = user_id
+                            art.is_new = True
+                            art.category_id = _auto_category(session, art)
+                            bump("added")
                     session.commit()
             except Exception:
                 log.exception("scan: репозиторий %s не собрался", rid)
-            prog["done"] += 1
-        prog["state"] = "done"
+            bump("done")
+        setp(state="done")
     except Exception as exc:
         log.exception("scan источника %s не удался", source_id)
-        prog["state"], prog["error"] = "error", str(exc)
+        setp(state="error", error=str(exc))
     finally:
         await provider.aclose()
         await text_model.aclose()

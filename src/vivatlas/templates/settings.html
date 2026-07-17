@@ -11,6 +11,12 @@
 <div class="sec-head">
     <h3>{{ title }}</h3>
     <span class="sec-info" tabindex="0" role="button" aria-label="Пояснение к разделу"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="4.9" r="0.95" fill="currentColor" stroke="none"/><path d="M8 7.4v4"/></svg><span class="sec-tip">{{ tip }}</span></span>
+    {# Стрелка сворачивания раздела: чтобы стартовое окно помещалось без прокрутки,
+       ненужное можно свернуть. Выбор запоминается на устройстве. #}
+    <button type="button" class="sec-collapse" data-key="{{ title }}" aria-expanded="true"
+            aria-label="Свернуть раздел «{{ title }}»" title="Свернуть раздел">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+    </button>
 </div>
 {% endmacro %}
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
@@ -235,6 +241,35 @@ document.addEventListener('click', function (e) {
     btn.classList.add('scanning');
     btn.textContent = 'Сканирую…';
 });
+
+// Сворачивание разделов настроек стрелкой. Стартовое окно можно свести к
+// нужному без прокрутки; выбор запоминается на устройстве.
+(function () {
+    var KEY = 'vivatlas-settings-collapsed';
+    var closed = {};
+    try { closed = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+
+    function apply(btn) {
+        var box = btn.closest ? btn.closest('.box') : null;
+        if (!box) return;
+        var on = !!closed[btn.getAttribute('data-key')];
+        box.classList.toggle('collapsed', on);
+        btn.setAttribute('aria-expanded', on ? 'false' : 'true');
+        btn.setAttribute('title', on ? 'Развернуть раздел' : 'Свернуть раздел');
+    }
+
+    var btns = document.querySelectorAll('.sec-collapse');
+    btns.forEach(apply);
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.sec-collapse') : null;
+        if (!btn) return;
+        var key = btn.getAttribute('data-key');
+        closed[key] = !closed[key];
+        try { localStorage.setItem(KEY, JSON.stringify(closed)); } catch (x) {}
+        apply(btn);
+    });
+})();
 
 // Переключение темы. Сохраняем выбор на устройстве и применяем сразу. Каталог
 // за модалкой подхватит смену через событие storage (см. base.html).

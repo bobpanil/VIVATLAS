@@ -1,0 +1,72 @@
+{# Одна карточка каталога. Используется и в сетке (include), и при поштучном
+   добавлении во время скана (рендер фрагмента в /scan/cards). Ждёт в контексте
+   `it` (словарь карточки из web._card) и `next_path` (куда вернуться формам). #}
+{% import "_icons.html" as icons %}
+<div class="card{% if it.is_new %} is-new{% endif %}" draggable="true" data-id="{{ it.id }}">
+    {# Карточка — не ссылка целиком, а контейнер: внутри живут свои кнопки. За
+       переход отвечает растянутый .card-link. #}
+    <a class="card-link" href="/a/{{ it.id }}" draggable="false" data-modal
+       aria-label="{{ it.owner }}/{{ it.name }} — открыть карточку"></a>
+    {% if it.is_new %}<span class="card-new">новое</span>{% endif %}
+    {% if it.preview_url %}
+    <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
+    {% else %}
+    <div class="thumb-text" data-type="{{ it.type }}">
+        <span>{{ it.name }}</span>
+        <em>{{ type_name(it.type) }}</em>
+    </div>
+    {% endif %}
+    <div class="card-body">
+        <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
+        <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
+
+        {# Подвал: слева переключатель зоны, затем значок направления, по центру
+           дата, справа — избранное и «копировать». #}
+        <div class="card-foot" data-pur="{{ it.purpose.key }}">
+            {# Переключатель зоны — кнопка: замок (частная) / глобус (публичная).
+               Клик меняет статус. Работает и без скрипта: форма вернётся сюда. #}
+            <form class="zone-form" method="post" action="/artifact/{{ it.id }}/visibility">
+                <input type="hidden" name="next" value="{{ next_path }}">
+                <button class="zone-btn zone-{{ it.zone }}" type="submit" data-id="{{ it.id }}"
+                        aria-label="{% if it.zone == 'private' %}Сделать публичной{% else %}Сделать частной{% endif %}"
+                        title="{% if it.zone == 'private' %}Частная — видна только вам. Нажмите, чтобы опубликовать.{% else %}Публичная — видят все. Нажмите, чтобы сделать частной.{% endif %}">
+                    <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
+                    <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
+                </button>
+            </form>
+            <span class="pur" title="направление: {{ it.purpose.label }}">
+                <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
+            </span>
+            <time class="when"{% if it.updated %} title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}"{% endif %}>{{ it.updated.strftime("%d.%m.%y") if it.updated else "—" }}</time>
+
+            <span class="foot-actions">
+                {# Избранное — своё у каждого. Работает и без скрипта. #}
+                <form class="fav-form" method="post" action="/favorite/{{ it.id }}">
+                    <input type="hidden" name="next" value="{{ next_path }}">
+                    <button class="fav-btn{% if it.favorite %} on{% endif %}" type="submit"
+                            data-id="{{ it.id }}" aria-pressed="{{ 'true' if it.favorite else 'false' }}"
+                            aria-label="В избранное" title="В избранное">
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/>
+                        </svg>
+                    </button>
+                </form>
+                {% if it.source_url %}
+                {# «Копировать» — две наложенные карточки. Копирует ссылку на источник. #}
+                <button class="card-copy" type="button" data-copy="{{ it.source_url }}"
+                        aria-label="Скопировать ссылку на источник"
+                        title="Скопировать ссылку на источник">
+                    <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
+                        <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
+                        <path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/>
+                    </svg>
+                    <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M3.5 8.5l3 3 6-6.5"/>
+                    </svg>
+                </button>
+                {% endif %}
+            </span>
+        </div>
+        {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
+    </div>
+</div>

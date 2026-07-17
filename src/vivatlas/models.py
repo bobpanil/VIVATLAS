@@ -45,6 +45,11 @@ class Source(Base):
     # хранится нигде: украдут базу — украдут шифртекст, а не токен.
     token_enc: Mapped[str] = mapped_column(String(512), default="")
 
+    # Когда источник в последний раз обходили автоматически (ежедневный фоновый
+    # скан). Пусто — ещё ни разу. Служит и «замком»: сервер, который первым
+    # проставит свежую метку, и делает обход; второй увидит свежую и пропустит.
+    last_auto_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     repositories: Mapped[list["Repository"]] = relationship(back_populates="source")
@@ -121,6 +126,12 @@ class Artifact(Base):
     # Так помечен первичный «затравочный» массив: показываем только то, что
     # человек добавил сам (импортом, черновиком, своим источником с токеном).
     hidden: Mapped[bool] = mapped_column(default=False, index=True)
+
+    # «Новинка»: карточка добавлена недавним сканом (ручным или ежедневным
+    # фоновым) и человек её ещё не открывал. Показываем бейдж «новое», чтобы в
+    # первый момент было видно, что подтянулись новые репозитории. Гаснет, когда
+    # карточку открыли.
+    is_new: Mapped[bool] = mapped_column(default=False, index=True)
 
     anchor_path: Mapped[str | None] = mapped_column(String(512))
     preview_path: Mapped[str | None] = mapped_column(String(512))

@@ -1,9 +1,14 @@
 """REST API."""
 
+import asyncio
+import contextlib
+import logging
+from datetime import UTC, datetime, timedelta
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from vivatlas import auth
 from vivatlas import filters as flt
@@ -12,7 +17,7 @@ from vivatlas.ai import build_embedding_model
 from vivatlas.auth_web import router as auth_router
 from vivatlas.db import session_scope
 from vivatlas.mcp_server import http_app as mcp_http_app
-from vivatlas.models import Artifact, ArtifactTag, Repository, ScanRun, Tag, TagSuppression
+from vivatlas.models import Artifact, ArtifactTag, Repository, ScanRun, Source, Tag, TagSuppression
 from vivatlas.search import Mode
 from vivatlas.search import search as do_search
 from vivatlas.settings_web import router as settings_router
@@ -20,7 +25,70 @@ from vivatlas.tagger import add_manual_tag, remove_tag
 from vivatlas.web import BASE
 from vivatlas.web import router as web_router
 
-app = FastAPI(title="VivAtlas", version="0.1.0")
+log = logging.getLogger(__name__)
+
+# Ежедневный фоновый обход подключённых источников: новые репозитории приходят
+# карточками и помечаются «новинкой». Проверяем раз в час, обходим не чаще
+# суток. Метка last_auto_scan_at служит и замком между двумя серверами (8710 и
+# 8711): кто первым её проставит, тот и обходит.
+_AUTOSCAN_EVERY = timedelta(hours=24)
+_AUTOSCAN_CHECK_SECONDS = 3600
+_AUTOSCAN_WARMUP_SECONDS = 300
+
+
+async def _autoscan_pass() -> None:
+    from vivatlas.web import _run_user_scan
+
+    now = datetime.now(UTC)
+    edge = now - _AUTOSCAN_EVERY
+    due = (Source.last_auto_scan_at.is_(None)) | (Source.last_auto_scan_at < edge)
+    claimed: list[tuple[int, int]] = []
+    with session_scope() as session:
+        rows = session.execute(
+            select(Source.id, Source.owner_user_id).where(
+                Source.owner_user_id.is_not(None), Source.token_enc != "", due
+            )
+        ).all()
+        for sid, uid in rows:
+            # Забираем источник атомарно: ставим свежую метку только если всё
+            # ещё пора. Второй сервер увидит нулевой rowcount и пропустит.
+            res = session.execute(
+                update(Source).where(Source.id == sid, due).values(last_auto_scan_at=now)
+            )
+            if res.rowcount:
+                claimed.append((uid, sid))
+        session.commit()
+    for uid, sid in claimed:
+        try:
+            await _run_user_scan(uid, sid, progress=None)  # тихо, без полосы
+        except Exception:
+            log.exception("авто-скан источника %s не удался", sid)
+
+
+async def _autoscan_loop() -> None:
+    await asyncio.sleep(_AUTOSCAN_WARMUP_SECONDS)  # не грузим сам старт
+    while True:
+        try:
+            await _autoscan_pass()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("авто-скан: проход не удался")
+        await asyncio.sleep(_AUTOSCAN_CHECK_SECONDS)
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI):
+    task = asyncio.create_task(_autoscan_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="VivAtlas", version="0.1.0", lifespan=_lifespan)
 
 # Пути, открытые без входа. Всё остальное — за замком. Список короткий
 # намеренно: что не здесь, то закрыто, а не наоборот.
@@ -135,8 +203,8 @@ def get_artifact(request: Request, artifact_id: int) -> dict:
         a = session.get(Artifact, artifact_id)
         if a is None:
             raise HTTPException(404, "карточка не найдена")
-        owner_id = a.repository.source.owner_user_id
-        if owner_id is not None and owner_id != user_id:
+        priv = a.private_to_user_id
+        if priv is not None and priv != user_id:
             raise HTTPException(404, "карточка не найдена")
         return {
             "id": a.id,

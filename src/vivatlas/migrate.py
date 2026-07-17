@@ -22,6 +22,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "category_id": "INTEGER",
         "private_to_user_id": "INTEGER",
         "hidden": "BOOLEAN DEFAULT 0",
+        "is_new": "BOOLEAN DEFAULT 0",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",
@@ -30,6 +31,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "sources": {
         "owner_user_id": "INTEGER",
         "token_enc": "VARCHAR(512) DEFAULT ''",
+        "last_auto_scan_at": "DATETIME",
     },
     "categories": {
         "icon": "VARCHAR(32) DEFAULT ''",
@@ -99,6 +101,32 @@ def ensure_schema() -> list[str]:
                 if column not in present:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
                     done.append(f"добавлен столбец {table}.{column}")
+
+        # Разовая правка данных: у уже отсканированных карточек личных
+        # источников частная зона держалась на владельце источника. Модель
+        # видимости перешла на явную отметку private_to_user_id — проставим её
+        # тем, где её ещё нет, иначе они стали бы публичными. Идемпотентно:
+        # трогаем только NULL.
+        if _table_exists(conn, "artifacts") and _table_exists(conn, "sources"):
+            fixed = conn.execute(
+                text(
+                    """
+                    UPDATE artifacts SET private_to_user_id = (
+                        SELECT s.owner_user_id FROM repositories r
+                        JOIN sources s ON s.id = r.source_id
+                        WHERE r.id = artifacts.repository_id
+                    )
+                    WHERE private_to_user_id IS NULL
+                      AND repository_id IN (
+                        SELECT r.id FROM repositories r
+                        JOIN sources s ON s.id = r.source_id
+                        WHERE s.owner_user_id IS NOT NULL
+                      )
+                    """
+                )
+            ).rowcount
+            if fixed:
+                done.append(f"частная зона проставлена {fixed} карточкам личных источников")
 
         # Первая версия таблицы была без содержимого — такая не умеет удалять
         # строки, а нам надо обновлять карточки. Пересоздаём.

@@ -831,6 +831,55 @@ a {
     margin: 0 0 10px;
 }
 
+/* Стрелка сворачивания — у правого края заголовка. */
+.sec-collapse {
+    margin-left: auto;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--mute);
+    cursor: pointer;
+}
+
+.sec-collapse svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.15s ease;
+}
+
+.sec-collapse:hover {
+    color: var(--ink);
+}
+
+/* Свёрнут: прячем всё, кроме заголовка; стрелка смотрит вправо; заголовок без
+   нижнего поля, чтобы коробка стала компактной. */
+.box.collapsed > :not(.sec-head) {
+    display: none;
+}
+
+.box.collapsed .sec-head {
+    margin-bottom: 0;
+}
+
+.box.collapsed .sec-collapse svg {
+    transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sec-collapse svg { transition: none; }
+}
+
 /* Точнее общего .box h3 (у того margin-bottom:10px, из-за него во flex текст
    уезжал вверх, а кружок «i» — вниз). Убираем поле — встают на одну линию. */
 .box .sec-head h3 {
@@ -1815,6 +1864,43 @@ summary:focus-visible {
     transform: scale(0.97);
 }
 
+/* «Новинка»: карточка добавлена недавним сканом и ещё не открыта. Бейдж в углу
+   и подсвеченная рамка, чтобы в первый момент было видно, что подтянулось. */
+.card.is-new {
+    border-color: var(--primary);
+}
+
+.card-new {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    padding: 2px 8px;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom-right-radius: var(--r-md);
+    pointer-events: none;
+}
+
+/* Карточка, только что вставленная во время скана, — мягко проявляется. */
+@keyframes card-appear {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.card.just-added {
+    animation: card-appear 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card.just-added { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .card {
         transition: none;
@@ -2001,16 +2087,32 @@ summary:focus-visible {
     flex: none;
 }
 
-/* Значок зоны: общая (зелёный глобус) или частная (янтарный замок). */
-.zone {
-    display: inline-flex;
-    align-items: center;
+/* Переключатель зоны слева в подвале — кнопка. Замок (частная, янтарный) или
+   глобус (публичная, зелёный). Выше растянутой ссылки: перехватывает свой клик. */
+.zone-form {
+    margin: 0;
+    display: flex;
     flex: none;
 }
 
-.zone svg {
-    width: 14px;
-    height: 14px;
+.zone-btn {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.zone-btn svg {
+    width: 15px;
+    height: 15px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.3;
@@ -2018,13 +2120,20 @@ summary:focus-visible {
     stroke-linejoin: round;
 }
 
-.zone-common {
-    color: #1d9e75;
+.zone-btn:hover {
+    background: var(--surface-soft);
+    border-radius: var(--r-sm);
 }
 
-.zone-private {
-    color: #c98a00;
-}
+/* Показываем ровно один значок под текущую зону. */
+.zone-btn .i-globe,
+.zone-btn.zone-private .i-globe { display: none; }
+.zone-btn.zone-common .i-globe { display: inline; }
+.zone-btn .i-lock { display: none; }
+.zone-btn.zone-private .i-lock { display: inline; }
+
+.zone-btn.zone-common { color: #1d9e75; }
+.zone-btn.zone-private { color: #c98a00; }
 
 /* Значок направления — цветной, по разделу. */
 .pur svg {

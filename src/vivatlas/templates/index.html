@@ -111,7 +111,7 @@
     {% if not link %}
     <nav class="type-pills" aria-label="Тип">
         <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
-           {% if not f.type and not f.fav %}aria-current="true"{% endif %}>все <b>{{ counts.artifacts }}</b></a>
+           {% if not f.type and not f.fav %}aria-current="true"{% endif %}>все <b id="count-all">{{ counts.artifacts }}</b></a>
         {# Избранное — своя пилюля: личный отбор поверх типов. #}
         <a class="filter filter-fav{% if f.fav %} on{% endif %}"
            href="/?{{ f.as_query(fav='' if f.fav else '1') | combine(q=q) | urlencode }}"
@@ -172,77 +172,13 @@
 </div>
 {% endif %}
 
-{% if items %}
+{% if items or scan %}
+{% set next_path = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
+{# Пустую сетку тоже рисуем, если идёт скан: скрипт вставит в неё карточки
+   поштучно по мере обработки. #}
 <div class="grid">
     {% for it in items %}
-    {# Карточка — не ссылка целиком, а контейнер: так внутри могут жить свои
-       кнопки (копировать ссылку). За переход отвечает растянутый .card-link. #}
-    <div class="card" draggable="true" data-id="{{ it.id }}">
-        <a class="card-link" href="/a/{{ it.id }}" draggable="false" data-modal
-           aria-label="{{ it.owner }}/{{ it.name }} — открыть карточку"></a>
-        {% if it.preview_url %}
-        <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
-        {% else %}
-        <div class="thumb-text" data-type="{{ it.type }}">
-            <span>{{ it.name }}</span>
-            <em>{{ type_name(it.type) }}</em>
-        </div>
-        {% endif %}
-        <div class="card-body">
-            <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
-            <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
-
-            {# Подвал в один ряд с сепараторами: слева цветной значок раздела,
-               по центру — дата (всегда), справа — избранное и «копировать». #}
-            <div class="card-foot" data-pur="{{ it.purpose.key }}">
-                <span class="pur" title="направление: {{ it.purpose.label }}">
-                    <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
-                </span>
-                {# Зона: общая (видят все) или частная (только владелец источника). #}
-                <span class="zone zone-{{ it.zone }}"
-                      title="{% if it.zone == 'private' %}частная зона — виден только вам{% else %}общая зона — видят все{% endif %}">
-                    {% if it.zone == 'private' %}
-                    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
-                    {% else %}
-                    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
-                    {% endif %}
-                </span>
-                <time class="when"{% if it.updated %} title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}"{% endif %}>{{ it.updated.strftime("%d.%m.%y") if it.updated else "—" }}</time>
-
-                <span class="foot-actions">
-                    {# Избранное — своё у каждого. Работает и без скрипта: форма
-                       переключает и возвращает на этот же вид. #}
-                    <form class="fav-form" method="post" action="/favorite/{{ it.id }}">
-                        <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
-                        <button class="fav-btn{% if it.favorite %} on{% endif %}" type="submit"
-                                data-id="{{ it.id }}" aria-pressed="{{ 'true' if it.favorite else 'false' }}"
-                                aria-label="В избранное" title="В избранное">
-                            <svg viewBox="0 0 16 16" aria-hidden="true">
-                                <path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/>
-                            </svg>
-                        </button>
-                    </form>
-                    {% if it.source_url %}
-                    <span class="foot-sep"></span>
-                    {# «Копировать» — две наложенные карточки, привычный знак.
-                       Копирует ссылку на источник (откуда взято). #}
-                    <button class="card-copy" type="button" data-copy="{{ it.source_url }}"
-                            aria-label="Скопировать ссылку на источник"
-                            title="Скопировать ссылку на источник">
-                        <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
-                            <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
-                            <path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/>
-                        </svg>
-                        <svg class="i-ok" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M3.5 8.5l3 3 6-6.5"/>
-                        </svg>
-                    </button>
-                    {% endif %}
-                </span>
-            </div>
-            {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
-        </div>
-    </div>
+    {% include "_carditem.html" %}
     {% endfor %}
 </div>
 {% elif not link %}
@@ -488,27 +424,56 @@ document.addEventListener('paste', function (e) {
 })();
 
 // Полоса скана личного источника. Пока сервер в фоне собирает карточки, раз в
-// пару секунд спрашиваем /scan/status и двигаем полосу. Готово — показываем
-// итог и один раз обновляем страницу, чтобы карточки появились сами.
+// пару секунд спрашиваем /scan/status (двигаем полосу) и /scan/cards (вставляем
+// новые карточки поштучно, без перезагрузки) и обновляем счётчик «все».
 (function () {
     var bar = document.getElementById('scanbar');
     if (!bar) return;
     var title = bar.querySelector('.scanbar-title');
     var sub = bar.querySelector('.scanbar-sub');
     var fill = bar.querySelector('.scanbar-fill');
-    var show = bar.querySelector('.scanbar-show');
     var xbtn = bar.querySelector('.scanbar-x');
     var spin = bar.querySelector('.scanbar-spin');
     var timer = null;
+    var grid = document.querySelector('.grid');
+    var countAll = document.getElementById('count-all');
+
+    // С какого id тянуть новые карточки: максимум уже показанных.
+    var maxId = 0;
+    if (grid) {
+        grid.querySelectorAll('.card[data-id]').forEach(function (c) {
+            maxId = Math.max(maxId, +c.getAttribute('data-id') || 0);
+        });
+    }
 
     function dismiss() {
         bar.hidden = true;
         if (timer) clearTimeout(timer);
-        try { sessionStorage.removeItem('viv-scan-reloaded'); } catch (e) {}
         fetch('/scan/dismiss', { method: 'POST', headers: { 'Accept': 'application/json' } })
             .catch(function () {});
     }
     xbtn.addEventListener('click', dismiss);
+
+    // Забрать и вставить карточки, добавленные после maxId. Пустой ответ — ничего.
+    function pullCards() {
+        if (!grid) return Promise.resolve();
+        return fetch('/scan/cards?after=' + maxId, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (typeof d.total === 'number' && countAll) countAll.textContent = d.total;
+                if (d.count && d.html) {
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = d.html;
+                    while (tmp.firstElementChild) {
+                        var card = tmp.firstElementChild;
+                        card.classList.add('just-added');
+                        grid.appendChild(card);
+                    }
+                    maxId = d.max_id || maxId;
+                }
+            })
+            .catch(function () {});
+    }
 
     function render(s) {
         var total = s.total || 0, done = s.done || 0, added = s.added || 0;
@@ -519,29 +484,20 @@ document.addEventListener('paste', function (e) {
             sub.textContent = total ? ('обработано ' + done + ' из ' + total)
                                     : 'читаю список репозиториев…';
             fill.style.width = (total ? Math.round(done / total * 100) : 8) + '%';
-            show.hidden = true; xbtn.hidden = true;
+            xbtn.hidden = true;
         } else if (s.state === 'done') {
             spin.hidden = true;
             title.textContent = 'Готово' + (s.source ? ' — ' + s.source : '');
             sub.textContent = added ? ('добавлено инструментов: ' + added)
                                     : 'новых инструментов не нашлось';
             fill.style.width = '100%';
-            // Один раз обновим страницу, чтобы новые карточки появились. Флаг не
-            // даёт зациклиться: после перезагрузки статус всё ещё «done».
-            var reloaded = false;
-            try { reloaded = sessionStorage.getItem('viv-scan-reloaded') === '1'; } catch (e) {}
-            if (added && !reloaded) {
-                try { sessionStorage.setItem('viv-scan-reloaded', '1'); } catch (e) {}
-                location.reload();
-                return;
-            }
-            show.hidden = true; xbtn.hidden = false;
+            xbtn.hidden = false;
         } else if (s.state === 'error') {
             spin.hidden = true;
             title.textContent = 'Сканирование не удалось';
             sub.textContent = s.error || '';
             fill.style.width = '100%';
-            show.hidden = true; xbtn.hidden = false;
+            xbtn.hidden = false;
         } else {
             dismiss();   // idle — скана нет
         }
@@ -552,7 +508,9 @@ document.addEventListener('paste', function (e) {
             .then(function (r) { return r.json(); })
             .then(function (s) {
                 render(s);
-                if (s.state === 'running') timer = setTimeout(poll, 2000);
+                return pullCards().then(function () {
+                    if (s.state === 'running') timer = setTimeout(poll, 2000);
+                });
             })
             .catch(function () { timer = setTimeout(poll, 4000); });
     }
@@ -567,6 +525,30 @@ document.addEventListener('paste', function (e) {
         });
         poll();
     }
+})();
+
+// Переключатель зоны в футере карточки (замок ↔ глобус). Без скрипта форма
+// отправится сама и вернётся на этот же вид (поле next).
+(function () {
+    document.addEventListener('submit', function (e) {
+        var form = e.target.closest ? e.target.closest('.zone-form') : null;
+        if (!form) return;
+        e.preventDefault();
+        var btn = form.querySelector('.zone-btn');
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: new FormData(form)
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!btn) return;
+            btn.classList.toggle('zone-private', !!d.private);
+            btn.classList.toggle('zone-common', !d.private);
+            btn.setAttribute('title', d.private
+                ? 'Частная — видна только вам. Нажмите, чтобы опубликовать.'
+                : 'Публичная — видят все. Нажмите, чтобы сделать частной.');
+            btn.setAttribute('aria-label', d.private ? 'Сделать публичной' : 'Сделать частной');
+        }).catch(function () { form.submit(); });   // не вышло — обычная отправка
+    });
 })();
 </script>
 {% endblock %}

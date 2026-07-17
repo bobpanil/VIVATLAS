@@ -2103,8 +2103,12 @@ summary:focus-visible {
 }
 
 /* Значок категории (папки) в подвале — на месте направления, если карточка в
-   папке. Подсказка названия — через title. Цвет — как у направления/даты. */
+   папке. Подсказка названия — через title. Цвет — как у направления/даты.
+   Выше растянутой ссылки карточки (z-index), иначе она перехватывает наведение
+   и подсказка не всплывает. */
 .cat-mark {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
     flex: none;
@@ -3486,6 +3490,16 @@ summary:focus-visible {
 
 .help .lede {
     margin-bottom: var(--s-lg);
+}
+
+/* Выделенная подсказка внутри раздела справки: мягкая плашка с левой чертой. */
+.help-tip {
+    margin-top: var(--s-md);
+    padding: 10px 12px;
+    background: var(--accent-blue-soft);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: var(--r-sm);
+    line-height: 1.5;
 }
 
 /* Оглавление — строка ссылок-таблеток, ведут к разделам якорями. */

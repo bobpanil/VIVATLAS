@@ -464,14 +464,14 @@ async def scan_user_source(user_id: int | None, source_id: int) -> str:
             src = session.get(Source, source_id)
             await scan_source(session, provider, src, include_private=True)
             session.commit()
-            repo_ids = [
-                r.id
-                for r in session.scalars(
+            # select(Repository.id) отдаёт уже сами id-числа, а не строки.
+            repo_ids = list(
+                session.scalars(
                     select(Repository.id).where(
                         Repository.source_id == source_id, Repository.gone_at.is_(None)
                     )
                 )
-            ]
+            )
         # По репозиторию за раз, каждый в своей транзакции: долгий обход не держит
         # одну гигантскую блокировку, и сбой на одном не теряет остальные.
         for rid in repo_ids:

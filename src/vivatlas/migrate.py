@@ -30,6 +30,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "owner_user_id": "INTEGER",
         "token_enc": "VARCHAR(512) DEFAULT ''",
     },
+    "categories": {
+        "icon": "VARCHAR(32) DEFAULT ''",
+    },
 }
 
 # Полнотекстовый поиск. unicode61 разбирает и русский, и английский;

@@ -40,28 +40,51 @@
    порядок. Карточки раскладываются перетаскиванием в сайдбаре. #}
 <div class="box">
     <h3>Категории</h3>
-    <p class="legend">Свои папки для каталога. В сайдбаре «Все инструменты»
-       разворачивается на типы и эти папки. Карточку кладут перетаскиванием.</p>
+    <p class="legend">Папки каталога — с иконкой, порядком и именем. В сайдбаре под
+       «Каталогом». Карточку кладут перетаскиванием.</p>
 
     {% if categories %}
     <ul class="cat-manage">
         {% for c in categories %}
-        <li>
-            <span class="cat-manage-name">{{ c.label }}</span>
-            <span class="cat-manage-count">{{ c.count }}</span>
-            <form method="post" action="/settings/categories/{{ c.value }}/delete">
-                <button class="btn-secondary" type="submit"
-                        title="Удалить категорию (карточки останутся, только выйдут из папки)">Удалить</button>
+        <li class="catrow">
+            <form method="post" action="/settings/categories/{{ c.value }}/update" class="catrow-form">
+                <button type="button" class="cat-pick" data-target="ic{{ c.value }}"
+                        aria-label="Выбрать иконку">{{ caticon(c.icon) if c.icon else '' }}{% if not c.icon %}<span class="cat-pick-empty">+</span>{% endif %}</button>
+                <input type="hidden" name="icon" id="ic{{ c.value }}" value="{{ c.icon }}">
+                <input type="text" name="name" value="{{ c.label }}" maxlength="128"
+                       aria-label="Название категории">
+                <span class="catrow-count" title="карточек в папке">{{ c.count }}</span>
+                <button type="submit" class="catrow-btn" title="Сохранить">✓</button>
+                <button type="submit" class="catrow-btn" formaction="/settings/categories/{{ c.value }}/move"
+                        name="dir" value="up" title="Выше">↑</button>
+                <button type="submit" class="catrow-btn" formaction="/settings/categories/{{ c.value }}/move"
+                        name="dir" value="down" title="Ниже">↓</button>
+                <button type="submit" class="catrow-btn catrow-del"
+                        formaction="/settings/categories/{{ c.value }}/delete" title="Удалить">✕</button>
             </form>
+            <div class="icon-grid" id="grid-ic{{ c.value }}" hidden>
+                {% for slug in cat_icons %}
+                <button type="button" class="icon-opt" data-target="ic{{ c.value }}" data-slug="{{ slug }}"
+                        aria-label="{{ slug }}">{{ caticon(slug) }}</button>
+                {% endfor %}
+            </div>
         </li>
         {% endfor %}
     </ul>
     {% endif %}
 
-    <form method="post" action="/settings/categories" class="set-row">
-        <input type="text" name="name" placeholder="Название новой категории"
+    <form method="post" action="/settings/categories" class="catrow-add">
+        <button type="button" class="cat-pick" data-target="icnew" aria-label="Иконка"><span class="cat-pick-empty">+</span></button>
+        <input type="hidden" name="icon" id="icnew" value="">
+        <input type="text" name="name" placeholder="Новая категория"
                aria-label="Название категории" maxlength="128" required>
         <button class="btn-secondary" type="submit">Завести</button>
+        <div class="icon-grid" id="grid-icnew" hidden>
+            {% for slug in cat_icons %}
+            <button type="button" class="icon-opt" data-target="icnew" data-slug="{{ slug }}"
+                    aria-label="{{ slug }}">{{ caticon(slug) }}</button>
+            {% endfor %}
+        </div>
     </form>
 </div>
 
@@ -214,6 +237,44 @@
             mark(t);
         });
     });
+})();
+
+// Выбор иконки категории. Кнопка-иконка открывает сетку; клик по значку
+// проставляет его в скрытое поле и на кнопку. У существующей категории тут же
+// сохраняем (форма update), у новой — просто ставим до нажатия «Завести».
+(function () {
+    function closeAll(except) {
+        document.querySelectorAll('.icon-grid').forEach(function (g) {
+            if (g !== except) g.hidden = true;
+        });
+    }
+    document.querySelectorAll('.cat-pick').forEach(function (pick) {
+        pick.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var grid = document.getElementById('grid-' + pick.getAttribute('data-target'));
+            if (!grid) return;
+            var willOpen = grid.hidden;
+            closeAll(grid);
+            grid.hidden = !willOpen;
+        });
+    });
+    document.querySelectorAll('.icon-opt').forEach(function (opt) {
+        opt.addEventListener('click', function () {
+            var target = opt.getAttribute('data-target');
+            var input = document.getElementById(target);
+            var pick = document.querySelector('.cat-pick[data-target="' + target + '"]');
+            if (input) input.value = opt.getAttribute('data-slug');
+            if (pick) { pick.innerHTML = opt.innerHTML; }
+            var grid = document.getElementById('grid-' + target);
+            if (grid) grid.hidden = true;
+            // Существующая категория — сохранить иконку сразу.
+            if (target !== 'icnew' && input) {
+                var form = input.closest('form');
+                if (form) form.submit();
+            }
+        });
+    });
+    document.addEventListener('click', function () { closeAll(null); });
 })();
 </script>
 {% endblock %}

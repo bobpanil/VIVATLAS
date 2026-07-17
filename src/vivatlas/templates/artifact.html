@@ -114,11 +114,43 @@
 <footer class="modal-foot">
     <a class="btn-secondary foot-left" href="/">Закрыть</a>
     {% if gh %}
-    <a class="btn-secondary" href="{{ gh }}" target="_blank" rel="noopener">
-        {{ 'Открыть источник' if is_draft else 'Открыть в GitHub' }}</a>
+    <button class="btn-secondary art-copy" type="button" data-copy="{{ gh }}"
+            data-done="Источник скопирован">Скопировать источник</button>
     {% endif %}
     {% if a.repository.html_url and not is_draft %}
-    <a class="btn-secondary" href="{{ a.repository.html_url }}" target="_blank" rel="noopener">Открыть в Gitea</a>
+    <button class="btn-secondary art-copy" type="button" data-copy="{{ a.repository.html_url }}"
+            data-done="Хранилище скопировано">Скопировать хранилище</button>
     {% endif %}
 </footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Кнопки футера копируют ссылку (источник — оригинал, хранилище — копия в
+// Gitea), а не открывают: удобнее вставить, например, в Claude Code.
+(function () {
+    function copy(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (ok, no) {
+            var ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-1000px';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); ok(); } catch (e) { no(e); }
+            document.body.removeChild(ta);
+        });
+    }
+    document.querySelectorAll('.art-copy').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            copy(btn.getAttribute('data-copy')).then(function () {
+                var was = btn.textContent;
+                btn.textContent = btn.getAttribute('data-done') || 'Скопировано';
+                btn.classList.add('ok');
+                setTimeout(function () { btn.textContent = was; btn.classList.remove('ok'); }, 1400);
+            });
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -61,6 +61,7 @@ class Option:
     value: str
     label: str
     count: int
+    icon: str = ""
 
 
 @dataclass
@@ -168,7 +169,7 @@ def category_options(session: Session, user_id: int | None = None) -> list[Optio
         ).all()
     )
     cats = session.scalars(select(Category).order_by(Category.position, Category.name)).all()
-    return [Option(str(c.id), c.name, counts.get(c.id, 0)) for c in cats]
+    return [Option(str(c.id), c.name, counts.get(c.id, 0), c.icon) for c in cats]
 
 
 def type_options(session: Session, user_id: int | None = None) -> list[Option]:

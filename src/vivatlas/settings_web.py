@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from sqlalchemy import func, select
 
-from vivatlas import auth, security, twofactor
+from vivatlas import auth, caticons, security, twofactor
 from vivatlas import filters as flt
 from vivatlas.db import session_scope
 from vivatlas.models import Category, Source, User
@@ -77,6 +77,7 @@ def settings_page(request: Request) -> HTMLResponse:
             totp_on=bool(me.totp_enabled_at),
             backup_left=twofactor.unused_backup_count(me),
             categories=flt.category_options(session, me.id),
+            cat_icons=caticons.ICON_SLUGS,
             my_sources=_my_sources(session, me.id),
             source_kinds=SOURCE_KINDS,
         )
@@ -85,27 +86,73 @@ def settings_page(request: Request) -> HTMLResponse:
 # --- категории-папки (общие, раскладывает владелец) ------------------------
 
 
+def _owner_only(session, request: Request) -> None:
+    if not _me(session, request).is_owner:
+        raise HTTPException(403, "категориями управляет владелец")
+
+
 @router.post("/settings/categories", response_class=HTMLResponse)
-def category_create(request: Request, name: Annotated[str, Form()] = "") -> RedirectResponse:
+def category_create(
+    request: Request,
+    name: Annotated[str, Form()] = "",
+    icon: Annotated[str, Form()] = "",
+) -> RedirectResponse:
     with session_scope() as session:
-        me = _me(session, request)
-        if not me.is_owner:
-            raise HTTPException(403, "заводить категории может владелец")
+        _owner_only(session, request)
         name = name.strip()
-        if name:
-            exists = session.scalar(select(Category).where(Category.name == name))
-            if exists is None:
-                pos = session.scalar(select(func.max(Category.position))) or 0
-                session.add(Category(name=name[:128], position=pos + 1))
+        if name and session.scalar(select(Category).where(Category.name == name)) is None:
+            pos = session.scalar(select(func.max(Category.position))) or 0
+            session.add(Category(name=name[:128], icon=icon[:32], position=pos + 1))
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/categories/{cat_id}/update", response_class=HTMLResponse)
+def category_update(
+    request: Request,
+    cat_id: int,
+    name: Annotated[str, Form()] = "",
+    icon: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    """Переименовать и/или сменить иконку."""
+    with session_scope() as session:
+        _owner_only(session, request)
+        cat = session.get(Category, cat_id)
+        if cat is not None:
+            name = name.strip()
+            if name and session.scalar(
+                select(Category).where(Category.name == name, Category.id != cat_id)
+            ) is None:
+                cat.name = name[:128]
+            cat.icon = icon[:32]
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/categories/{cat_id}/move", response_class=HTMLResponse)
+def category_move(
+    request: Request, cat_id: int, dir: Annotated[str, Form()] = ""
+) -> RedirectResponse:
+    """Поменять местами с соседом по порядку (вверх/вниз)."""
+    with session_scope() as session:
+        _owner_only(session, request)
+        cats = session.scalars(
+            select(Category).order_by(Category.position, Category.name)
+        ).all()
+        idx = next((i for i, c in enumerate(cats) if c.id == cat_id), None)
+        if idx is not None:
+            swap = idx - 1 if dir == "up" else idx + 1
+            if 0 <= swap < len(cats):
+                # Переписываем позиции по порядку, поменяв два места, — надёжнее
+                # чем менять одно значение (позиции могли совпасть или быть 0).
+                cats[idx], cats[swap] = cats[swap], cats[idx]
+                for i, c in enumerate(cats):
+                    c.position = i
     return RedirectResponse("/settings", status_code=303)
 
 
 @router.post("/settings/categories/{cat_id}/delete", response_class=HTMLResponse)
 def category_delete(request: Request, cat_id: int) -> RedirectResponse:
     with session_scope() as session:
-        me = _me(session, request)
-        if not me.is_owner:
-            raise HTTPException(403, "удалять категории может владелец")
+        _owner_only(session, request)
         cat = session.get(Category, cat_id)
         if cat is not None:
             # Карточки не трогаем — их category_id обнулится по ondelete=SET NULL.

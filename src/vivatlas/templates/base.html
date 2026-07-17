@@ -102,7 +102,7 @@
             <div class="cat-list" id="cat-list">
                 {% for c in categories %}
                 <a class="side-sub side-drop{% if active_cat == c.value %} on{% endif %}"
-                   data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{{ c.label }} <b>{{ c.count }}</b></a>
+                   data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{% if c.icon %}{{ caticon(c.icon) }}{% endif %}<span>{{ c.label }}</span><b>{{ c.count }}</b></a>
                 {% endfor %}
                 {% if not categories %}
                 <p class="side-sub-hint">Папок пока нет. Заведите их в

@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Annotated
@@ -29,6 +30,7 @@ from vivatlas.models import (
     Category,
     Favorite,
     Repository,
+    Tag,
     TagSuppression,
     UpstreamLink,
 )
@@ -73,6 +75,19 @@ def basis_name(slug: str) -> str:
     return BASIS_NAMES.get(slug, slug or "не указано")
 
 
+def _caticon(slug: str) -> str:
+    """Полный svg иконки категории по ключу (пусто — ничего)."""
+    from markupsafe import Markup
+
+    from vivatlas.caticons import icon_inner
+
+    inner = icon_inner(slug)
+    if not inner:
+        return ""
+    return Markup(f'<svg class="cicon" viewBox="0 0 16 16" aria-hidden="true">{inner}</svg>')
+
+
+templates.env.globals["caticon"] = _caticon
 templates.env.globals["type_name"] = type_name
 templates.env.globals["basis_name"] = basis_name
 templates.env.globals["status_name"] = lambda s: STATUS_NAMES.get(s, s)
@@ -246,6 +261,40 @@ def toggle_favorite(
     # Без скрипта: вернуться туда, откуда пришли. Только внутренний путь.
     dest = next if next.startswith("/") else "/"
     return RedirectResponse(dest, status_code=303)
+
+
+_CAT_STOP = {"и", "для", "по", "the", "and", "for", "of", "или", "с", "на"}
+
+
+def _auto_category(session, art: Artifact) -> int | None:
+    """Сама подобрать категорию новому инструменту: у какой папки слова из
+    названия встречаются в тексте карточки (имя, описание, направление, теги).
+    Не угадали — оставляем без папки, человек переложит перетаскиванием."""
+    cats = session.scalars(select(Category)).all()
+    if not cats:
+        return None
+
+    purpose = pur.detect_for(session, art.id, art.name)[0].label
+    tag_slugs = session.scalars(
+        select(Tag.slug).join(ArtifactTag).where(ArtifactTag.artifact_id == art.id)
+    )
+    text = " ".join(
+        [art.name or "", art.summary_short or "", purpose, *(s for s in tag_slugs)]
+    ).lower()
+    # По целым словам, а не по подстроке: иначе «cli» находится в «clickhouse».
+    text_words = set(re.split(r"[^0-9a-zа-яё]+", text))
+
+    best_id, best_score = None, 0
+    for c in cats:
+        words = [
+            w
+            for w in re.split(r"[^0-9a-zа-яё]+", c.name.lower())
+            if len(w) >= 3 and w not in _CAT_STOP
+        ]
+        score = sum(1 for w in words if w in text_words)
+        if score > best_score:
+            best_id, best_score = c.id, score
+    return best_id
 
 
 def _zone(a: Artifact) -> str:
@@ -567,6 +616,8 @@ async def add_run(
             await embed_artifact(session, embed_model, art)
             await tag_artifact(session, art, text_model)
             index_artifact_for_words(session, art)
+            # Сама подобрать папку по смыслу — человеку останется поправить.
+            art.category_id = _auto_category(session, art)
             # По умолчанию новая карточка — личная у создателя: пока он не выберет
             # «расшаренная», другие её не видят. Так «появляется в списке после
             # сохранения» выполняется для всех остальных.

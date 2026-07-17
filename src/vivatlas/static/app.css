@@ -541,8 +541,23 @@ a {
     border-radius: var(--r-sm);
 }
 
-.side-sub > :first-child {
+.side-sub > span {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.side-sub .cicon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--mute);
+}
+
+.side-sub.on .cicon {
+    color: var(--primary);
 }
 
 .side-sub b {
@@ -703,33 +718,149 @@ a {
 }
 
 /* Управление категориями в настройках: список с удалением. */
+/* Компактное управление категориями: ряд = иконка, имя, счётчик, порядок,
+   сохранить, удалить. */
 .cat-manage {
     list-style: none;
-    margin: 0 0 var(--s-md);
+    margin: 0 0 var(--s-sm);
     padding: 0;
 }
 
-.cat-manage li {
-    display: flex;
-    align-items: center;
-    gap: var(--s-sm);
-    padding: 8px 0;
-    border-bottom: 1px solid var(--hairline-soft);
+.catrow {
+    position: relative;
+    padding: 4px 0;
 }
 
-.cat-manage-name {
+.catrow-form,
+.catrow-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    position: relative;
+}
+
+.catrow-add {
+    margin-top: var(--s-sm);
+    padding-top: var(--s-sm);
+    border-top: 1px solid var(--hairline-soft);
+}
+
+.catrow-form input[type="text"],
+.catrow-add input[type="text"] {
     flex: 1;
-    font-weight: 500;
+    min-width: 0;
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 6px 9px;
+    min-height: 34px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
     color: var(--ink);
 }
 
-.cat-manage-count {
+.catrow-count {
     font-size: 12px;
     color: var(--mute);
+    min-width: 1.5ch;
+    text-align: center;
+    flex: none;
 }
 
-.cat-manage form {
-    margin: 0;
+/* Кнопка-иконка: показывает выбранный значок или «+». */
+.cat-pick {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--body-ink);
+    cursor: pointer;
+}
+
+.cat-pick:hover {
+    border-color: var(--ink);
+}
+
+.cat-pick-empty {
+    font-size: 18px;
+    color: var(--mute);
+    line-height: 1;
+}
+
+.cicon {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.catrow-btn {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--mute);
+    cursor: pointer;
+}
+
+.catrow-btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.catrow-del:hover {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+/* Сетка выбора иконки — выпадает под рядом. */
+.icon-grid {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+    gap: 4px;
+    padding: 8px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.25);
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.icon-opt {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    background: var(--surface-soft);
+    color: var(--body-ink);
+    cursor: pointer;
+}
+
+.icon-opt:hover {
+    border-color: var(--ink);
+    color: var(--ink);
 }
 
 /* Свои репозитории в настройках: список + форма подключения. */
@@ -1858,6 +1989,12 @@ summary:focus-visible {
     width: 1px;
     height: 12px;
     background: var(--line-strong);
+}
+
+/* Кнопки копирования в футере карточки — на миг зелёные при успехе. */
+.art-copy.ok {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
 }
 
 /* Заголовок карточки в шапке модалки — моноширинный идентификатор. */

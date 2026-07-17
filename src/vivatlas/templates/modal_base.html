@@ -22,7 +22,9 @@
    Формы внутри работают как обычно (переход), поэтому 2FA и загрузка файла
    ничего не ломают. Клик по тёмному фону или крестик — закрыть. #}
 <body class="modalpage {% block body_class %}{% endblock %}">
-    <a class="modal-scrim" href="{{ close_href|default('/') }}" aria-label="Закрыть" tabindex="-1"></a>
+    {# Тёмный фон. Кликом не закрывает (скрипт гасит переход) — только кнопкой
+       «Закрыть». href — запасной путь без скриптов. #}
+    <a class="modal-scrim" href="{{ close_href|default('/') }}" aria-hidden="true" tabindex="-1"></a>
 
     <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header class="modal-head">
@@ -61,28 +63,24 @@
         if (host) {
             document.body.classList.add('inframe');
             var close = function (e) { if (e) e.preventDefault(); host(); };
-            // Окна с формами (настройки) не закрываем по клику вне карточки —
-            // легко потерять правки. Помечены классом lock-scrim.
-            var lockScrim = document.body.classList.contains('lock-scrim');
             document.addEventListener('click', function (e) {
                 if (!e.target.closest) return;
-                // Ссылки на «/» внутри карточки закрывают — кроме помеченных
-                // data-confirm: у них своё подтверждение (см. скрипт окна).
+                // Ссылки на «/» внутри карточки (кнопка «Закрыть») закрывают —
+                // кроме помеченных data-confirm: у них своё подтверждение.
                 var link = e.target.closest('.modalcard a[href="/"]');
                 if (link && !link.hasAttribute('data-confirm')) { close(e); return; }
-                // Тёмный фон — это ссылка на «/». Всегда гасим переход по ней,
-                // иначе рамка уйдёт на каталог и окно закроется в обход лока.
-                // Закрываем только если окно не залочено (настройки — залочены).
-                var scrim = e.target.closest('.modal-scrim');
-                if (scrim) {
-                    e.preventDefault();
-                    if (!lockScrim) { host(); }
-                }
+                // Клик по тёмному фону НЕ закрывает окно — только кнопкой
+                // «Закрыть». Гасим переход по ссылке-фону, ничего больше.
+                if (e.target.closest('.modal-scrim')) e.preventDefault();
             });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close(e);
             });
         } else {
+            // Прямой заход (не в наложении): тёмный фон тоже не закрывает.
+            document.addEventListener('click', function (e) {
+                if (e.target.closest && e.target.closest('.modal-scrim')) e.preventDefault();
+            });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') window.location = {{ (close_href | default('/')) | tojson }};
             });

@@ -1858,9 +1858,11 @@ summary:focus-visible {
     border-color: var(--ink);
 }
 
-/* Рамка по зоне — под цвет значка: публичная зелёная, частная янтарная. На
-   наведении — тот же цвет, но темнее (аффорданс сохраняется). Значения те же,
-   что у .zone-btn.zone-common / .zone-private. */
+/* Рамка по зоне — под цвет значка: публичная зелёная, частная янтарная. Контур
+   вдвое толще (2px), чтобы цвет читался. На наведении — тот же цвет, но темнее.
+   Значения те же, что у .zone-btn.zone-common / .zone-private. */
+.card[data-zone="common"],
+.card[data-zone="private"] { border-width: 2px; }
 .card[data-zone="common"] { border-color: #1d9e75; }
 .card[data-zone="private"] { border-color: #c98a00; }
 .card[data-zone="common"]:hover { border-color: #177a5a; }
@@ -2456,13 +2458,25 @@ summary:focus-visible {
 }
 
 .art-meta .zone {
+    display: inline-flex;
+    align-items: center;
     gap: 5px;
+    font-weight: 600;
 }
 
 .art-meta .zone svg {
     width: 15px;
     height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
+
+/* Цвет — под значок: публичная зелёная (глобус), частная янтарная (замок). */
+.art-meta .zone.zone-common { color: #1d9e75; }
+.art-meta .zone.zone-private { color: #c98a00; }
 
 .art-meta .pur {
     display: inline-flex;

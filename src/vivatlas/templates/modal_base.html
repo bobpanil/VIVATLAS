@@ -21,7 +21,7 @@
 {# Модалка-страница: тёмный фон, по центру карточка 880px — шапка, тело, футер.
    Формы внутри работают как обычно (переход), поэтому 2FA и загрузка файла
    ничего не ломают. Клик по тёмному фону или крестик — закрыть. #}
-<body class="modalpage">
+<body class="modalpage {% block body_class %}{% endblock %}">
     <a class="modal-scrim" href="{{ close_href|default('/') }}" aria-label="Закрыть" tabindex="-1"></a>
 
     <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -61,13 +61,17 @@
         if (host) {
             document.body.classList.add('inframe');
             var close = function (e) { if (e) e.preventDefault(); host(); };
-            // Делегирование на весь документ: тёмный фон и любые ссылки на «/»
-            // внутри карточки (закрыть, выйти) закрывают наложение. Ловит клик
-            // надёжно, в том числе по вложенным элементам и после перерисовок.
+            // Окна с формами (настройки) не закрываем по клику вне карточки —
+            // легко потерять правки. Помечены классом lock-scrim.
+            var lockScrim = document.body.classList.contains('lock-scrim');
             document.addEventListener('click', function (e) {
-                var hit = e.target.closest
-                    ? e.target.closest('.modal-scrim, .modalcard a[href="/"]') : null;
-                if (hit) close(e);
+                if (!e.target.closest) return;
+                // Ссылки на «/» внутри карточки закрывают — кроме помеченных
+                // data-confirm: у них своё подтверждение (см. скрипт окна).
+                var link = e.target.closest('.modalcard a[href="/"]');
+                if (link && !link.hasAttribute('data-confirm')) { close(e); return; }
+                // Тёмный фон вокруг карточки — закрыть, если окно не залочено.
+                if (!lockScrim && e.target.closest('.modal-scrim')) { close(e); }
             });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close(e);

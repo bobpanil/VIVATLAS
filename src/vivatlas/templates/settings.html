@@ -3,6 +3,8 @@
 {% block title %}Настройки — VivAtlas{% endblock %}
 {% block modal_title %}{% if step == 'qr' %}Привяжите приложение{% elif step == 'codes' %}{% if fresh %}Проверка включена{% else %}Новые коды восстановления{% endif %}{% else %}Настройки{% endif %}{% endblock %}
 {% block modal_help %}Двухэтапная проверка: при входе спросим код из приложения. Коды восстановления — на случай потери телефона.{% endblock %}
+{# Настройки не закрываются по клику вне окна — только «Выйти»/«Сохранить». #}
+{% block body_class %}lock-scrim{% endblock %}
 
 {% block modal_body %}
 {% macro sechead(title, tip) %}
@@ -121,8 +123,8 @@
                aria-label="Адрес источника" required>
         <input type="password" name="token" placeholder="Токен доступа (вводите сами)"
                aria-label="Токен доступа" autocomplete="off" spellcheck="false">
-        <p class="note">Сканирование частных источников подключим следующим шагом —
-           пока источник просто сохраняется.</p>
+        <p class="note">Пока источник только подключается и сохраняется. Обход его
+           репозиториев вашим токеном добавим следующим шагом.</p>
         <button class="btn-secondary" type="submit">Подключить</button>
     </form>
 </div>
@@ -199,8 +201,8 @@
     {# Разделы сохраняются каждый своей кнопкой (иконка, «Завести», «Подключить»,
        ✓). Внизу — общее подтверждение через диалог (см. скрипт). Без скрипта
        ссылки просто закрывают окно. #}
-    <a class="btn-secondary foot-left" href="/" id="settings-exit">Выйти</a>
-    <a class="cta" href="/" id="settings-save">Сохранить</a>
+    <a class="btn-secondary foot-left" href="/" id="settings-exit" data-confirm>Выйти</a>
+    <a class="cta" href="/" id="settings-save" data-confirm>Сохранить</a>
     {% endif %}
 </footer>
 {% endblock %}

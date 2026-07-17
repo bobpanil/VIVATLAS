@@ -775,17 +775,22 @@ a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 17px;
-    height: 17px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     border: 1px solid var(--hairline);
     background: var(--surface-soft);
-    color: var(--mute);
-    font-size: 11px;
-    font-style: italic;
+    /* Серифная и не курсивная «i» — с точкой и засечками читается как «i», а
+       не как палочка. */
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 12px;
+    font-style: normal;
     font-weight: 700;
+    line-height: 1;
+    color: var(--mute);
     cursor: help;
     flex: none;
+    align-self: center;
 }
 
 .sec-info:hover {

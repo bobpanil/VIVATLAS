@@ -442,7 +442,11 @@ async def scan_user_source(user_id: int | None, source_id: int) -> str:
         kind, base_url, token_enc = src.kind, src.base_url, src.token_enc
 
     if kind not in _GITEA_KINDS:
-        return f"Пока сканируется только Gitea и Codeberg. Провайдер для «{kind}» добавим позже."
+        return (
+            "Скан пока умеет только Gitea и Codeberg. Если это ваш Gitea — "
+            "выберите «Gitea» в списке хостингов слева и нажмите «Сохранить», "
+            "затем «Сканировать». Провайдеры для GitHub и других добавим позже."
+        )
     if not token_enc:
         return "У источника нет токена — впишите токен доступа и сохраните."
     try:

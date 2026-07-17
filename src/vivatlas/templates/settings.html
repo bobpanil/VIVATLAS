@@ -106,11 +106,9 @@
                     </select>
                     <input type="text" name="display_name" value="{{ s.display_name }}"
                            placeholder="Название (для себя)" aria-label="Название" maxlength="128">
-                    {% if s.kind_raw in ['gitea', 'codeberg'] %}
                     <button type="submit" class="cta src-scan"
                             formaction="/settings/sources/{{ s.id }}/scan"
                             title="Обойти репозитории и собрать карточки (может идти долго)">Сканировать</button>
-                    {% endif %}
                     <button type="submit" class="btn-secondary" title="Сохранить">Сохранить</button>
                     <button type="submit" class="btn-secondary src-del"
                             formaction="/settings/sources/{{ s.id }}/delete" title="Удалить">Удалить</button>

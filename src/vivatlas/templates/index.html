@@ -431,6 +431,14 @@ document.addEventListener('paste', function (e) {
                     bumpCat(cat, 1);
                     if (oldCat && oldCat !== cat) bumpCat(oldCat, -1);
                 }
+                // Мягкий отклик «положили в папку»: короткая анимация.
+                card.classList.remove('filed');
+                void card.offsetWidth;   // перезапустить анимацию, если повторно
+                card.classList.add('filed');
+                card.addEventListener('animationend', function once() {
+                    card.classList.remove('filed');
+                    card.removeEventListener('animationend', once);
+                });
             }
         }).catch(function (err) {
             alert('Не удалось положить карточку в категорию' +

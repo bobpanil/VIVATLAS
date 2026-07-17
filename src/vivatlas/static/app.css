@@ -1793,7 +1793,9 @@ summary:focus-visible {
     );
     gap: var(--s-lg);   /* 16px — шаг сетки набора */
     padding-bottom: 48px;
-    transition: --cols 0.18s ease;
+    /* Плавно и мягко: карточки не «прыгают», а спокойно раздвигаются/сжимаются.
+       Кривая с мягким торможением в конце — приятнее ровной ease. */
+    transition: --cols 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1859,8 +1861,12 @@ summary:focus-visible {
     text-decoration: none;
     display: flex;
     flex-direction: column;
-    /* Плавно, но быстро: рамка на наведении, прозрачность при захвате. */
-    transition: border-color 0.12s ease, opacity 0.15s ease, transform 0.15s ease;
+    /* Мягко: рамка и цвет зоны/папки плавно перетекают, захват спокойно
+       притеняет. Кривая с мягким торможением — приятнее ровной ease. */
+    transition:
+        border-color 0.3s ease,
+        opacity 0.25s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card:hover {
@@ -1881,6 +1887,22 @@ summary:focus-visible {
 .card.dragging {
     opacity: 0.45;
     transform: scale(0.97);
+}
+
+/* Карточку положили в папку — мягкий отклик: чуть подрастает и оседает, значок
+   и цвет успевают плавно перетечь. */
+@keyframes card-filed {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.045); }
+    100% { transform: scale(1); }
+}
+
+.card.filed {
+    animation: card-filed 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card.filed { animation: none; }
 }
 
 /* «Новинка»: карточка добавлена недавним сканом и ещё не открыта. Заметна
@@ -1904,12 +1926,12 @@ summary:focus-visible {
 
 /* Карточка, только что вставленная во время скана, — мягко проявляется. */
 @keyframes card-appear {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: none; }
 }
 
 .card.just-added {
-    animation: card-appear 0.25s ease;
+    animation: card-appear 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2113,12 +2135,14 @@ summary:focus-visible {
     align-items: center;
     flex: none;
     color: var(--pur-color);
+    transition: color 0.3s ease;
 }
 
 .cat-mark .cicon {
     width: 16px;
     height: 16px;
     color: var(--pur-color);
+    transition: color 0.3s ease;
 }
 
 /* Переключатель зоны слева в подвале — кнопка. Замок (частная, янтарный) или
@@ -2198,6 +2222,7 @@ summary:focus-visible {
     font-weight: 700;
     color: var(--pur-color);
     white-space: nowrap;
+    transition: color 0.3s ease;
 }
 
 /* Кнопка копирования ссылки. Выше растянутой ссылки по z-index — перехватывает

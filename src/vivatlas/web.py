@@ -357,7 +357,9 @@ def _zone(a: Artifact) -> str:
 
 def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozenset()) -> dict:
     purpose, _score = pur.detect_for(session, a.id, a.name)
+    cat = session.get(Category, a.category_id) if a.category_id else None
     return {
+        "category": {"id": cat.id, "name": cat.name, "icon": cat.icon} if cat else None,
         "id": a.id,
         "name": a.name,
         "owner": a.repository.owner,

@@ -35,9 +35,19 @@
                     <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
                 </button>
             </form>
-            <span class="pur" title="направление: {{ it.purpose.label }}">
+            {# Категория (папка), если карточка в ней — со значком и подсказкой
+               названия. Меняется при перетаскивании в другую папку. Не в папке —
+               показываем направление (авто-область). #}
+            {% if it.category %}
+            <span class="cat-mark" title="категория: {{ it.category.name }}"
+                  data-cat-id="{{ it.category.id }}" data-cat-name="{{ it.category.name }}">
+                {% if it.category.icon %}{{ caticon(it.category.icon) }}{% else %}<svg class="cicon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.5 1.5h5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z"/></svg>{% endif %}
+            </span>
+            {% else %}
+            <span class="pur cat-mark" title="направление: {{ it.purpose.label }}">
                 <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
             </span>
+            {% endif %}
             <time class="when"{% if it.updated %} title="последнее изменение{% if it.created %}, создан {{ it.created.strftime('%d.%m.%Y') }}{% endif %}"{% endif %}>{{ it.updated.strftime("%d.%m.%y") if it.updated else "—" }}</time>
 
             <span class="foot-actions">

@@ -2093,6 +2093,22 @@ summary:focus-visible {
     flex: none;
 }
 
+/* Значок категории (папки) в подвале — на месте направления, если карточка в
+   папке. Подсказка названия — через title. Цвет — как у направления/даты. */
+.cat-mark {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    color: var(--pur-color);
+    cursor: help;
+}
+
+.cat-mark .cicon {
+    width: 16px;
+    height: 16px;
+    color: var(--pur-color);
+}
+
 /* Переключатель зоны слева в подвале — кнопка. Замок (частная, янтарный) или
    глобус (публичная, зелёный). Выше растянутой ссылки: перехватывает свой клик. */
 .zone-form {

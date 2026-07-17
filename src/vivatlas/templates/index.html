@@ -44,16 +44,19 @@
             {% endif %}
             {% if items %}
             {# Ручка размера. Без скриптов останется вид по умолчанию — сетка
-               рабочая в любом случае, поэтому прятать её за скриптом нечестно. #}
+               рабочая в любом случае, поэтому прятать её за скриптом нечестно.
+               Слева — одна карточка (крупнее), справа — много (мельче). Число в
+               ряд не пишем: оно зависит от ширины экрана и вводило бы в
+               заблуждение. #}
             <div class="sizectl">
-                <label for="cols">Размер</label>
-                {# От одной до девяти. Единица нужна телефону: там от 2 до 9 всё
-                   равно выходит два, а вот одна крупная карточка во всю ширину —
-                   настоящий выбор. На большом экране девять упрутся в предел
-                   ширины карточки, и подпись честно скажет, сколько вышло. #}
+                <span class="sizectl-ic sizectl-few" aria-hidden="true" title="крупнее — меньше в ряду">
+                    <svg viewBox="0 0 16 16"><rect x="4.5" y="2.5" width="7" height="11" rx="1.3"/></svg>
+                </span>
                 <input type="range" id="cols" min="1" max="9" step="1" value="4"
-                       aria-label="Сколько карточек в ряду">
-                <output id="colsout" for="cols">4 в ряд</output>
+                       aria-label="Размер карточек: левее — крупнее, правее — мельче">
+                <span class="sizectl-ic sizectl-many" aria-hidden="true" title="мельче — больше в ряду">
+                    <svg viewBox="0 0 16 16"><rect x="1.5" y="1.5" width="3.8" height="3.8" rx="0.8"/><rect x="6.1" y="1.5" width="3.8" height="3.8" rx="0.8"/><rect x="10.7" y="1.5" width="3.8" height="3.8" rx="0.8"/><rect x="1.5" y="6.1" width="3.8" height="3.8" rx="0.8"/><rect x="6.1" y="6.1" width="3.8" height="3.8" rx="0.8"/><rect x="10.7" y="6.1" width="3.8" height="3.8" rx="0.8"/><rect x="1.5" y="10.7" width="3.8" height="3.8" rx="0.8"/><rect x="6.1" y="10.7" width="3.8" height="3.8" rx="0.8"/><rect x="10.7" y="10.7" width="3.8" height="3.8" rx="0.8"/></svg>
+                </span>
             </div>
             {% endif %}
 
@@ -230,21 +233,10 @@
 (function () {
     var slider = document.getElementById('cols');
     if (!slider) return;
-    var out = document.getElementById('colsout');
-    var grid = document.querySelector('.grid');
 
     function apply(n, remember) {
         document.documentElement.style.setProperty('--cols', n);
         slider.value = n;
-        // Пишем не задуманное число, а то, что вышло: на узком экране карточка
-        // упирается в свои 140px, и в ряду их оказывается меньше. Обещать
-        // «девять», показывая три, — врать.
-        var real = n;
-        if (grid) {
-            var cs = getComputedStyle(grid).gridTemplateColumns;
-            real = cs ? cs.split(' ').length : n;
-        }
-        out.textContent = real + ' в ряд';
         if (remember) {
             try { localStorage.setItem('vivatlas-cols', n); } catch (e) { /* приватный режим */ }
         }
@@ -255,7 +247,6 @@
     apply(saved || slider.value, false);
 
     slider.addEventListener('input', function () { apply(slider.value, true); });
-    window.addEventListener('resize', function () { apply(slider.value, false); });
 })();
 
 // Шторка фильтров. На десктопе выпадает под кнопкой, на телефоне — снизу.
@@ -423,7 +414,10 @@ document.addEventListener('paste', function (e) {
             var iconSrc = drop.querySelector('.cicon');
             var nameEl = drop.querySelector('span');
             var name = nameEl ? nameEl.textContent : '';
+            var color = drop.getAttribute('data-color') || '';
             if (card) {
+                var foot = card.querySelector('.card-foot');
+                if (foot && color) foot.style.setProperty('--pur-color', color);
                 var mark = card.querySelector('.cat-mark');
                 if (mark) {
                     var oldCat = mark.getAttribute('data-cat-id');

@@ -33,6 +33,13 @@
         });
         // Открыто для переключателя темы в сайдбаре.
         window.applyVivTheme = applyTheme;
+        // Размер карточек — тоже до отрисовки: иначе сетка на каждом переходе
+        // анимировалась бы от размера по умолчанию к сохранённому (карточки
+        // «прыгали» крупные→мелкие). Ставим сразу, до первой отрисовки.
+        try {
+            var cols = localStorage.getItem('vivatlas-cols');
+            if (cols) document.documentElement.style.setProperty('--cols', cols);
+        } catch (e) { /* приватный режим */ }
     })();
     </script>
 </head>
@@ -104,7 +111,7 @@
             <div class="cat-list" id="cat-list">
                 {% for c in categories %}
                 <a class="side-sub side-drop{% if active_cat == c.value %} on{% endif %}"
-                   data-cat="{{ c.value }}" href="/?cat={{ c.value }}">{% if c.icon %}{{ caticon(c.icon) }}{% endif %}<span>{{ c.label }}</span><b>{{ c.count }}</b></a>
+                   data-cat="{{ c.value }}" data-color="{{ c.color }}" href="/?cat={{ c.value }}">{% if c.icon %}{{ caticon(c.icon) }}{% endif %}<span>{{ c.label }}</span><b>{{ c.count }}</b></a>
                 {% endfor %}
                 {% if not categories %}
                 <p class="side-sub-hint">Папок пока нет. Заведите их в

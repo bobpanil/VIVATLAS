@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from vivatlas import caticons
 from vivatlas.models import Artifact, ArtifactTag, Category, Repository, Tag, UpstreamLink
 
 # Порядок важен: сначала то, чем пользуются чаще.
@@ -66,6 +67,7 @@ class Option:
     label: str
     count: int
     icon: str = ""
+    color: str = ""
 
 
 @dataclass
@@ -176,7 +178,10 @@ def category_options(session: Session, user_id: int | None = None) -> list[Optio
         ).all()
     )
     cats = session.scalars(select(Category).order_by(Category.position, Category.name)).all()
-    return [Option(str(c.id), c.name, counts.get(c.id, 0), c.icon) for c in cats]
+    return [
+        Option(str(c.id), c.name, counts.get(c.id, 0), c.icon, caticons.category_color(c.id))
+        for c in cats
+    ]
 
 
 def type_options(session: Session, user_id: int | None = None) -> list[Option]:

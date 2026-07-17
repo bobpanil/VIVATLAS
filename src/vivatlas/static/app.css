@@ -1819,22 +1819,31 @@ summary:focus-visible {
     background: var(--surface-card);
 }
 
-.sizectl label {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
+/* Значки по краям бегунка: слева одна карточка (крупнее), справа сетка мелких. */
+.sizectl-ic {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
     color: var(--mute);
 }
 
-.sizectl output {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--body-ink);
-    min-width: 7ch;
+.sizectl-few svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+}
+
+.sizectl-many svg {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    stroke: none;
 }
 
 .sizectl input[type="range"] {
-    width: 110px;
+    width: 96px;
     accent-color: var(--primary);
 }
 

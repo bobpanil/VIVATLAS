@@ -21,9 +21,11 @@
         <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
         <p class="card-sum">{{ it.summary_short or "Описание не готово" }}</p>
 
-        {# Подвал: слева переключатель зоны, затем значок направления, по центру
-           дата, справа — избранное и «копировать». #}
-        <div class="card-foot" data-pur="{{ it.purpose.key }}">
+        {# Подвал: слева переключатель зоны, затем значок категории (или
+           направления), по центру дата, справа — избранное и «копировать». В
+           папке — значок и дата в цвете категории, чтобы вся папка читалась как
+           группа; вне папки — в цвете направления. #}
+        <div class="card-foot" data-pur="{{ it.purpose.key }}"{% if it.category %} style="--pur-color: {{ it.category.color }}"{% endif %}>
             {# Переключатель зоны — кнопка: замок (частная) / глобус (публичная).
                Клик меняет статус. Работает и без скрипта: форма вернётся сюда. #}
             <form class="zone-form" method="post" action="/artifact/{{ it.id }}/visibility">

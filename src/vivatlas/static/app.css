@@ -872,10 +872,11 @@ a {
 
 .sec-tip {
     position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    width: 270px;
-    max-width: 68vw;
+    /* Сбоку от «i», а не под ним — иначе накрывает строки раздела. */
+    top: -6px;
+    left: calc(100% + 8px);
+    width: 260px;
+    max-width: 60vw;
     padding: 9px 12px;
     background: var(--surface-card);
     border: 1px solid var(--hairline);
@@ -894,7 +895,7 @@ a {
     transform: translateY(-4px);
     transition: opacity 0.14s, transform 0.14s, visibility 0.14s;
     pointer-events: none;
-    z-index: 6;
+    z-index: 30;
 }
 
 .sec-info:hover .sec-tip,

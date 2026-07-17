@@ -46,6 +46,39 @@ ICONS: dict[str, str] = {
 ICON_SLUGS: list[str] = list(ICONS.keys())
 
 
+# Подсказка иконки по смыслу названия: список (ключ-иконка, слова). Первое
+# совпадение выигрывает. Слова и русские, и английские — язык запроса не важен.
+_SUGGEST: list[tuple[str, tuple[str, ...]]] = [
+    ("palette", ("дизайн", "design", "оформл", "ui", "ux", "фронт", "front", "вёрст", "верст", "стил", "бренд", "brand")),
+    ("terminal", ("автоматиз", "automat", "cli", "скрипт", "script", "терминал", "terminal", "команд", "bash", "shell")),
+    ("code", ("код", "code", "разработ", "программ", "рефактор", "refactor", "dev")),
+    ("search", ("исследован", "research", "аналит", "analyt", "поиск", "search", "изуч")),
+    ("database", ("данны", "data", "база", "database", "хранил", "sql", "датасет")),
+    ("chart", ("график", "chart", "метрик", "metric", "статист", "dashboard", "отчёт", "отчет")),
+    ("shield", ("безопасн", "security", "secur", "защит", "приват", "privacy")),
+    ("bug", ("ошибк", "bug", "баг", "дебаг", "debug", "тест", "test", "провер", "qa")),
+    ("cloud", ("облак", "cloud", "деплой", "deploy", "devops", "хостинг", "infra", "ci")),
+    ("globe", ("сеть", "network", "web", "api", "интернет", "глобал", "http")),
+    ("film", ("медиа", "media", "видео", "video", "ролик", "reel", "фильм")),
+    ("camera", ("фото", "photo", "картин", "image", "снимок", "скрин")),
+    ("book", ("документ", "doc", "книг", "book", "справоч", "guide", "заметк", "note", "wiki")),
+    ("rocket", ("ракет", "rocket", "запуск", "launch", "старт", "mvp", "релиз", "release")),
+    ("bolt", ("быстр", "perf", "speed", "performance", "скорост", "оптимиз")),
+    ("sparkles", ("ai", "нейро", "gpt", "llm", "магия", "idea", "идея", "умн")),
+    ("wrench", ("инструмент", "tool", "наладк", "утилит", "util", "конфиг", "config")),
+    ("star", ("избранн", "favor", "любим", "star", "лучш", "топ")),
+]
+
+
+def suggest_icon(name: str) -> str:
+    """Иконка, подходящая по смыслу названия. Не угадали — папка."""
+    low = name.lower()
+    for slug, words in _SUGGEST:
+        if any(w in low for w in words):
+            return slug
+    return "folder"
+
+
 def icon_inner(slug: str) -> str:
     """Внутренность svg по ключу, или пусто."""
     return ICONS.get(slug, "")

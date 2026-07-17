@@ -52,7 +52,12 @@ def get_or_create_source(session: Session, kind: str, base_url: str, name: str) 
     return source
 
 
-async def scan_source(session: Session, provider: GitProvider, source: Source) -> ScanResult:
+async def scan_source(
+    session: Session, provider: GitProvider, source: Source, include_private: bool = False
+) -> ScanResult:
+    """include_private разрешает приватные репозитории — но ТОЛЬКО для личного
+    источника пользователя (с его токеном, в его частную зону). Для общей зоны
+    правило «не трогать приватное» остаётся: сюда True не передают."""
     run = ScanRun(source_id=source.id)
     session.add(run)
     session.flush()
@@ -64,10 +69,10 @@ async def scan_source(session: Session, provider: GitProvider, source: Source) -
 
         allowed: list[RepoRef] = []
         for repo in remote_repos:
-            if repo.is_private:
-                result.skipped_private += 1
+            if repo.is_empty:
                 continue
-            if not is_scannable(repo):
+            if repo.is_private and not include_private:
+                result.skipped_private += 1
                 continue
             allowed.append(repo)
 

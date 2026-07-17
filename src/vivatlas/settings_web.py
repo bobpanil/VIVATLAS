@@ -21,8 +21,17 @@ from vivatlas.db import session_scope
 from vivatlas.models import Category, Source, User
 from vivatlas.web import _counts
 
-# Какие хостинги можно подключить своим источником. Значение — как в scanner.
-SOURCE_KINDS = [("github", "GitHub"), ("gitea", "Gitea")]
+# Какие хостинги можно подключить своим источником. Работает пока Gitea
+# (Codeberg — тот же Forgejo/Gitea). Остальные сохраняются, а обход добавим по
+# мере готовности провайдеров.
+SOURCE_KINDS = [
+    ("gitea", "Gitea"),
+    ("github", "GitHub"),
+    ("gitlab", "GitLab"),
+    ("bitbucket", "Bitbucket"),
+    ("codeberg", "Codeberg"),
+    ("git", "Другой Git"),
+]
 
 log = logging.getLogger(__name__)
 
@@ -126,7 +135,9 @@ def category_create(
         name = name.strip()
         if name and session.scalar(select(Category).where(Category.name == name)) is None:
             pos = session.scalar(select(func.max(Category.position))) or 0
-            session.add(Category(name=name[:128], icon=icon[:32], position=pos + 1))
+            # Иконку не выбрали — подберём по смыслу названия; заменить можно потом.
+            chosen = icon[:32] or caticons.suggest_icon(name)
+            session.add(Category(name=name[:128], icon=chosen, position=pos + 1))
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -281,6 +292,22 @@ def source_delete(request: Request, source_id: int) -> RedirectResponse:
         if src is not None and src.owner_user_id == me.id:
             session.delete(src)
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/sources/{source_id}/scan", response_class=HTMLResponse)
+async def source_scan(request: Request, source_id: int) -> Response:
+    """Обойти свой источник и собрать карточки в частную зону. Долго: для
+    каждого репозитория — скачать и описать. Ошибку показываем в окне; успех —
+    ведём на каталог, где появились карточки."""
+    from vivatlas.web import scan_user_source
+
+    user_id = getattr(request.state, "user_id", None)
+    error = await scan_user_source(user_id, source_id)
+    if error:
+        with session_scope() as session:
+            me = _me(session, request)
+            return _security_page(request, session, me, error=error)
+    return RedirectResponse("/", status_code=303)
 
 
 # --- включение: показать QR ------------------------------------------------

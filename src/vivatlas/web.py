@@ -1,6 +1,7 @@
 """Страницы для человека. API для программ живёт в api.py."""
 
 import hashlib
+import logging
 import os
 import re
 import tempfile
@@ -13,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
-from vivatlas import caticons
+from vivatlas import caticons, security
 from vivatlas import changes as ch
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
@@ -31,12 +32,14 @@ from vivatlas.models import (
     Category,
     Favorite,
     Repository,
+    Source,
     Tag,
     TagSuppression,
     UpstreamLink,
 )
 from vivatlas.providers import build_provider
-from vivatlas.scanner import get_or_create_source
+from vivatlas.providers.gitea import GiteaProvider
+from vivatlas.scanner import get_or_create_source, scan_source
 from vivatlas.search import Mode, index_artifact_for_words
 from vivatlas.search import search as do_search
 from vivatlas.tagger import tag_artifact
@@ -45,6 +48,7 @@ from vivatlas.upstream import STATUS_NAMES
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 TYPE_NAMES = {
     "design-kit": "дизайн-набор",
@@ -419,6 +423,74 @@ def set_category(
         return JSONResponse({"ok": True, "cat": new_cat})
     dest = next if next.startswith("/") else "/"
     return RedirectResponse(dest, status_code=303)
+
+
+# Хостинги, которые сейчас умеет сканировать провайдер Gitea. Codeberg — это
+# Forgejo (форк Gitea), тот же API.
+_GITEA_KINDS = {"gitea", "codeberg"}
+
+
+async def scan_user_source(user_id: int | None, source_id: int) -> str:
+    """Обойти личный источник пользователя его токеном и собрать карточки в его
+    частную зону. Приватные репозитории разрешены — но только для СВОЕГО
+    источника (owner_user_id == user_id). Возвращает текст ошибки или "" при
+    успехе. Может идти долго: для каждого репозитория — скачать и описать."""
+    with session_scope() as session:
+        src = session.get(Source, source_id)
+        if src is None or src.owner_user_id != user_id:
+            return "Источник не найден."
+        kind, base_url, token_enc = src.kind, src.base_url, src.token_enc
+
+    if kind not in _GITEA_KINDS:
+        return f"Пока сканируется только Gitea и Codeberg. Провайдер для «{kind}» добавим позже."
+    if not token_enc:
+        return "У источника нет токена — впишите токен доступа и сохраните."
+    try:
+        token = security.decrypt_secret(token_enc)
+    except Exception:
+        return "Токен нечитаем (сменился ключ шифрования) — впишите его заново."
+
+    provider = GiteaProvider(base_url=base_url, token=token, timeout=settings.http_timeout_seconds)
+    text_model = build_text_model()
+    embed_model = build_embedding_model()
+    try:
+        with session_scope() as session:
+            src = session.get(Source, source_id)
+            await scan_source(session, provider, src, include_private=True)
+            session.commit()
+            repo_ids = [
+                r.id
+                for r in session.scalars(
+                    select(Repository.id).where(
+                        Repository.source_id == source_id, Repository.gone_at.is_(None)
+                    )
+                )
+            ]
+        # По репозиторию за раз, каждый в своей транзакции: долгий обход не держит
+        # одну гигантскую блокировку, и сбой на одном не теряет остальные.
+        for rid in repo_ids:
+            try:
+                with session_scope() as session:
+                    repo = session.get(Repository, rid)
+                    await index_repository(session, provider, text_model, repo, force=True)
+                    art = session.scalar(select(Artifact).where(Artifact.repository_id == rid))
+                    if art is not None:
+                        await embed_artifact(session, embed_model, art)
+                        await tag_artifact(session, art, text_model)
+                        index_artifact_for_words(session, art)
+                        art.hidden = False  # ваши источники видимы (в вашей зоне)
+                        art.category_id = _auto_category(session, art)
+                    session.commit()
+            except Exception:
+                log.exception("scan: репозиторий %s не собрался", rid)
+    except Exception as exc:
+        log.exception("scan источника %s не удался", source_id)
+        return f"Сканирование не удалось: {exc}"
+    finally:
+        await provider.aclose()
+        await text_model.aclose()
+        await embed_model.aclose()
+    return ""
 
 
 @router.get("/recommend")

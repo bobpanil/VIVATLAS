@@ -5,15 +5,20 @@
 {% block modal_help %}Двухэтапная проверка: при входе спросим код из приложения. Коды восстановления — на случай потери телефона.{% endblock %}
 
 {% block modal_body %}
+{% macro sechead(title, tip) %}
+<div class="sec-head">
+    <h3>{{ title }}</h3>
+    <span class="sec-info" tabindex="0" role="button" aria-label="Пояснение к разделу">i<span class="sec-tip">{{ tip }}</span></span>
+</div>
+{% endmacro %}
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
 {% if step == 'security' %}
 <div class="box">
-    <h3>Двухэтапная проверка</h3>
+    {{ sechead("Двухэтапная проверка", "Второй ключ при входе: код из приложения плюс коды восстановления на случай потери телефона. Код меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.") }}
     {% if totp_on %}
     <p class="set-on">Включена. При входе спросим код из приложения.</p>
-    <p class="legend">Кодов восстановления осталось: {{ backup_left }} из 10.
-       Это на случай потери телефона.</p>
+    <p class="legend">Кодов восстановления: {{ backup_left }} из 10.</p>
 
     <form method="post" action="/settings/2fa/backup" class="set-row">
         <input type="text" name="code" inputmode="numeric" placeholder="код из приложения"
@@ -27,28 +32,20 @@
         <button class="btn-secondary" type="submit">Выключить проверку</button>
     </form>
     {% else %}
-    <p class="legend">Пароль можно подсмотреть один раз и пользоваться. Код из приложения
-       меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.</p>
     <form method="post" action="/settings/2fa/start" id="enableform" class="set-row">
         <button class="btn-secondary" type="submit">Включить проверку</button>
     </form>
     {% endif %}
 </div>
 
-{# Язык интерфейса. Программа рассчитана на тех, кто читает по-английски;
-   интерфейс переводим на три языка. Переключение появится, когда перевод
-   будет готов, — пока показываем, к чему идём. #}
-{# Категории-папки. Общие: владелец раскладывает каталог, все видят один
-   порядок. Карточки раскладываются перетаскиванием в сайдбаре. #}
 <div class="box">
-    <h3>Категории</h3>
-    <p class="legend">Папки каталога — с иконкой, порядком и именем. В сайдбаре под
-       «Каталогом». Карточку кладут перетаскиванием.</p>
+    {{ sechead("Категории", "Папки каталога — с иконкой, именем и порядком. В сайдбаре под «Каталогом». Порядок меняется перетаскиванием за ручку слева; карточки в папки кладут перетаскиванием в каталоге.") }}
 
     {% if categories %}
-    <ul class="cat-manage">
+    <ul class="cat-manage" id="cat-manage">
         {% for c in categories %}
-        <li class="catrow">
+        <li class="catrow" data-id="{{ c.value }}">
+            <span class="catrow-grip" draggable="true" title="Перетащить" aria-label="Перетащить для порядка">⠿</span>
             <form method="post" action="/settings/categories/{{ c.value }}/update" class="catrow-form">
                 <button type="button" class="cat-pick" data-target="ic{{ c.value }}"
                         aria-label="Выбрать иконку">{{ caticon(c.icon) if c.icon else '' }}{% if not c.icon %}<span class="cat-pick-empty">+</span>{% endif %}</button>
@@ -56,11 +53,7 @@
                 <input type="text" name="name" value="{{ c.label }}" maxlength="128"
                        aria-label="Название категории">
                 <span class="catrow-count" title="карточек в папке">{{ c.count }}</span>
-                <button type="submit" class="catrow-btn" title="Сохранить">✓</button>
-                <button type="submit" class="catrow-btn" formaction="/settings/categories/{{ c.value }}/move"
-                        name="dir" value="up" title="Выше">↑</button>
-                <button type="submit" class="catrow-btn" formaction="/settings/categories/{{ c.value }}/move"
-                        name="dir" value="down" title="Ниже">↓</button>
+                <button type="submit" class="catrow-btn" title="Сохранить имя">✓</button>
                 <button type="submit" class="catrow-btn catrow-del"
                         formaction="/settings/categories/{{ c.value }}/delete" title="Удалить">✕</button>
             </form>
@@ -73,6 +66,9 @@
         </li>
         {% endfor %}
     </ul>
+    <form method="post" action="/settings/categories/reorder" id="reorder-form" hidden>
+        <input type="hidden" name="order" id="reorder-order">
+    </form>
     {% endif %}
 
     <form method="post" action="/settings/categories" class="catrow-add">
@@ -90,14 +86,8 @@
     </form>
 </div>
 
-{# Свои репозитории — частная зона. Токен вводит и хранит человек; программа
-   его не набирает. На сервере он лежит зашифрованным. #}
 <div class="box">
-    <h3>Свои репозитории</h3>
-    <p class="legend">Подключите свои GitHub или Gitea с токеном — их инструменты
-       лягут в вашу частную зону (замок в подвале), видную только вам. Токенов
-       можно сколько угодно. Токен вводите вы; мы храним его зашифрованным и
-       показываем только замаскированным.</p>
+    {{ sechead("Свои репозитории", "Подключите GitHub или Gitea с токеном — их инструменты лягут в вашу частную зону (замок), видную только вам. Токенов сколько угодно. Токен вводите вы; храним зашифрованным, показываем замаскированным.") }}
 
     {% if my_sources %}
     <ul class="src-manage">
@@ -140,9 +130,7 @@
 {# Тема — личная настройка устройства, как размер карточек. Хранится в
    localStorage, применяется до отрисовки (без вспышки). #}
 <div class="box">
-    <h3>Тема оформления</h3>
-    <p class="legend">Настройка этого устройства. «Как в системе» следует за
-       телефоном или компьютером. OLED — чистый чёрный для амолед-экранов.</p>
+    {{ sechead("Тема оформления", "Настройка этого устройства. «Как в системе» следует за телефоном или компьютером. OLED — чистый чёрный для амолед-экранов.") }}
     <nav class="theme-pills" aria-label="Тема оформления">
         <button type="button" class="filter theme-opt" data-theme-val="light">Светлая</button>
         <button type="button" class="filter theme-opt" data-theme-val="dark">Тёмная</button>
@@ -152,17 +140,26 @@
 </div>
 
 <div class="box">
-    <h3>Язык интерфейса</h3>
-    <p class="legend">Программа рассчитана на тех, кто читает по-английски. Интерфейс
-       переводим на три языка.</p>
+    {{ sechead("Язык интерфейса", "Программа рассчитана на тех, кто читает по-английски. Интерфейс переводим на три языка — переключение появится, когда перевод будет готов.") }}
     <nav class="filters" aria-label="Язык интерфейса">
         <span class="filter" aria-current="true">Русский</span>
         <span class="filter">English</span>
         <span class="filter" dir="rtl">עברית</span>
     </nav>
-    <p class="legend">Переключение появится, когда перевод будет готов.</p>
 </div>
 {% endif %}
+
+{# Диалог подтверждения выхода/сохранения — по центру модалки. #}
+<div class="confirm" id="confirm" hidden>
+    <div class="confirm-scrim" id="confirm-scrim"></div>
+    <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
+        <p class="confirm-text" id="confirm-text"></p>
+        <div class="confirm-actions">
+            <button type="button" class="btn-secondary" id="confirm-cancel">Отмена</button>
+            <button type="button" class="cta" id="confirm-ok"></button>
+        </div>
+    </div>
+</div>
 
 {% if step == 'qr' %}
 <p class="legend">Откройте Google Authenticator, Aegis или другое подобное и наведите на QR.
@@ -200,9 +197,10 @@
     <a class="cta" href="/settings">Я сохранил, дальше</a>
     {% else %}
     {# Разделы сохраняются каждый своей кнопкой (иконка, «Завести», «Подключить»,
-       ✓). Внизу — общее подтверждение: «Сохранить» и «Выйти» закрывают окно. #}
-    <a class="btn-secondary foot-left" href="/">Выйти</a>
-    <a class="cta" href="/">Сохранить</a>
+       ✓). Внизу — общее подтверждение через диалог (см. скрипт). Без скрипта
+       ссылки просто закрывают окно. #}
+    <a class="btn-secondary foot-left" href="/" id="settings-exit">Выйти</a>
+    <a class="cta" href="/" id="settings-save">Сохранить</a>
     {% endif %}
 </footer>
 {% endblock %}
@@ -277,6 +275,75 @@
         });
     });
     document.addEventListener('click', function () { closeAll(null); });
+})();
+
+// Порядок категорий — перетаскиванием за ручку. На бросок собираем новый
+// порядок id и отправляем; страница перезагрузится с новым порядком.
+(function () {
+    var list = document.getElementById('cat-manage');
+    if (!list) return;
+    var dragEl = null;
+    list.querySelectorAll('.catrow-grip').forEach(function (grip) {
+        grip.addEventListener('dragstart', function (e) {
+            dragEl = grip.closest('.catrow');
+            try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch (x) {}
+            if (dragEl) dragEl.classList.add('dragging');
+        });
+        grip.addEventListener('dragend', function () {
+            if (dragEl) dragEl.classList.remove('dragging');
+            dragEl = null;
+        });
+    });
+    list.addEventListener('dragover', function (e) {
+        if (!dragEl) return;
+        e.preventDefault();
+        var over = e.target.closest ? e.target.closest('.catrow') : null;
+        if (!over || over === dragEl) return;
+        var rect = over.getBoundingClientRect();
+        var after = (e.clientY - rect.top) > rect.height / 2;
+        list.insertBefore(dragEl, after ? over.nextSibling : over);
+    });
+    list.addEventListener('drop', function (e) {
+        if (!dragEl) return;
+        e.preventDefault();
+        var ids = [];
+        list.querySelectorAll('.catrow').forEach(function (li) { ids.push(li.getAttribute('data-id')); });
+        document.getElementById('reorder-order').value = ids.join(',');
+        document.getElementById('reorder-form').submit();
+    });
+})();
+
+// Уточняющий вопрос при выходе/сохранении — по центру модалки. Разделы и так
+// сохраняются своими кнопками, поэтому обе ветки закрывают окно; вопрос —
+// чтобы не выйти случайно, не подтвердив.
+(function () {
+    var box = document.getElementById('confirm');
+    if (!box) return;
+    var text = document.getElementById('confirm-text');
+    var ok = document.getElementById('confirm-ok');
+    var pending = null;
+
+    function reallyClose() {
+        try { if (window.parent && window.parent.closeModalHost) { window.parent.closeModalHost(); return; } } catch (e) {}
+        window.location = '/';
+    }
+    function open(q, okLabel) {
+        text.textContent = q; ok.textContent = okLabel; box.hidden = false;
+    }
+    function hide() { box.hidden = true; pending = null; }
+
+    document.getElementById('confirm-cancel').addEventListener('click', hide);
+    document.getElementById('confirm-scrim').addEventListener('click', hide);
+    ok.addEventListener('click', reallyClose);
+
+    var save = document.getElementById('settings-save');
+    var exit = document.getElementById('settings-exit');
+    if (save) save.addEventListener('click', function (e) { e.preventDefault(); open('Сохранить настройки и выйти?', 'Сохранить'); });
+    if (exit) exit.addEventListener('click', function (e) { e.preventDefault(); open('Выйти без сохранения изменений?', 'Выйти'); });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); hide(); }
+    }, true);
 })();
 </script>
 {% endblock %}

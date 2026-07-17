@@ -152,6 +152,21 @@ def category_move(
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/categories/reorder", response_class=HTMLResponse)
+def category_reorder(request: Request, order: Annotated[str, Form()] = "") -> RedirectResponse:
+    """Порядок папок задаётся перетаскиванием: сюда приходит список id по новому
+    порядку, раскладываем позиции подряд."""
+    with session_scope() as session:
+        _owner_only(session, request)
+        for pos, part in enumerate(order.split(",")):
+            part = part.strip()
+            if part.isdigit():
+                cat = session.get(Category, int(part))
+                if cat is not None:
+                    cat.position = pos
+    return RedirectResponse("/settings", status_code=303)
+
+
 @router.post("/settings/categories/{cat_id}/delete", response_class=HTMLResponse)
 def category_delete(request: Request, cat_id: int) -> RedirectResponse:
     with session_scope() as session:

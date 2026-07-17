@@ -532,7 +532,7 @@ async def _run_user_scan(user_id: int, source_id: int) -> None:
         return
 
     provider = GiteaProvider(
-        base_url=base_url, token=token, timeout=settings.http_timeout_seconds, personal=True
+        base_url=base_url, token=token, timeout=settings.http_timeout_seconds
     )
     text_model = build_text_model()
     embed_model = build_embedding_model()

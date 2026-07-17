@@ -454,7 +454,9 @@ async def scan_user_source(user_id: int | None, source_id: int) -> str:
     except Exception:
         return "Токен нечитаем (сменился ключ шифрования) — впишите его заново."
 
-    provider = GiteaProvider(base_url=base_url, token=token, timeout=settings.http_timeout_seconds)
+    provider = GiteaProvider(
+        base_url=base_url, token=token, timeout=settings.http_timeout_seconds, personal=True
+    )
     text_model = build_text_model()
     embed_model = build_embedding_model()
     try:

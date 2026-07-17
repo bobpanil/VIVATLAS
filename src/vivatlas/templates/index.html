@@ -547,6 +547,9 @@ document.addEventListener('paste', function (e) {
                 ? 'Частная — видна только вам. Нажмите, чтобы опубликовать.'
                 : 'Публичная — видят все. Нажмите, чтобы сделать частной.');
             btn.setAttribute('aria-label', d.private ? 'Сделать публичной' : 'Сделать частной');
+            // Перекрашиваем рамку карточки под новую зону.
+            var card = form.closest ? form.closest('.card') : null;
+            if (card) card.setAttribute('data-zone', d.zone || (d.private ? 'private' : 'common'));
         }).catch(function () { form.submit(); });   // не вышло — обычная отправка
     });
 })();

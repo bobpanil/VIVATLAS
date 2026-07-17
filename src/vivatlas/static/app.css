@@ -1858,18 +1858,22 @@ summary:focus-visible {
     border-color: var(--ink);
 }
 
+/* Рамка по зоне — под цвет значка: публичная зелёная, частная янтарная. На
+   наведении — тот же цвет, но темнее (аффорданс сохраняется). Значения те же,
+   что у .zone-btn.zone-common / .zone-private. */
+.card[data-zone="common"] { border-color: #1d9e75; }
+.card[data-zone="private"] { border-color: #c98a00; }
+.card[data-zone="common"]:hover { border-color: #177a5a; }
+.card[data-zone="private"]:hover { border-color: #a06f00; }
+
 /* Пока карточку тащат — она бледнеет и чуть сжимается: видно, что «взяли». */
 .card.dragging {
     opacity: 0.45;
     transform: scale(0.97);
 }
 
-/* «Новинка»: карточка добавлена недавним сканом и ещё не открыта. Бейдж в углу
-   и подсвеченная рамка, чтобы в первый момент было видно, что подтянулось. */
-.card.is-new {
-    border-color: var(--primary);
-}
-
+/* «Новинка»: карточка добавлена недавним сканом и ещё не открыта. Заметна
+   бейджем в углу; рамкой при этом управляет зона (публичная/частная). */
 .card-new {
     position: absolute;
     top: 0;

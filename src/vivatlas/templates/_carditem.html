@@ -2,7 +2,8 @@
    добавлении во время скана (рендер фрагмента в /scan/cards). Ждёт в контексте
    `it` (словарь карточки из web._card) и `next_path` (куда вернуться формам). #}
 {% import "_icons.html" as icons %}
-<div class="card{% if it.is_new %} is-new{% endif %}" draggable="true" data-id="{{ it.id }}">
+<div class="card{% if it.is_new %} is-new{% endif %}" draggable="true" data-id="{{ it.id }}"
+     data-zone="{{ it.zone }}">
     {# Карточка — не ссылка целиком, а контейнер: внутри живут свои кнопки. За
        переход отвечает растянутый .card-link. #}
     <a class="card-link" href="/a/{{ it.id }}" draggable="false" data-modal

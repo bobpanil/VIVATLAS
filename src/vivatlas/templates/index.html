@@ -135,6 +135,27 @@
     {% endif %}
 </div>
 
+{# Полоса скана: живёт, пока идёт сбор из личного источника. Заполняется и
+   обновляется скриптом (опрос /scan/status). Есть скан в контексте — рисуем
+   сразу, чтобы полоса была видна ещё до первого опроса. #}
+<div class="scanbar" id="scanbar" {% if not scan %}hidden{% endif %}
+     {% if scan %}data-state="{{ scan.state }}" data-done="{{ scan.done }}"
+     data-total="{{ scan.total }}" data-added="{{ scan.added }}"
+     data-source="{{ scan.source }}"{% endif %}>
+    <div class="scanbar-row">
+        <span class="scanbar-spin" aria-hidden="true"></span>
+        <div class="scanbar-text">
+            <b class="scanbar-title">Собираю ваши инструменты…</b>
+            <span class="scanbar-sub"></span>
+        </div>
+        <div class="scanbar-actions">
+            <a class="scanbar-show" href="/" hidden>Показать</a>
+            <button class="scanbar-x" type="button" aria-label="Скрыть" hidden>×</button>
+        </div>
+    </div>
+    <div class="scanbar-track"><div class="scanbar-fill"></div></div>
+</div>
+
 {% if link %}
 {# Искать ссылку среди названий бессмысленно — такого текста в карточках нет.
    Раньше это молча возвращало пустоту. Предлагаем то, зачем её и принесли. #}
@@ -464,6 +485,88 @@ document.addEventListener('paste', function (e) {
             btn.setAttribute('aria-pressed', d.favorite ? 'true' : 'false');
         }).catch(function () { form.submit(); });   // не вышло — обычная отправка
     });
+})();
+
+// Полоса скана личного источника. Пока сервер в фоне собирает карточки, раз в
+// пару секунд спрашиваем /scan/status и двигаем полосу. Готово — показываем
+// итог и один раз обновляем страницу, чтобы карточки появились сами.
+(function () {
+    var bar = document.getElementById('scanbar');
+    if (!bar) return;
+    var title = bar.querySelector('.scanbar-title');
+    var sub = bar.querySelector('.scanbar-sub');
+    var fill = bar.querySelector('.scanbar-fill');
+    var show = bar.querySelector('.scanbar-show');
+    var xbtn = bar.querySelector('.scanbar-x');
+    var spin = bar.querySelector('.scanbar-spin');
+    var timer = null;
+
+    function dismiss() {
+        bar.hidden = true;
+        if (timer) clearTimeout(timer);
+        try { sessionStorage.removeItem('viv-scan-reloaded'); } catch (e) {}
+        fetch('/scan/dismiss', { method: 'POST', headers: { 'Accept': 'application/json' } })
+            .catch(function () {});
+    }
+    xbtn.addEventListener('click', dismiss);
+
+    function render(s) {
+        var total = s.total || 0, done = s.done || 0, added = s.added || 0;
+        bar.setAttribute('data-state', s.state || 'idle');
+        if (s.state === 'running') {
+            spin.hidden = false;
+            title.textContent = 'Собираю ваши инструменты' + (s.source ? ' — ' + s.source : '');
+            sub.textContent = total ? ('обработано ' + done + ' из ' + total)
+                                    : 'читаю список репозиториев…';
+            fill.style.width = (total ? Math.round(done / total * 100) : 8) + '%';
+            show.hidden = true; xbtn.hidden = true;
+        } else if (s.state === 'done') {
+            spin.hidden = true;
+            title.textContent = 'Готово' + (s.source ? ' — ' + s.source : '');
+            sub.textContent = added ? ('добавлено инструментов: ' + added)
+                                    : 'новых инструментов не нашлось';
+            fill.style.width = '100%';
+            // Один раз обновим страницу, чтобы новые карточки появились. Флаг не
+            // даёт зациклиться: после перезагрузки статус всё ещё «done».
+            var reloaded = false;
+            try { reloaded = sessionStorage.getItem('viv-scan-reloaded') === '1'; } catch (e) {}
+            if (added && !reloaded) {
+                try { sessionStorage.setItem('viv-scan-reloaded', '1'); } catch (e) {}
+                location.reload();
+                return;
+            }
+            show.hidden = true; xbtn.hidden = false;
+        } else if (s.state === 'error') {
+            spin.hidden = true;
+            title.textContent = 'Сканирование не удалось';
+            sub.textContent = s.error || '';
+            fill.style.width = '100%';
+            show.hidden = true; xbtn.hidden = false;
+        } else {
+            dismiss();   // idle — скана нет
+        }
+    }
+
+    function poll() {
+        fetch('/scan/status', { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (s) {
+                render(s);
+                if (s.state === 'running') timer = setTimeout(poll, 2000);
+            })
+            .catch(function () { timer = setTimeout(poll, 4000); });
+    }
+
+    if (!bar.hidden) {
+        render({
+            state: bar.getAttribute('data-state') || 'running',
+            total: +bar.getAttribute('data-total') || 0,
+            done: +bar.getAttribute('data-done') || 0,
+            added: +bar.getAttribute('data-added') || 0,
+            source: bar.getAttribute('data-source') || ''
+        });
+        poll();
+    }
 })();
 </script>
 {% endblock %}

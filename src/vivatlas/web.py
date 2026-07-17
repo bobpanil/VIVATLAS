@@ -1,5 +1,6 @@
 """Страницы для человека. API для программ живёт в api.py."""
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -230,6 +231,7 @@ async def index(
                     "nav": "all",
                     "active_cat": f.cat,
                     "active_draft": bool(f.draft),
+                    "scan": scan_progress(user_id),
                 },
             )
     finally:
@@ -266,6 +268,22 @@ def toggle_favorite(
     # Без скрипта: вернуться туда, откуда пришли. Только внутренний путь.
     dest = next if next.startswith("/") else "/"
     return RedirectResponse(dest, status_code=303)
+
+
+@router.get("/scan/status")
+def scan_status(request: Request) -> JSONResponse:
+    """Состояние идущего скана — для полосы прогресса на главной. Опрашивается
+    страницей раз в пару секунд, пока идёт сбор."""
+    user_id = getattr(request.state, "user_id", None)
+    prog = scan_progress(user_id)
+    return JSONResponse(prog or {"state": "idle"})
+
+
+@router.post("/scan/dismiss")
+def scan_dismiss(request: Request) -> JSONResponse:
+    """Закрыть полосу (человек нажал ✕ или увидел итог)."""
+    clear_scan(getattr(request.state, "user_id", None))
+    return JSONResponse({"ok": True})
 
 
 _CAT_STOP = {"и", "для", "по", "the", "and", "for", "of", "или", "с", "на"}
@@ -430,35 +448,59 @@ def set_category(
 _GITEA_KINDS = {"gitea", "codeberg"}
 
 
-async def scan_user_source(user_id: int | None, source_id: int) -> str:
-    """Обойти личный источник пользователя его токеном и собрать карточки в его
-    частную зону. Приватные репозитории разрешены — но только для СВОЕГО
-    источника (owner_user_id == user_id). Возвращает текст ошибки или "" при
-    успехе. Может идти долго: для каждого репозитория — скачать и описать."""
+# Прогресс идущих сканов: user_id -> {state, total, done, added, source, error}.
+# Живёт в памяти одного процесса-сервера (8710). Скан — фоновая задача того же
+# цикла; главная страница опрашивает статус и рисует полосу. Пропадёт при
+# перезапуске — это нормально: полоса просто исчезнет, карточки останутся.
+_SCANS: dict[int, dict] = {}
+# Держим сильную ссылку на фоновые задачи: create_task хранит лишь слабую, и
+# без этого сборщик мусора может убить скан на середине.
+_SCAN_TASKS: set = set()
+
+
+def scan_progress(user_id: int | None) -> dict | None:
+    """Состояние скана этого человека для полосы прогресса. Нет — None."""
+    if user_id is None:
+        return None
+    return _SCANS.get(user_id)
+
+
+def clear_scan(user_id: int | None) -> None:
+    """Убрать полосу после того, как человек её закрыл или увидел итог."""
+    if user_id is not None:
+        _SCANS.pop(user_id, None)
+
+
+async def prepare_user_scan(user_id: int | None, source_id: int) -> tuple[str, list[int], str]:
+    """Быстрая часть: проверить источник, получить список репозиториев, сложить
+    их в базу. Возвращает (ошибка, id_репозиториев, имя_источника). Сеть тут
+    короткая (только список), поэтому ошибку доступа/адреса ловим сразу и
+    показываем в окне настроек. Скачивание и описание — уже в фоне."""
     with session_scope() as session:
         src = session.get(Source, source_id)
         if src is None or src.owner_user_id != user_id:
-            return "Источник не найден."
-        kind, base_url, token_enc = src.kind, src.base_url, src.token_enc
+            return ("Источник не найден.", [], "")
+        kind, base_url, token_enc, name = (
+            src.kind, src.base_url, src.token_enc, src.display_name
+        )
 
     if kind not in _GITEA_KINDS:
         return (
             "Скан пока умеет только Gitea и Codeberg. Если это ваш Gitea — "
             "выберите «Gitea» в списке хостингов слева и нажмите «Сохранить», "
-            "затем «Сканировать». Провайдеры для GitHub и других добавим позже."
+            "затем «Сканировать». Провайдеры для GitHub и других добавим позже.",
+            [], "",
         )
     if not token_enc:
-        return "У источника нет токена — впишите токен доступа и сохраните."
+        return ("У источника нет токена — впишите токен доступа и сохраните.", [], "")
     try:
         token = security.decrypt_secret(token_enc)
     except Exception:
-        return "Токен нечитаем (сменился ключ шифрования) — впишите его заново."
+        return ("Токен нечитаем (сменился ключ шифрования) — впишите его заново.", [], "")
 
     provider = GiteaProvider(
         base_url=base_url, token=token, timeout=settings.http_timeout_seconds, personal=True
     )
-    text_model = build_text_model()
-    embed_model = build_embedding_model()
     try:
         with session_scope() as session:
             src = session.get(Source, source_id)
@@ -472,8 +514,52 @@ async def scan_user_source(user_id: int | None, source_id: int) -> str:
                     )
                 )
             )
-        # По репозиторию за раз, каждый в своей транзакции: долгий обход не держит
-        # одну гигантскую блокировку, и сбой на одном не теряет остальные.
+    except Exception as exc:
+        log.exception("scan: список репозиториев источника %s не получен", source_id)
+        return (f"Не удалось получить список репозиториев: {exc}", [], "")
+    finally:
+        await provider.aclose()
+    return ("", repo_ids, name)
+
+
+def launch_user_scan(user_id: int, source_id: int, repo_ids: list[int], source_name: str) -> None:
+    """Запустить фоновый обход репозиториев. Заводит полосу прогресса и отдаёт
+    управление сразу — скан идёт задачей того же цикла событий."""
+    _SCANS[user_id] = {
+        "state": "running",
+        "total": len(repo_ids),
+        "done": 0,
+        "added": 0,
+        "source": source_name,
+        "error": "",
+    }
+    task = asyncio.create_task(_run_user_scan(user_id, source_id, repo_ids))
+    _SCAN_TASKS.add(task)
+    task.add_done_callback(_SCAN_TASKS.discard)
+
+
+async def _run_user_scan(user_id: int, source_id: int, repo_ids: list[int]) -> None:
+    """Долгая часть: по репозиторию за раз — скачать, описать, разложить в
+    частную зону. Каждый шаг двигает полосу прогресса. Сбой на одном не роняет
+    остальные; общий сбой помечает полосу как ошибку."""
+    prog = _SCANS[user_id]
+    # Токен берём заново из базы: держать расшифрованный в памяти дольше нужного
+    # незачем. Источник свой — уже проверено в prepare_user_scan.
+    with session_scope() as session:
+        src = session.get(Source, source_id)
+        base_url, token_enc = (src.base_url, src.token_enc) if src else ("", "")
+    try:
+        token = security.decrypt_secret(token_enc) if token_enc else ""
+    except Exception:
+        prog["state"], prog["error"] = "error", "Токен стал нечитаем."
+        return
+
+    provider = GiteaProvider(
+        base_url=base_url, token=token, timeout=settings.http_timeout_seconds, personal=True
+    )
+    text_model = build_text_model()
+    embed_model = build_embedding_model()
+    try:
         for rid in repo_ids:
             try:
                 with session_scope() as session:
@@ -486,17 +572,19 @@ async def scan_user_source(user_id: int | None, source_id: int) -> str:
                         index_artifact_for_words(session, art)
                         art.hidden = False  # ваши источники видимы (в вашей зоне)
                         art.category_id = _auto_category(session, art)
+                        prog["added"] += 1
                     session.commit()
             except Exception:
                 log.exception("scan: репозиторий %s не собрался", rid)
+            prog["done"] += 1
+        prog["state"] = "done"
     except Exception as exc:
         log.exception("scan источника %s не удался", source_id)
-        return f"Сканирование не удалось: {exc}"
+        prog["state"], prog["error"] = "error", str(exc)
     finally:
         await provider.aclose()
         await text_model.aclose()
         await embed_model.aclose()
-    return ""
 
 
 @router.get("/recommend")

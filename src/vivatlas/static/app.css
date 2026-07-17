@@ -3640,6 +3640,26 @@ summary:focus-visible {
     stroke: #f7a501;
 }
 
+/* Пилюли зон: значок в цвет карточки — глобус зелёный, замок янтарный. */
+.filter-zone {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.filter-zone svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.filter-zone.zone-common svg { color: #1d9e75; }
+.filter-zone.zone-private svg { color: #c98a00; }
+
 .filters-btn {
     flex: none;
     display: inline-flex;

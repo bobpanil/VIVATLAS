@@ -119,6 +119,20 @@
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/></svg>
             избранное <b>{{ fav_count }}</b>
         </a>
+        {# Зона: общие (глобус, зелёный) и частные (замок, янтарный) — цветом
+           под значок карточки. #}
+        <a class="filter filter-zone zone-common{% if f.zone == 'common' %} on{% endif %}"
+           href="/?{{ f.as_query(zone='' if f.zone == 'common' else 'common') | combine(q=q) | urlencode }}"
+           {% if f.zone == 'common' %}aria-current="true"{% endif %}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
+            общие <b>{{ zone_counts.common }}</b>
+        </a>
+        <a class="filter filter-zone zone-private{% if f.zone == 'private' %} on{% endif %}"
+           href="/?{{ f.as_query(zone='' if f.zone == 'private' else 'private') | combine(q=q) | urlencode }}"
+           {% if f.zone == 'private' %}aria-current="true"{% endif %}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
+            частные <b>{{ zone_counts.private }}</b>
+        </a>
         {% for t in types %}
         {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
         {% endfor %}

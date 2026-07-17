@@ -34,9 +34,12 @@ class Filters:
     fav: str = ""
     cat: str = ""
     draft: str = ""
+    zone: str = ""  # "private" | "common" — отбор по зоне карточки
 
     def active(self) -> bool:
-        return any((self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat))
+        return any(
+            (self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat, self.zone)
+        )
 
     def as_query(self, drop: str = "", **override) -> dict:
         """Для сборки ссылок: те же фильтры, но один снят или заменён."""
@@ -49,6 +52,7 @@ class Filters:
             "fav": self.fav,
             "cat": self.cat,
             "draft": self.draft,
+            "zone": self.zone,
         }
         out.update(override)
         if drop:
@@ -99,6 +103,10 @@ def apply(
     if f.fav:
         # Избранное — личное: без известного пользователя показывать нечего.
         query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
+    if f.zone == "private":
+        query = query.where(Artifact.private_to_user_id.is_not(None))
+    elif f.zone == "common":
+        query = query.where(Artifact.private_to_user_id.is_(None))
     if f.cat and f.cat.isdigit():
         query = query.where(Artifact.category_id == int(f.cat))
     if f.type:
@@ -180,6 +188,19 @@ def type_options(session: Session, user_id: int | None = None) -> list[Option]:
         .order_by(func.count().desc())
     ).all()
     return [Option(t, t, n) for t, n in rows]
+
+
+def zone_counts(session: Session, user_id: int | None = None) -> dict:
+    """Сколько видимых карточек в каждой зоне — для пилюль «частная»/«общая».
+    Черновики не в счёт (у них свой раздел)."""
+    vis = visible_ids(user_id)
+    base = select(func.count()).select_from(Artifact).where(
+        Artifact.id.in_(vis), Artifact.artifact_type != "draft"
+    )
+    return {
+        "private": session.scalar(base.where(Artifact.private_to_user_id.is_not(None))) or 0,
+        "common": session.scalar(base.where(Artifact.private_to_user_id.is_(None))) or 0,
+    }
 
 
 def draft_count(session: Session, user_id: int | None = None) -> int:

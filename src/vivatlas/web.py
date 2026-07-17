@@ -163,9 +163,11 @@ async def index(
     fav: str = "",
     cat: str = "",
     draft: str = "",
+    zone: str = "",
 ) -> HTMLResponse:
     f = flt.Filters(
-        type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat, draft=draft
+        type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat,
+        draft=draft, zone=zone,
     )
 
     # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
@@ -232,6 +234,7 @@ async def index(
                     "active_cat": f.cat,
                     "active_draft": bool(f.draft),
                     "scan": scan_progress(user_id),
+                    "zone_counts": flt.zone_counts(session, user_id),
                 },
             )
     finally:

@@ -10,7 +10,7 @@
 {% macro sechead(title, tip) %}
 <div class="sec-head">
     <h3>{{ title }}</h3>
-    <span class="sec-info" tabindex="0" role="button" aria-label="Пояснение к разделу">i<span class="sec-tip">{{ tip }}</span></span>
+    <span class="sec-info" tabindex="0" role="button" aria-label="Пояснение к разделу"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="4.9" r="0.95" fill="currentColor" stroke="none"/><path d="M8 7.4v4"/></svg><span class="sec-tip">{{ tip }}</span></span>
 </div>
 {% endmacro %}
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
@@ -151,15 +151,16 @@
 </div>
 {% endif %}
 
-{# Диалог подтверждения выхода/сохранения — по центру модалки. #}
+{# Диалог подтверждения — маленькая модалка в том же стиле: шапка с вопросом,
+   футер с кнопками по краям (отмена слева, действие справа). #}
 <div class="confirm" id="confirm" hidden>
     <div class="confirm-scrim" id="confirm-scrim"></div>
     <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
-        <p class="confirm-text" id="confirm-text"></p>
-        <div class="confirm-actions">
+        <header class="confirm-head"><h2 id="confirm-text"></h2></header>
+        <footer class="confirm-foot">
             <button type="button" class="btn-secondary" id="confirm-cancel">Отмена</button>
             <button type="button" class="cta" id="confirm-ok"></button>
-        </div>
+        </footer>
     </div>
 </div>
 

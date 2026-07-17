@@ -70,8 +70,14 @@
                 // data-confirm: у них своё подтверждение (см. скрипт окна).
                 var link = e.target.closest('.modalcard a[href="/"]');
                 if (link && !link.hasAttribute('data-confirm')) { close(e); return; }
-                // Тёмный фон вокруг карточки — закрыть, если окно не залочено.
-                if (!lockScrim && e.target.closest('.modal-scrim')) { close(e); }
+                // Тёмный фон — это ссылка на «/». Всегда гасим переход по ней,
+                // иначе рамка уйдёт на каталог и окно закроется в обход лока.
+                // Закрываем только если окно не залочено (настройки — залочены).
+                var scrim = e.target.closest('.modal-scrim');
+                if (scrim) {
+                    e.preventDefault();
+                    if (!lockScrim) { host(); }
+                }
             });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close(e);

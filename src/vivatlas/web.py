@@ -174,6 +174,18 @@ async def index(
             user_id = getattr(request.state, "user_id", None)
             counts = _counts(session, user_id)
             fav_ids = _fav_ids(session, user_id)
+            # Счётчик «избранное» — только по видимому: скрытые и вне зоны не в счёт,
+            # иначе пилюля показывает больше, чем реально откроется.
+            fav_visible = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(Artifact)
+                    .where(Artifact.id.in_(fav_ids), Artifact.id.in_(flt.visible_ids(user_id)))
+                )
+                or 0
+                if fav_ids
+                else 0
+            )
 
             if link:
                 items = []
@@ -202,7 +214,7 @@ async def index(
                     "q": q,
                     "f": f,
                     "counts": counts,
-                    "fav_count": len(fav_ids),
+                    "fav_count": fav_visible,
                     "types": flt.type_options(session, user_id),
                     "categories": flt.category_options(session, user_id),
                     "owners": flt.owner_options(session, user_id),

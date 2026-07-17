@@ -31,6 +31,8 @@
         window.addEventListener('storage', function (e) {
             if (e.key === 'vivatlas-theme') applyTheme(e.newValue || 'light');
         });
+        // Открыто для переключателя темы в сайдбаре.
+        window.applyVivTheme = applyTheme;
     })();
     </script>
 </head>
@@ -133,6 +135,24 @@
                 {{ icons.ic('settings') }}<span>Настройки</span>
             </a>
             {% endif %}
+
+            {# Тема — иконка снизу, по нажатию выпадает список (вверх). Выбор
+               живёт на устройстве, применяется сразу (см. скрипт). #}
+            <div class="side-theme" id="side-theme">
+                <button class="side-item side-theme-btn" id="side-theme-btn" type="button"
+                        aria-haspopup="menu" aria-expanded="false">
+                    <svg class="ic" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor" stroke="none"/></svg>
+                    <span>Тема</span>
+                    <svg class="side-theme-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 6l3 3 3-3"/></svg>
+                </button>
+                <div class="side-theme-menu" id="side-theme-menu" hidden role="menu" aria-label="Тема оформления">
+                    <button class="side-theme-opt" type="button" data-theme-val="light" role="menuitem">Светлая</button>
+                    <button class="side-theme-opt" type="button" data-theme-val="dark" role="menuitem">Тёмная</button>
+                    <button class="side-theme-opt" type="button" data-theme-val="oled" role="menuitem">OLED</button>
+                    <button class="side-theme-opt" type="button" data-theme-val="auto" role="menuitem">Как в системе</button>
+                </div>
+            </div>
+
             <p class="side-foot">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</p>
         </div>
     </aside>
@@ -220,6 +240,41 @@
         });
 
         scrim.addEventListener('click', function () { window.closeModalHost(); });
+    })();
+    </script>
+
+    <script>
+    // Переключатель темы в сайдбаре: иконка снизу, по нажатию выпадает список.
+    // Выбор живёт на устройстве (localStorage) и применяется сразу.
+    (function () {
+        var wrap = document.getElementById('side-theme');
+        if (!wrap) return;
+        var btn = document.getElementById('side-theme-btn');
+        var menu = document.getElementById('side-theme-menu');
+        var opts = menu.querySelectorAll('.side-theme-opt');
+        function cur() { try { return localStorage.getItem('vivatlas-theme') || 'light'; } catch (e) { return 'light'; } }
+        function mark(v) {
+            opts.forEach(function (o) { o.classList.toggle('on', o.getAttribute('data-theme-val') === v); });
+        }
+        function openMenu() { mark(cur()); menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+        function closeMenu() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            menu.hidden ? openMenu() : closeMenu();
+        });
+        opts.forEach(function (o) {
+            o.addEventListener('click', function () {
+                var v = o.getAttribute('data-theme-val');
+                try { localStorage.setItem('vivatlas-theme', v); } catch (e) { /* приватный режим */ }
+                if (window.applyVivTheme) { window.applyVivTheme(v); }
+                mark(v);
+                closeMenu();
+            });
+        });
+        document.addEventListener('click', function (e) {
+            if (!menu.hidden && !wrap.contains(e.target)) closeMenu();
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
     })();
     </script>
 

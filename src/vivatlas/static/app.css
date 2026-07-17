@@ -515,6 +515,68 @@ a {
     margin: var(--s-xl) 0 0;
 }
 
+/* Переключатель темы: пункт-иконка снизу, по нажатию — список вверх. */
+.side-theme {
+    position: relative;
+}
+
+.side-theme-btn {
+    width: 100%;
+    border: 0;
+    background: none;
+    font-family: var(--sans);
+    text-align: left;
+    cursor: pointer;
+}
+
+.side-theme-caret {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: #7d7a68;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+
+.side-theme-menu {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #141a2b;
+    border: 1px solid var(--panel-line);
+    border-radius: var(--r-md);
+    padding: 4px;
+    box-shadow: 0 -10px 28px -10px rgba(0, 0, 0, 0.55);
+    z-index: 40;
+}
+
+.side-theme-opt {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: none;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--panel-text);
+    padding: 7px 10px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+}
+
+.side-theme-opt:hover {
+    background: #232c44;
+    color: var(--panel-bright);
+}
+
+.side-theme-opt.on {
+    color: var(--primary);
+    font-weight: 600;
+}
+
 /* Свои категории-папки под «Каталогом» — всегда на виду. */
 .cat-list {
     margin: 2px 0 var(--s-sm) 12px;

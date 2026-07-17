@@ -158,7 +158,7 @@
     <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
         <header class="confirm-head"><h2 id="confirm-text"></h2></header>
         <footer class="confirm-foot">
-            <button type="button" class="btn-secondary" id="confirm-cancel">Отмена</button>
+            <button type="button" class="btn-secondary" id="confirm-cancel">Нет</button>
             <button type="button" class="cta" id="confirm-ok"></button>
         </footer>
     </div>
@@ -202,7 +202,7 @@
     {# Разделы сохраняются каждый своей кнопкой (иконка, «Завести», «Подключить»,
        ✓). Внизу — общее подтверждение через диалог (см. скрипт). Без скрипта
        ссылки просто закрывают окно. #}
-    <a class="btn-secondary foot-left" href="/" id="settings-exit" data-confirm>Выйти</a>
+    <a class="btn-secondary foot-left" href="/" id="settings-exit" data-confirm>Закрыть</a>
     <a class="cta" href="/" id="settings-save" data-confirm>Сохранить</a>
     {% endif %}
 </footer>
@@ -324,25 +324,26 @@
     if (!box) return;
     var text = document.getElementById('confirm-text');
     var ok = document.getElementById('confirm-ok');
-    var pending = null;
+    var cancel = document.getElementById('confirm-cancel');
 
     function reallyClose() {
         try { if (window.parent && window.parent.closeModalHost) { window.parent.closeModalHost(); return; } } catch (e) {}
         window.location = '/';
     }
-    function open(q, okLabel) {
-        text.textContent = q; ok.textContent = okLabel; box.hidden = false;
+    function open(q, okLabel, cancelLabel) {
+        text.textContent = q; ok.textContent = okLabel; cancel.textContent = cancelLabel;
+        box.hidden = false;
     }
-    function hide() { box.hidden = true; pending = null; }
+    function hide() { box.hidden = true; }
 
-    document.getElementById('confirm-cancel').addEventListener('click', hide);
+    cancel.addEventListener('click', hide);
     document.getElementById('confirm-scrim').addEventListener('click', hide);
     ok.addEventListener('click', reallyClose);
 
     var save = document.getElementById('settings-save');
     var exit = document.getElementById('settings-exit');
-    if (save) save.addEventListener('click', function (e) { e.preventDefault(); open('Сохранить настройки и выйти?', 'Сохранить'); });
-    if (exit) exit.addEventListener('click', function (e) { e.preventDefault(); open('Выйти без сохранения изменений?', 'Выйти'); });
+    if (save) save.addEventListener('click', function (e) { e.preventDefault(); open('Сохранить настройки и выйти?', 'Сохранить', 'Отмена'); });
+    if (exit) exit.addEventListener('click', function (e) { e.preventDefault(); open('Выйти без сохранения изменений?', 'Да', 'Нет'); });
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); hide(); }

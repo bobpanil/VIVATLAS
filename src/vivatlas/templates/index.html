@@ -201,12 +201,13 @@
                             </svg>
                         </button>
                     </form>
-                    {% if it.html_url %}
+                    {% if it.source_url %}
                     <span class="foot-sep"></span>
-                    {# «Копировать» — две наложенные карточки, привычный знак. #}
-                    <button class="card-copy" type="button" data-copy="{{ it.html_url }}"
-                            aria-label="Копировать ссылку на репозиторий"
-                            title="Копировать ссылку на репозиторий">
+                    {# «Копировать» — две наложенные карточки, привычный знак.
+                       Копирует ссылку на источник (откуда взято). #}
+                    <button class="card-copy" type="button" data-copy="{{ it.source_url }}"
+                            aria-label="Скопировать ссылку на источник"
+                            title="Скопировать ссылку на источник">
                         <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
                             <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
                             <path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/>

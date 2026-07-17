@@ -314,7 +314,10 @@ def _card(session, a: Artifact, reasons: list[str], fav_ids: set[int] = frozense
         "type": a.artifact_type,
         "summary_short": a.summary_short,
         "preview_url": preview_url(a),
-        "html_url": a.repository.html_url,
+        # Копируем ссылку на ИСТОЧНИК (откуда взято), а не на хранилище в Gitea.
+        # Источник — то, что показываем и чем делятся. Нет источника — пусть
+        # будет хранилище, чем ничего.
+        "source_url": a.repository.original_url or a.repository.html_url,
         "favorite": a.id in fav_ids,
         "zone": _zone(a),
         "reasons": reasons,

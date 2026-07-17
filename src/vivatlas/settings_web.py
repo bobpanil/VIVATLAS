@@ -300,7 +300,7 @@ async def source_scan(request: Request, source_id: int) -> Response:
     (список репозиториев) делаем сразу — ошибку доступа/адреса показываем прямо
     в окне. Долгий обход (скачать и описать каждый) уходит в фон, а на главной
     появляется полоса прогресса."""
-    from vivatlas.web import launch_user_scan, prepare_user_scan, scan_progress
+    from vivatlas.web import launch_user_scan, precheck_user_scan, scan_progress
 
     user_id = getattr(request.state, "user_id", None)
 
@@ -309,12 +309,15 @@ async def source_scan(request: Request, source_id: int) -> Response:
     if prog and prog.get("state") == "running":
         return RedirectResponse("/", status_code=303)
 
-    error, repo_ids, source_name = await prepare_user_scan(user_id, source_id)
+    # Только мгновенные проверки (без сети): ошибку сразу в окне. Сам обход,
+    # включая получение списка репозиториев, уходит в фон — кнопка отвечает
+    # немедленно, а прогресс видно полосой на главной.
+    error, source_name = precheck_user_scan(user_id, source_id)
     if error:
         with session_scope() as session:
             me = _me(session, request)
             return _security_page(request, session, me, error=error)
-    launch_user_scan(user_id, source_id, repo_ids, source_name)
+    launch_user_scan(user_id, source_id, source_name)
     return RedirectResponse("/", status_code=303)
 
 

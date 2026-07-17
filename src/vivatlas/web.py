@@ -471,80 +471,57 @@ def clear_scan(user_id: int | None) -> None:
         _SCANS.pop(user_id, None)
 
 
-async def prepare_user_scan(user_id: int | None, source_id: int) -> tuple[str, list[int], str]:
-    """Быстрая часть: проверить источник, получить список репозиториев, сложить
-    их в базу. Возвращает (ошибка, id_репозиториев, имя_источника). Сеть тут
-    короткая (только список), поэтому ошибку доступа/адреса ловим сразу и
-    показываем в окне настроек. Скачивание и описание — уже в фоне."""
+def precheck_user_scan(user_id: int | None, source_id: int) -> tuple[str, str]:
+    """Мгновенные проверки без сети: это свой источник, хостинг поддержан, токен
+    на месте и читается. Возвращает (ошибка, имя_источника). Сеть (список
+    репозиториев) и всё остальное — уже в фоне, чтобы кнопка отвечала сразу."""
     with session_scope() as session:
         src = session.get(Source, source_id)
         if src is None or src.owner_user_id != user_id:
-            return ("Источник не найден.", [], "")
-        kind, base_url, token_enc, name = (
-            src.kind, src.base_url, src.token_enc, src.display_name
-        )
+            return ("Источник не найден.", "")
+        kind, token_enc, name = src.kind, src.token_enc, src.display_name
 
     if kind not in _GITEA_KINDS:
         return (
             "Скан пока умеет только Gitea и Codeberg. Если это ваш Gitea — "
             "выберите «Gitea» в списке хостингов слева и нажмите «Сохранить», "
             "затем «Сканировать». Провайдеры для GitHub и других добавим позже.",
-            [], "",
+            "",
         )
     if not token_enc:
-        return ("У источника нет токена — впишите токен доступа и сохраните.", [], "")
+        return ("У источника нет токена — впишите токен доступа и сохраните.", "")
     try:
-        token = security.decrypt_secret(token_enc)
+        security.decrypt_secret(token_enc)
     except Exception:
-        return ("Токен нечитаем (сменился ключ шифрования) — впишите его заново.", [], "")
-
-    provider = GiteaProvider(
-        base_url=base_url, token=token, timeout=settings.http_timeout_seconds, personal=True
-    )
-    try:
-        with session_scope() as session:
-            src = session.get(Source, source_id)
-            await scan_source(session, provider, src, include_private=True)
-            session.commit()
-            # select(Repository.id) отдаёт уже сами id-числа, а не строки.
-            repo_ids = list(
-                session.scalars(
-                    select(Repository.id).where(
-                        Repository.source_id == source_id, Repository.gone_at.is_(None)
-                    )
-                )
-            )
-    except Exception as exc:
-        log.exception("scan: список репозиториев источника %s не получен", source_id)
-        return (f"Не удалось получить список репозиториев: {exc}", [], "")
-    finally:
-        await provider.aclose()
-    return ("", repo_ids, name)
+        return ("Токен нечитаем (сменился ключ шифрования) — впишите его заново.", "")
+    return ("", name)
 
 
-def launch_user_scan(user_id: int, source_id: int, repo_ids: list[int], source_name: str) -> None:
-    """Запустить фоновый обход репозиториев. Заводит полосу прогресса и отдаёт
-    управление сразу — скан идёт задачей того же цикла событий."""
+def launch_user_scan(user_id: int, source_id: int, source_name: str) -> None:
+    """Запустить фоновый скан. Заводит полосу прогресса и отдаёт управление
+    сразу — весь обход (даже получение списка) идёт задачей того же цикла, а
+    кнопка мгновенно ведёт на главную, где видна полоса."""
     _SCANS[user_id] = {
         "state": "running",
-        "total": len(repo_ids),
+        "total": 0,
         "done": 0,
         "added": 0,
         "source": source_name,
         "error": "",
     }
-    task = asyncio.create_task(_run_user_scan(user_id, source_id, repo_ids))
+    task = asyncio.create_task(_run_user_scan(user_id, source_id))
     _SCAN_TASKS.add(task)
     task.add_done_callback(_SCAN_TASKS.discard)
 
 
-async def _run_user_scan(user_id: int, source_id: int, repo_ids: list[int]) -> None:
-    """Долгая часть: по репозиторию за раз — скачать, описать, разложить в
-    частную зону. Каждый шаг двигает полосу прогресса. Сбой на одном не роняет
-    остальные; общий сбой помечает полосу как ошибку."""
+async def _run_user_scan(user_id: int, source_id: int) -> None:
+    """Фоновая часть целиком: получить список репозиториев, затем по одному —
+    скачать, описать, разложить в частную зону. Каждый шаг двигает полосу
+    прогресса. Сбой на одном репозитории не роняет остальные; общий сбой
+    (доступ, сеть) помечает полосу как ошибку — её видно на главной."""
     prog = _SCANS[user_id]
-    # Токен берём заново из базы: держать расшифрованный в памяти дольше нужного
-    # незачем. Источник свой — уже проверено в prepare_user_scan.
+    # Токен берём из базы здесь, в фоне: в prepare его не расшифровываем дольше
+    # нужного. Источник свой — уже проверено в precheck_user_scan.
     with session_scope() as session:
         src = session.get(Source, source_id)
         base_url, token_enc = (src.base_url, src.token_enc) if src else ("", "")
@@ -560,6 +537,21 @@ async def _run_user_scan(user_id: int, source_id: int, repo_ids: list[int]) -> N
     text_model = build_text_model()
     embed_model = build_embedding_model()
     try:
+        # Получить и сохранить список репозиториев. Пока total=0, полоса честно
+        # пишет «читаю список репозиториев…».
+        with session_scope() as session:
+            src = session.get(Source, source_id)
+            await scan_source(session, provider, src, include_private=True)
+            session.commit()
+            # select(Repository.id) отдаёт уже сами id-числа, а не строки.
+            repo_ids = list(
+                session.scalars(
+                    select(Repository.id).where(
+                        Repository.source_id == source_id, Repository.gone_at.is_(None)
+                    )
+                )
+            )
+        prog["total"] = len(repo_ids)
         for rid in repo_ids:
             try:
                 with session_scope() as session:

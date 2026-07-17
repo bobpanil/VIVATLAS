@@ -1134,6 +1134,31 @@ a {
     flex: none;
 }
 
+/* Кнопка «Сканировать» после клика: крутится спиннер, пока идёт переход на
+   главную к полосе прогресса. */
+.src-scan.scanning {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    opacity: 0.85;
+    cursor: default;
+}
+
+.src-scan.scanning::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid color-mix(in srgb, var(--on-primary) 45%, transparent);
+    border-top-color: var(--on-primary);
+    border-radius: 50%;
+    animation: scanbar-turn 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .src-scan.scanning::before { animation: none; }
+}
+
 .src-edit input,
 .src-edit select {
     font-family: var(--sans);

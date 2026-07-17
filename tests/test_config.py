@@ -4,9 +4,9 @@ from vivatlas.config import Settings
 def make(**kw) -> Settings:
     base = {
         "gitea_url": "https://git.example.com",
-        "gitea_token": "d29ad206dd36217610f3d95d6c458a75",
+        "gitea_token": "test-gitea-token-not-real",
         "github_token": "ghp_секретныйтокен",
-        "google_api_key": "AQ.Ab8RN6KZ_wcHuH5eiBUy6",
+        "google_api_key": "test-google-key-not-real",
         "secret_key": "главный-ключ-двери",
     }
     base.update(kw)
@@ -19,9 +19,9 @@ def test_secrets_are_not_in_the_text_of_an_error():
     # Gitea и ключ Google целиком, в открытом виде.
     text = repr(make())
     for secret in (
-        "d29ad206dd36217610f3d95d6c458a75",
+        "test-gitea-token-not-real",
         "ghp_секретныйтокен",
-        "AQ.Ab8RN6KZ_wcHuH5eiBUy6",
+        "test-google-key-not-real",
         "главный-ключ-двери",
     ):
         assert secret not in text, secret
@@ -29,7 +29,7 @@ def test_secrets_are_not_in_the_text_of_an_error():
 
 
 def test_str_hides_them_too():
-    assert "d29ad206dd36217610f3d95d6c458a75" not in str(make())
+    assert "test-gitea-token-not-real" not in str(make())
 
 
 def test_non_secrets_are_still_visible():
@@ -48,7 +48,7 @@ def test_empty_secret_is_shown_as_empty_not_as_hidden():
 
 def test_the_value_itself_is_still_usable():
     # Скрываем только показ. Программе токен по-прежнему нужен целиком.
-    assert make().gitea_token == "d29ad206dd36217610f3d95d6c458a75"
+    assert make().gitea_token == "test-gitea-token-not-real"
 
 
 def test_gitea_url_is_empty_by_default():

@@ -61,10 +61,18 @@ def start(who: str) -> int:
         print("  Сначала: python -m venv .venv && .venv\\Scripts\\pip install -e .")
         return 1
 
+    # Без окна: CREATE_NO_WINDOW не поднимает консоль над программой. Вывод
+    # раньше жил в этом окне — теперь пишем в лог, иначе бы он пропал, а с ним
+    # и причина, если сервер не встанет.
+    log_path = ROOT / "logs" / f"serve-{port}.log"
+    log_path.parent.mkdir(exist_ok=True)
+    logf = open(log_path, "ab")  # noqa: SIM115 — держит дочерний процесс, не закрываем
     subprocess.Popen(
         [str(PY), "-m", "vivatlas.cli", "serve", "--host", host, "--port", str(port)],
         cwd=str(ROOT),
-        creationflags=subprocess.CREATE_NEW_CONSOLE,
+        stdout=logf,
+        stderr=logf,
+        creationflags=subprocess.CREATE_NO_WINDOW,
     )
 
     # Ждём, пока порт откроется. Напечатать адрес раньше — обмануть: страница
@@ -77,7 +85,7 @@ def start(who: str) -> int:
             _where(port, host, whose)
             return 0
 
-    print("  Сервер не поднялся за 10 секунд. Загляните в открывшееся окно.")
+    print(f"  Сервер не поднялся за 10 секунд. Причина — в {log_path}.")
     return 1
 
 

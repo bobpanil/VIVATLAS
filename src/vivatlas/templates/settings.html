@@ -29,7 +29,9 @@
     {% else %}
     <p class="legend">Пароль можно подсмотреть один раз и пользоваться. Код из приложения
        меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.</p>
-    <form method="post" action="/settings/2fa/start" id="enableform"></form>
+    <form method="post" action="/settings/2fa/start" id="enableform" class="set-row">
+        <button class="btn-secondary" type="submit">Включить проверку</button>
+    </form>
     {% endif %}
 </div>
 
@@ -196,11 +198,11 @@
     <button class="cta" type="submit" form="qrform">Подтвердить и включить</button>
     {% elif step == 'codes' %}
     <a class="cta" href="/settings">Я сохранил, дальше</a>
-    {% elif step == 'security' and not totp_on %}
-    <a class="btn-secondary foot-left" href="/">Закрыть</a>
-    <button class="cta" type="submit" form="enableform">Включить проверку</button>
     {% else %}
-    <a class="btn-secondary" href="/">Закрыть</a>
+    {# Разделы сохраняются каждый своей кнопкой (иконка, «Завести», «Подключить»,
+       ✓). Внизу — общее подтверждение: «Сохранить» и «Выйти» закрывают окно. #}
+    <a class="btn-secondary foot-left" href="/">Выйти</a>
+    <a class="cta" href="/">Сохранить</a>
     {% endif %}
 </footer>
 {% endblock %}

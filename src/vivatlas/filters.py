@@ -13,7 +13,16 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from vivatlas import caticons
-from vivatlas.models import Artifact, ArtifactTag, Category, Repository, Tag, UpstreamLink
+from vivatlas.categories import visible_category_ids
+from vivatlas.models import (
+    Artifact,
+    ArtifactCategory,
+    ArtifactTag,
+    Category,
+    Repository,
+    Tag,
+    UpstreamLink,
+)
 
 # Порядок важен: сначала то, чем пользуются чаще.
 CATEGORY_ORDER = ["назначение", "платформа", "язык", "формат", "запуск", "тип", "прочее"]
@@ -68,6 +77,7 @@ class Option:
     count: int
     icon: str = ""
     color: str = ""
+    owned: bool = False  # для папок: личная (True) или общая (False)
 
 
 @dataclass
@@ -78,17 +88,21 @@ class FilterGroup:
 
 
 def visible_ids(user_id: int | None) -> Select:
-    """id карточек, которые вправе видеть этот человек. Зона решается одной
-    отметкой private_to_user_id: пусто — публичная, видят все; задан
-    пользователь — личная, видит только он. Чужое личное — никогда.
+    """id карточек, которые вправе видеть этот человек. Видно, если карточка
+    общая (shared) ИЛИ этот человек — её владелец. Чужое личное — никогда.
 
-    Скан личного источника ставит private_to_user_id = владельцу, так что всё
-    приходит приватным; кнопка «публичная» на карточке снимает отметку. Граница
-    зон в одном месте, чтобы её нельзя было забыть на каком-то экране."""
-    return select(Artifact.id).where(
-        Artifact.hidden.is_(False),
-        (Artifact.private_to_user_id.is_(None)) | (Artifact.private_to_user_id == user_id),
-    )
+    Владение и видимость раздельны: расшаренная карточка остаётся за своим
+    владельцем, а он всё равно видит и свои неразделённые. Граница зон в одном
+    месте, чтобы её нельзя было забыть на каком-то экране.
+
+    Аноним (user_id пуст) видит только общие: сравнивать владельца не с чем, а
+    `owner == None` в SQL превратилось бы в «у кого владелец пуст» и показало бы
+    бесхозные личные — поэтому эту ветку добавляем только при известном человеке.
+    """
+    visible = Artifact.shared.is_(True)
+    if user_id is not None:
+        visible = visible | (Artifact.owner_user_id == user_id)
+    return select(Artifact.id).where(Artifact.hidden.is_(False), visible)
 
 
 def apply(
@@ -106,11 +120,21 @@ def apply(
         # Избранное — личное: без известного пользователя показывать нечего.
         query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
     if f.zone == "private":
-        query = query.where(Artifact.private_to_user_id.is_not(None))
+        query = query.where(Artifact.shared.is_(False))
     elif f.zone == "common":
-        query = query.where(Artifact.private_to_user_id.is_(None))
+        query = query.where(Artifact.shared.is_(True))
     if f.cat and f.cat.isdigit():
-        query = query.where(Artifact.category_id == int(f.cat))
+        # Членство теперь в связке. Папку, которую человек не вправе видеть (чужая
+        # личная), в отбор не пускаем: иначе по пустоте/непустоте результата можно
+        # было бы прощупать её существование и что в ней из общего.
+        query = query.where(
+            Artifact.id.in_(
+                select(ArtifactCategory.artifact_id).where(
+                    ArtifactCategory.category_id == int(f.cat),
+                    ArtifactCategory.category_id.in_(visible_category_ids(user_id)),
+                )
+            )
+        )
     if f.type:
         query = query.where(Artifact.artifact_type == f.type)
     if f.owner:
@@ -138,9 +162,11 @@ def count_matching(session: Session, f: Filters) -> int:
 
 
 def tag_groups(
-    session: Session, limit_per_group: int = 8, user_id: int | None = None
+    session: Session, limit_per_group: int = 8, user_id: int | None = None, lang: str = "en"
 ) -> list[FilterGroup]:
     """Теги, разложенные по категориям. Только те, что реально стоят на карточках."""
+    from vivatlas import i18n
+
     vis = visible_ids(user_id)
     rows = session.execute(
         select(Tag.category, Tag.slug, func.count(ArtifactTag.id))
@@ -162,24 +188,54 @@ def tag_groups(
         # "источник" и "тип" уже есть отдельными фильтрами — не дублируем.
         if category in ("тип",):
             continue
-        groups.append(FilterGroup(key=category, title=category, options=options[:limit_per_group]))
+        groups.append(
+            FilterGroup(
+                key=category,
+                title=i18n.label("tagcat", category, lang),
+                options=options[:limit_per_group],
+            )
+        )
     return groups
 
 
-def category_options(session: Session, user_id: int | None = None) -> list[Option]:
-    """Свои категории-папки со счётчиком. Показываем все, включая пустые:
-    в пустую надо иметь возможность перетащить первую карточку."""
+def category_options(
+    session: Session, user_id: int | None = None, lang: str | None = None
+) -> list[Option]:
+    """Папки со счётчиком: общие + свои личные (чужие личные — никогда, даже
+    администратору). Показываем все, включая пустые: в пустую надо иметь
+    возможность перетащить первую карточку. Сначала общие, потом свои личные.
+    Название — на языке интерфейса (перевод папки), если он задан."""
+    from vivatlas import catnames
+
     vis = visible_ids(user_id)
+    vcats = visible_category_ids(user_id)
+    # Счёт по связке и только по видимым карточкам И видимым папкам: карточка в
+    # чужой личной папке не должна попадать ни в чей чужой счётчик.
     counts = dict(
         session.execute(
-            select(Artifact.category_id, func.count())
-            .where(Artifact.category_id.is_not(None), Artifact.id.in_(vis))
-            .group_by(Artifact.category_id)
+            select(ArtifactCategory.category_id, func.count())
+            .where(
+                ArtifactCategory.artifact_id.in_(vis),
+                ArtifactCategory.category_id.in_(vcats),
+            )
+            .group_by(ArtifactCategory.category_id)
         ).all()
     )
-    cats = session.scalars(select(Category).order_by(Category.position, Category.name)).all()
+    cats = session.scalars(
+        select(Category)
+        .where(Category.id.in_(vcats))
+        # Общие (owner пуст) первыми, затем личные — каждая группа по position.
+        .order_by(Category.owner_user_id.is_not(None), Category.position, Category.name)
+    ).all()
     return [
-        Option(str(c.id), c.name, counts.get(c.id, 0), c.icon, caticons.category_color(c.id))
+        Option(
+            str(c.id),
+            catnames.label(c.names_json, c.name, lang) if lang else c.name,
+            counts.get(c.id, 0),
+            c.icon,
+            caticons.category_color(c.id),
+            owned=c.owner_user_id is not None,
+        )
         for c in cats
     ]
 
@@ -203,8 +259,8 @@ def zone_counts(session: Session, user_id: int | None = None) -> dict:
         Artifact.id.in_(vis), Artifact.artifact_type != "draft"
     )
     return {
-        "private": session.scalar(base.where(Artifact.private_to_user_id.is_not(None))) or 0,
-        "common": session.scalar(base.where(Artifact.private_to_user_id.is_(None))) or 0,
+        "private": session.scalar(base.where(Artifact.shared.is_(False))) or 0,
+        "common": session.scalar(base.where(Artifact.shared.is_(True))) or 0,
     }
 
 
@@ -228,10 +284,12 @@ def owner_options(session: Session, user_id: int | None = None) -> list[Option]:
     return [Option(o, o, n) for o, n in rows]
 
 
-def status_options(session: Session, user_id: int | None = None) -> list[Option]:
+def status_options(
+    session: Session, user_id: int | None = None, lang: str = "en"
+) -> list[Option]:
     """Состояния источника. Показываем только непустые: выбор, который ничего
     не находит, только раздражает."""
-    from vivatlas.upstream import STATUS_NAMES
+    from vivatlas import i18n
 
     rows = session.execute(
         select(UpstreamLink.status, func.count())
@@ -239,16 +297,20 @@ def status_options(session: Session, user_id: int | None = None) -> list[Option]
         .group_by(UpstreamLink.status)
     ).all()
     order = {"update-available": 0, "diverged": 1, "locally-modified": 2, "in-sync": 3}
-    out = [Option(s, STATUS_NAMES.get(s, s), n) for s, n in rows if n]
+    out = [Option(s, i18n.label("status", s, lang), n) for s, n in rows if n]
     out.sort(key=lambda o: order.get(o.value, 9))
     return out
 
 
-def period_options(session: Session, user_id: int | None = None) -> list[Option]:
+def period_options(
+    session: Session, user_id: int | None = None, lang: str = "en"
+) -> list[Option]:
+    from vivatlas import i18n
+
     out: list[Option] = []
     now = datetime.now(UTC)
     vis = visible_ids(user_id)
-    for key, (label, days) in PERIODS.items():
+    for key, (_label, days) in PERIODS.items():
         edge = now - timedelta(days=days)
         n = session.scalar(
             select(func.count(Artifact.id))
@@ -256,5 +318,5 @@ def period_options(session: Session, user_id: int | None = None) -> list[Option]
             .where(Repository.remote_updated_at >= edge, Artifact.id.in_(vis))
         )
         if n:
-            out.append(Option(key, label, n))
+            out.append(Option(key, i18n.label("period", key, lang), n))
     return out

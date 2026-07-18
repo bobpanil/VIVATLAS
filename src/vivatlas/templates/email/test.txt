@@ -1,0 +1,6 @@
+{{ t('email.test.subject') }}
+
+{{ t('email.test.body') }}
+{% if site %}
+{{ t('email.test.site_label') }} {{ site }}
+{% endif %}

@@ -1,0 +1,9 @@
+{{ t('email.invite.txt_heading') }}
+
+{{ t('email.invite.txt_intro', days=days) }}
+
+{{ link }}
+
+{{ t('email.invite.txt_ignore') }}
+
+{{ t('email.invite.txt_footer_note') }}

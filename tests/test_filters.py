@@ -25,7 +25,7 @@ def catalog(make_session):
         )
         s.add(repo)
         s.flush()
-        art = Artifact(repository_id=repo.id, name=name, artifact_type=kind)
+        art = Artifact(repository_id=repo.id, name=name, artifact_type=kind, shared=True)
         s.add(art)
         s.flush()
         for slug, cat in tags:

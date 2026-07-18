@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, update
 
-from vivatlas import auth
+from vivatlas import auth, i18n, security
 from vivatlas import filters as flt
 from vivatlas.admin_web import router as admin_router
 from vivatlas.ai import build_embedding_model
@@ -79,6 +79,20 @@ async def _autoscan_loop() -> None:
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # Без главного ключа дверь не запереть: на нём держатся подписи (2FA, ссылки
+    # сброса) и шифрование чужих токенов. CLI `serve` это проверяет, но запуск
+    # прямо по ASGI-объекту (uvicorn vivatlas.api:app) шёл бы мимо проверки и
+    # поднимал бы наполовину незапертую программу. Падаем на старте, а не на
+    # первом сбросе пароля.
+    security.require_secret()
+    # Наложить правки конфигурации из админки поверх .env, чтобы после
+    # перезапуска действовали сохранённые токены/модели, а не только из файла.
+    with contextlib.suppress(Exception):
+        from vivatlas import runtime_settings
+        from vivatlas.db import session_scope
+
+        with session_scope() as s:
+            runtime_settings.apply_config_overrides(s)
     task = asyncio.create_task(_autoscan_loop())
     try:
         yield
@@ -92,7 +106,10 @@ app = FastAPI(title="VivAtlas", version="0.1.0", lifespan=_lifespan)
 
 # Пути, открытые без входа. Всё остальное — за замком. Список короткий
 # намеренно: что не здесь, то закрыто, а не наоборот.
-_OPEN_PREFIXES = ("/static/", "/login", "/setup", "/logout", "/mcp-server")
+_OPEN_PREFIXES = (
+    "/static/", "/login", "/setup", "/logout", "/forgot", "/reset", "/register", "/join",
+    "/lang/", "/mcp-server",
+)
 _OPEN_EXACT = {"/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa"}
 
 
@@ -103,6 +120,11 @@ async def require_login(request: Request, call_next):
     MCP-сервер пока открыт: ChatGPT ходит без куки, ему нужен отдельный токен —
     это следующий шаг. Помечено, чтобы не забыть: за туннелем это дыра.
     """
+    # Язык — для всех страниц, включая открытые (вход, сброс): по нему шаблон
+    # ставит lang/dir и подставляет строки. Ставим до проверки замка.
+    request.state.lang = i18n.lang_from_request(request)
+    request.state.dir = i18n.dir_for(request.state.lang)
+
     path = request.url.path
     if path in _OPEN_EXACT or path.startswith(_OPEN_PREFIXES):
         return await call_next(request)
@@ -116,6 +138,7 @@ async def require_login(request: Request, call_next):
             request.state.user_id = user.id
             name = user.display_name or user.email
             request.state.user_name = name
+            request.state.user_email = user.email
             request.state.is_owner = user.is_owner
             # Инициалы для аватарки: по первым буквам слов имени, максимум две.
             parts = [p for p in name.replace(".", " ").split() if p]
@@ -202,10 +225,11 @@ def get_artifact(request: Request, artifact_id: int) -> dict:
         user_id = getattr(request.state, "user_id", None)
         a = session.get(Artifact, artifact_id)
         if a is None:
-            raise HTTPException(404, "карточка не найдена")
-        priv = a.private_to_user_id
-        if priv is not None and priv != user_id:
-            raise HTTPException(404, "карточка не найдена")
+            raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
+        # Видно, если карточка общая или этот человек — её владелец.
+        mine = a.owner_user_id is not None and a.owner_user_id == user_id
+        if not (a.shared or mine):
+            raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
         return {
             "id": a.id,
             "name": a.name,
@@ -265,11 +289,26 @@ async def search_endpoint(
             await model.aclose()
 
 
+def _visible_or_404(session, artifact_id: int, user_id: int | None, lang: str = "en") -> Artifact:
+    """Карточка, если этот человек вправе её видеть; иначе 404 (не 403 —
+    незачем подтверждать, что чужая личная существует). Та же граница зон, что
+    в visible_ids/get_artifact — теги не должны быть дырой мимо неё."""
+    a = session.get(Artifact, artifact_id)
+    mine = a is not None and a.owner_user_id is not None and a.owner_user_id == user_id
+    if a is None or not (a.shared or mine):
+        raise HTTPException(404, i18n.translate("err.artifact_not_found", lang))
+    return a
+
+
 @app.get("/api/artifacts/{artifact_id}/tags")
-def artifact_tags(artifact_id: int) -> dict:
+def artifact_tags(request: Request, artifact_id: int) -> dict:
     with session_scope() as session:
-        if session.get(Artifact, artifact_id) is None:
-            raise HTTPException(404, "карточка не найдена")
+        _visible_or_404(
+            session,
+            artifact_id,
+            getattr(request.state, "user_id", None),
+            getattr(request.state, "lang", "en"),
+        )
         links = session.scalars(
             select(ArtifactTag).where(ArtifactTag.artifact_id == artifact_id)
         ).all()
@@ -293,20 +332,28 @@ def artifact_tags(artifact_id: int) -> dict:
 
 
 @app.post("/api/artifacts/{artifact_id}/tags/{slug}")
-def add_tag_endpoint(artifact_id: int, slug: str) -> dict:
+def add_tag_endpoint(request: Request, artifact_id: int, slug: str) -> dict:
     with session_scope() as session:
-        if session.get(Artifact, artifact_id) is None:
-            raise HTTPException(404, "карточка не найдена")
+        _visible_or_404(
+            session,
+            artifact_id,
+            getattr(request.state, "user_id", None),
+            getattr(request.state, "lang", "en"),
+        )
         tag = add_manual_tag(session, artifact_id, slug)
         return {"ok": True, "slug": tag.slug, "source": "manual"}
 
 
 @app.delete("/api/artifacts/{artifact_id}/tags/{slug}")
-def remove_tag_endpoint(artifact_id: int, slug: str, reason: str = "") -> dict:
+def remove_tag_endpoint(request: Request, artifact_id: int, slug: str, reason: str = "") -> dict:
     """Удаляет тег и запрещает его возвращение при следующем сканировании."""
     with session_scope() as session:
-        if session.get(Artifact, artifact_id) is None:
-            raise HTTPException(404, "карточка не найдена")
+        _visible_or_404(
+            session,
+            artifact_id,
+            getattr(request.state, "user_id", None),
+            getattr(request.state, "lang", "en"),
+        )
         remove_tag(session, artifact_id, slug, reason=reason)
         return {"ok": True, "slug": slug, "suppressed": True}
 

@@ -33,6 +33,7 @@ def catalog(make_session, monkeypatch):
         summary_technical="Токены",
         file_count=3,
         source_commit="abc12345deadbeef",
+        shared=True,  # общая карточка из общего каталога — MCP отдаёт только такие
     )
     session.add(art)
     session.flush()

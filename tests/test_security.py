@@ -50,7 +50,8 @@ def test_broken_hash_is_a_no_not_a_crash():
 
 
 def test_short_password_refused():
-    assert "12 знаков" in security.check_password_strength("коротко")
+    # Функция возвращает КЛЮЧ причины (перевод — на месте показа), а не текст.
+    assert security.check_password_strength("коротко") == "err.pw_short"
 
 
 def test_common_password_refused():

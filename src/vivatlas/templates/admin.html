@@ -1,57 +1,207 @@
 {% extends "modal_base.html" %}
+{% import "_catmanage.html" as cm with context %}
 
-{% block title %}Администрирование — VivAtlas{% endblock %}
-{% block modal_title %}Панель администратора{% endblock %}
-{% block modal_help %}Для владельца: люди с доступом, общие ключи и AI. Личные настройки (проверка, категории, свои репозитории) — в обычных настройках.{% endblock %}
+{% block title %}{{ t('admin.page_title') }}{% endblock %}
+{% block modal_title %}{{ t('admin.title') }}{% endblock %}
+{% block modal_help %}{{ t('admin.help') }}{% endblock %}
 
 {% block modal_body %}
-<div class="box">
-    <h3>Пользователи</h3>
-    <p class="legend">Кто может входить. Выключенный не войдёт и теряет открытые
-       сессии сразу. Себя и последнего владельца выключить нельзя.</p>
+<nav class="settabs" role="tablist" data-tabkey="admintab" aria-label="{{ t('admin.title') }}">
+    <button class="settab on" type="button" data-tab="users">{{ t('admin.tab_users') }}</button>
+    <button class="settab" type="button" data-tab="access">{{ t('admin.tab_access') }}</button>
+    <button class="settab" type="button" data-tab="folders">{{ t('admin.tab_folders') }}</button>
+    <button class="settab" type="button" data-tab="mail">{{ t('admin.tab_mail') }}</button>
+    <button class="settab" type="button" data-tab="integrations">{{ t('admin.tab_integrations') }}</button>
+</nav>
+
+<section class="setpanel" data-panel="users">
+<div class="box wide">
+    <h3>{{ t('admin.users.h') }}</h3>
+    <p class="legend">{{ t('admin.users.legend') }}</p>
 
     <ul class="admin-users">
         {% for u in users %}
         <li class="admin-user{% if not u.is_active %} off{% endif %}">
+            <img class="admin-user-ava" src="/avatar/{{ u.id }}" alt="" onerror="this.remove()">
             <div class="admin-user-main">
                 <span class="admin-user-name">{{ u.name or u.email }}</span>
                 <span class="admin-user-email">{{ u.email }}</span>
             </div>
             <div class="admin-user-tags">
-                {% if u.is_owner %}<span class="admin-tag admin-tag-owner">владелец</span>{% endif %}
+                {% if u.is_owner %}<span class="admin-tag admin-tag-owner">{{ t('admin.users.owner') }}</span>{% endif %}
                 {% if u.totp %}<span class="admin-tag">2FA</span>{% endif %}
-                {% if u.is_active %}<span class="admin-tag admin-tag-on">активен</span>
-                {% else %}<span class="admin-tag admin-tag-off">выключен</span>{% endif %}
+                {% if u.is_active %}<span class="admin-tag admin-tag-on">{{ t('admin.users.active') }}</span>
+                {% else %}<span class="admin-tag admin-tag-off">{{ t('admin.users.disabled') }}</span>{% endif %}
             </div>
             {% if not u.is_me %}
-            <form method="post" action="/admin/users/{{ u.id }}/toggle">
-                <button class="btn-secondary" type="submit">{{ 'Выключить' if u.is_active else 'Включить' }}</button>
-            </form>
+            <div class="admin-user-actions">
+                <form method="post" action="/admin/users/{{ u.id }}/toggle">
+                    <button class="btn-secondary" type="submit">{{ t('admin.users.disable') if u.is_active else t('admin.users.enable') }}</button>
+                </form>
+                <form method="post" action="/admin/users/{{ u.id }}/reset">
+                    <button class="btn-secondary" type="submit">{{ t('admin.users.reset_pw') }}</button>
+                </form>
+                {# Подтверждение — через data-атрибут, не inline-onsubmit: имя
+                   человека может содержать кавычки/скрипт (его задаёт он сам при
+                   регистрации), а в JS-строке внутри onsubmit экранирование Jinja
+                   не спасает (HTML-парсер раскодирует раньше JS). #}
+                <form method="post" action="/admin/users/{{ u.id }}/delete"
+                      data-confirm="{{ t('admin.users.delete_confirm', name=u.name or u.email) }}">
+                    <button class="btn-secondary btn-danger" type="submit">{{ t('admin.users.delete') }}</button>
+                </form>
+            </div>
             {% else %}
-            <span class="admin-user-you">это вы</span>
+            <span class="admin-user-you">{{ t('admin.users.you') }}</span>
             {% endif %}
         </li>
         {% endfor %}
     </ul>
 </div>
+</section>
 
-<div class="box">
-    <h3>Общие ключи и AI</h3>
-    <p class="legend">Доступ к хостингу и модели — общие для всей программы.
-       Пока меняются в файле <code>.env</code>; правка отсюда — следующий шаг.
-       Секреты показаны замаскированно и никогда не отдаются целиком.</p>
+<section class="setpanel" data-panel="access" hidden>
+    {% if reset_msg %}<p class="admin-ok">{{ reset_msg }}</p>{% endif %}
+    {% if user_err %}<p class="auth-err" role="alert">{{ user_err }}</p>{% endif %}
+    {% if invite_msg %}<p class="admin-ok">{{ invite_msg }}</p>{% endif %}
 
-    <dl class="admin-keys">
-        {% for k in keys %}
-        <dt>{{ k.label }}</dt>
-        <dd{% if k.secret %} class="admin-secret"{% endif %}>{{ k.value }}</dd>
-        {% endfor %}
-    </dl>
+    {# Свободная регистрация — открыть/закрыть. #}
+    <div class="box">
+        <h3>{{ t('admin.reg.h') }}</h3>
+        <p class="legend">{{ t('admin.reg.tip') }}</p>
+        <form method="post" action="/admin/registration" class="admin-form">
+            <label class="admin-check">
+                <input type="checkbox" name="enabled" value="1"{% if registration_open %} checked{% endif %}>
+                <span>{{ t('admin.reg.label') }}</span>
+            </label>
+            <button class="btn-secondary" type="submit">{{ t('admin.reg.save') }}</button>
+        </form>
+    </div>
+
+    {# Пригласить человека ссылкой /join (и письмом, если настроена почта). #}
+    <div class="box">
+        <h3>{{ t('admin.invite.h') }}</h3>
+        <p class="legend">{{ t('admin.invite.tip') }}</p>
+        <form method="post" action="/admin/invite" class="admin-form">
+            <label class="fld"><span>{{ t('admin.invite.email') }}</span>
+                <input type="email" name="email" placeholder="{{ t('admin.invite.email_ph') }}"
+                       autocomplete="off"></label>
+            <button class="cta" type="submit">{{ t('admin.invite.create') }}</button>
+        </form>
+    </div>
+
+    {# Готовые ссылки (сброс пароля / приглашение) — во всю ширину, под разделами. #}
+    {% if reset_link %}
+    <div class="box wide">
+        <p class="legend">{{ t('admin.reset.link_ready') }}</p>
+        <p class="admin-link-box"><input type="text" class="admin-link-field" readonly
+               value="{{ reset_link }}" onclick="this.select()"
+               aria-label="{{ t('admin.reset.link_ready') }}"></p>
+    </div>
+    {% endif %}
+    {% if invite_link %}
+    <div class="box wide">
+        <p class="legend">{{ t('admin.invite.link_ready') }}</p>
+        <p class="admin-link-box"><input type="text" class="admin-link-field" readonly
+               value="{{ invite_link }}" onclick="this.select()"
+               aria-label="{{ t('admin.invite.link_ready') }}"></p>
+    </div>
+    {% endif %}
+</section>
+
+<section class="setpanel" data-panel="folders" hidden>
+{# Общие папки каталога — их заводит и ведёт только администратор, отсюда. #}
+<div class="box wide">
+    <h3>{{ t('settings.shared_categories_title') }}</h3>
+    <p class="legend">{{ t('settings.shared_categories_tip') }}</p>
+    {{ cm.cat_manage(categories | rejectattr('owned') | list, 'shared', 'catshared', t('settings.new_shared_folder_placeholder'), '/admin') }}
 </div>
+</section>
+
+<section class="setpanel" data-panel="mail" hidden>
+<div class="box wide">
+    <h3>{{ t('admin.smtp.h') }}</h3>
+    <p class="legend">{{ t('admin.smtp.legend') }}</p>
+
+    {% if smtp_msg %}<p class="admin-ok">{{ smtp_msg }}</p>{% endif %}
+    {% if smtp_err %}<p class="auth-err" role="alert">{{ smtp_err }}</p>{% endif %}
+
+    <form method="post" action="/admin/smtp" class="admin-form">
+        <div class="field-grid">
+            <label class="fld wide"><span>{{ t('admin.smtp.host') }}</span>
+                <input type="text" name="host" value="{{ smtp.host }}"
+                       placeholder="smtp.example.com" autocomplete="off"></label>
+            <label class="fld"><span>{{ t('admin.smtp.port') }}</span>
+                <input type="number" name="port" value="{{ smtp.port }}" min="1" max="65535"></label>
+            <label class="fld"><span>{{ t('admin.smtp.security') }}</span>
+                <select name="security_mode">
+                    <option value="starttls"{% if smtp.security == 'starttls' %} selected{% endif %}>STARTTLS (587)</option>
+                    <option value="ssl"{% if smtp.security == 'ssl' %} selected{% endif %}>SSL/TLS (465)</option>
+                    <option value="none"{% if smtp.security == 'none' %} selected{% endif %}>{{ t('admin.smtp.no_encryption') }}</option>
+                </select></label>
+            <label class="fld"><span>{{ t('admin.smtp.username') }}</span>
+                <input type="text" name="username" value="{{ smtp.username }}"
+                       autocomplete="off"></label>
+            <label class="fld"><span>{{ t('admin.smtp.password') }}</span>
+                <input type="password" name="password" autocomplete="new-password"
+                       placeholder="{% if smtp.has_password %}{{ smtp.password_mask }} {{ t('admin.smtp.pw_keep') }}{% else %}{{ t('admin.smtp.pw_unset') }}{% endif %}"></label>
+            <label class="fld"><span>{{ t('admin.smtp.from_addr') }}</span>
+                <input type="text" name="from_addr" value="{{ smtp.from_addr }}"
+                       placeholder="vivatlas@example.com" autocomplete="off"></label>
+            <label class="fld"><span>{{ t('admin.smtp.from_name') }}</span>
+                <input type="text" name="from_name" value="{{ smtp.from_name }}"
+                       placeholder="VivAtlas"></label>
+            <label class="fld wide"><span>{{ t('admin.smtp.site_url') }}</span>
+                <input type="text" name="site_url" value="{{ smtp.site_url }}"
+                       placeholder="https://vivatlas.example.com"></label>
+        </div>
+        <button class="cta" type="submit">{{ t('admin.smtp.save') }}</button>
+    </form>
+
+    <form method="post" action="/admin/smtp/test" class="admin-test">
+        <button class="btn-secondary" type="submit">{{ t('admin.smtp.test') }}</button>
+        <span class="legend">{% if smtp.configured %}{{ t('admin.smtp.test_ready') }}{% else %}{{ t('admin.smtp.test_need') }}{% endif %}</span>
+    </form>
+</div>
+</section>
+
+<section class="setpanel" data-panel="integrations" hidden>
+<div class="box wide">
+    <h3>{{ t('admin.config.title') }}</h3>
+    <p class="legend">{{ t('admin.config.tip') }}</p>
+    {% if config_msg %}<p class="admin-ok">{{ config_msg }}</p>{% endif %}
+
+    <form method="post" action="/admin/config" class="admin-form">
+        <div class="field-grid">
+            {% for c in config %}
+            <label class="fld"><span>{{ c.label }}</span>
+                {% if c.secret %}
+                <input type="password" name="{{ c.attr }}" autocomplete="off" spellcheck="false"
+                       placeholder="{% if c.is_set %}{{ c.value }} · {{ t('admin.smtp.pw_keep') }}{% else %}{{ t('admin.smtp.pw_unset') }}{% endif %}">
+                {% else %}
+                <input type="text" name="{{ c.attr }}" value="{{ c.value }}" autocomplete="off" spellcheck="false">
+                {% endif %}
+            </label>
+            {% endfor %}
+        </div>
+        <button class="cta" type="submit">{{ t('admin.config.save_btn') }}</button>
+    </form>
+</div>
+</section>
+
+<script>
+// (Вкладки — общий код в modal_base.html: роли, aria, стрелки/Home/End.)
+
+// Подтверждение опасных действий (удаление человека): текст из data-confirm,
+// приходит уже раскодированным — исполнения нет даже с кавычками в имени.
+document.addEventListener('submit', function (e) {
+    var msg = e.target && e.target.getAttribute ? e.target.getAttribute('data-confirm') : null;
+    if (msg && !confirm(msg)) e.preventDefault();
+});
+</script>
 {% endblock %}
 
 {% block modal_foot %}
 <footer class="modal-foot">
-    <a class="btn-secondary foot-left" href="/">Закрыть</a>
+    <a class="btn-secondary foot-left" href="/">{{ t('admin.close') }}</a>
 </footer>
 {% endblock %}

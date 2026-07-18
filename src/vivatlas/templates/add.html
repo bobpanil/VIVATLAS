@@ -1,13 +1,13 @@
 {% extends "modal_base.html" %}
+{% import "_icons.html" as icons %}
 
-{% block title %}Добавить — VivAtlas{% endblock %}
-{% block modal_title %}{% if step == 'found' %}Что нашлось{% elif step == 'plan' %}Что будет сделано{% elif step == 'done' %}Карточка создана{% elif step == 'refused' %}Так не получится{% else %}Добавить инструмент{% endif %}{% endblock %}
-{% block modal_help %}Вставьте ссылку (GitHub, сайт, рилс) или скриншот. Разберём, покажем, что нашлось, и запишем в ваш Gitea только по вашему нажатию.{% endblock %}
+{% block title %}{{ t('add.page_title') }}{% endblock %}
+{% block modal_title %}{% if step == 'found' %}{{ t('add.title.found') }}{% elif step == 'plan' %}{{ t('add.title.plan') }}{% elif step == 'done' %}{{ t('add.title.done') }}{% elif step == 'refused' %}{{ t('add.title.refused') }}{% else %}{{ t('nav.add_tool') }}{% endif %}{% endblock %}
+{% block modal_help %}{{ t('add.help') }}{% endblock %}
 
 {% block modal_body %}
 {% if step == 'start' %}
-<p class="lede">Ссылка на рилс, на GitHub, на сайт — или скриншот, где виден репозиторий.
-   Разберём, что это, и покажем, что нашлось.</p>
+<p class="lede">{{ t('add.start.lede') }}</p>
 
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
@@ -16,25 +16,28 @@
 <form class="add-form" method="post" action="/add" enctype="multipart/form-data"
       id="addform" onsubmit="working(this)">
     <div class="drop" id="drop">
-        <input class="drop-in" type="text" name="source" id="src" value="{{ source or '' }}"
-               autocomplete="off" autocapitalize="off" spellcheck="false"
-               placeholder="Вставьте ссылку, картинку или просто напишите название"
-               aria-label="Ссылка, название или картинка">
+        <div class="drop-field" id="field">
+            <span class="drop-field-ic" aria-hidden="true">{{ icons.ic('link') }}</span>
+            <input class="drop-in" type="text" name="source" id="src" value="{{ source or '' }}"
+                   autocomplete="off" autocapitalize="off" spellcheck="false"
+                   placeholder="{{ t('add.src.placeholder') }}"
+                   aria-label="{{ t('add.src.aria') }}">
+        </div>
 
         <div class="drop-file" id="chip" hidden>
             <img id="thumb" alt="" hidden>
             <span id="chipname"></span>
-            <button type="button" class="chip-x" id="chipx" aria-label="Убрать файл">×</button>
+            <button type="button" class="chip-x" id="chipx" aria-label="{{ t('add.chip.remove') }}">×</button>
         </div>
 
         <p class="drop-hint" id="hint">
-            Ссылка на рилс, на GitHub, на сайт. Или картинка: вставьте из буфера,
-            перетащите сюда или <label for="file" class="pick-file">выберите с устройства</label>.
+            <span class="drop-hint-ic" aria-hidden="true">{{ icons.ic('image') }}</span>
+            <span>{{ t('add.drop_hint', pick='<label for="file" class="pick-file">' ~ t('add.drop_pick') ~ '</label>') | safe }}</span>
         </p>
 
         <input type="file" name="file" id="file" accept="image/*,video/*" class="vh">
     </div>
-    <p class="note">Ничего не создаётся. Сначала покажем, что нашлось.</p>
+    <p class="note">{{ t('add.start.note') }}</p>
 </form>
 {% endif %}
 
@@ -43,10 +46,10 @@
 
 {% if result.heard %}
 <div class="box">
-    <h3>Прочитано{% if result.language %} · {{ result.language }}{% endif %}</h3>
+    <h3>{{ t('add.found.read') }}{% if result.language %} · {{ result.language }}{% endif %}</h3>
     <p class="heard" dir="auto">{{ result.heard[:400] }}</p>
     {% if result.gist %}<p class="gist">{{ result.gist }}</p>{% endif %}
-    {% if result.tool_name %}<p class="legend">название: {{ result.tool_name }}</p>{% endif %}
+    {% if result.tool_name %}<p class="legend">{{ t('add.found.name', name=result.tool_name) }}</p>{% endif %}
 </div>
 {% endif %}
 
@@ -57,8 +60,7 @@
 {% endif %}
 
 {% if result.candidates %}
-<p class="lede">Выберите нужный. Мы ничего не решаем за вас: название на слух и с картинки
-   распознаётся неточно.</p>
+<p class="lede">{{ t('add.found.choose') }}</p>
 
 <ul class="cands">
     {% for c in result.candidates %}
@@ -67,28 +69,27 @@
             <a class="cand-name" href="https://github.com/{{ c.repo }}" target="_blank"
                rel="noopener">{{ c.repo }}</a>
             <span class="cand-mark" data-exact="{{ 'yes' if c.exact else 'no' }}">
-                {{ 'адрес точный' if c.exact else 'найден поиском' }}
+                {{ t('add.found.exact') if c.exact else t('add.found.searched') }}
             </span>
         </div>
-        {% if c.stars %}<p class="cand-stars">{{ '{:,}'.format(c.stars).replace(',', ' ') }} звёзд</p>{% endif %}
+        {% if c.stars %}<p class="cand-stars">{{ t('add.found.stars', count='{:,}'.format(c.stars).replace(',', ' ')) }}</p>{% endif %}
         {% if c.description %}<p class="cand-desc">{{ c.description }}</p>{% endif %}
         <p class="legend">{{ c.why }}</p>
         <form method="post" action="/add/plan" onsubmit="working(this)">
             <input type="hidden" name="url" value="https://github.com/{{ c.repo }}">
-            <button class="btn-secondary" type="submit">Показать, что будет</button>
+            <button class="btn-secondary" type="submit">{{ t('add.found.show_plan') }}</button>
         </form>
     </li>
     {% endfor %}
 </ul>
 {% else %}
-<p class="warn">На GitHub ничего не нашлось. Можно дать ссылку на GitHub прямо —
-   или сохранить черновик и свести к репозиторию позже.</p>
+<p class="warn">{{ t('add.found.none') }}</p>
 <form method="post" action="/add/draft" onsubmit="working(this)">
     <input type="hidden" name="source" value="{{ given }}">
     <input type="hidden" name="name" value="{{ result.tool_name or '' }}">
     <input type="hidden" name="summary" value="{{ result.gist or '' }}">
     <input type="hidden" name="heard" value="{{ result.heard or '' }}">
-    <button class="btn-secondary" type="submit">Создать черновик</button>
+    <button class="btn-secondary" type="submit">{{ t('add.draft.create') }}</button>
 </form>
 {% endif %}
 {% endif %}
@@ -96,16 +97,16 @@
 {% if step == 'plan' %}
 <div class="box">
     <dl class="facts">
-        <dt>откуда</dt>
+        <dt>{{ t('add.plan.from') }}</dt>
         <dd>github.com/{{ plan.source.full_repo }}{% if plan.source.path %}/{{ plan.source.path }}{% endif %}</dd>
-        <dt>создастся</dt><dd>{{ plan.target_owner }}/{{ plan.target_name }}</dd>
-        <dt>файлов</dt><dd>{{ plan.files|length }}, {{ '%.0f'|format(plan.total_bytes / 1024) }} КБ</dd>
+        <dt>{{ t('add.plan.creates') }}</dt><dd>{{ plan.target_owner }}/{{ plan.target_name }}</dd>
+        <dt>{{ t('add.plan.files') }}</dt><dd>{{ t('add.plan.files_value', count=plan.files|length, kb='%.0f'|format(plan.total_bytes / 1024)) }}</dd>
     </dl>
 </div>
 
 <ul class="files">
     {% for f in plan.files[:8] %}<li>{{ f.path }}</li>{% endfor %}
-    {% if plan.files|length > 8 %}<li class="legend">… ещё {{ plan.files|length - 8 }}</li>{% endif %}
+    {% if plan.files|length > 8 %}<li class="legend">{{ t('add.plan.more', n=plan.files|length - 8) }}</li>{% endif %}
 </ul>
 
 {% for w in plan.warnings %}<p class="warn">{{ w }}</p>{% endfor %}
@@ -114,17 +115,15 @@
     <input type="hidden" name="url" value="{{ url }}">
     <input type="hidden" name="to" value="{{ to }}">
     <label class="fld">
-        <span>Имя у себя</span>
+        <span>{{ t('add.plan.name_label') }}</span>
         <input type="text" name="name" value="{{ plan.target_name }}">
     </label>
-    <p class="note">Вот теперь запишем. Займёт с полминуты: скачать, залить, собрать
-       карточку, расставить теги.</p>
+    <p class="note">{{ t('add.plan.note') }}</p>
 </form>
 {% endif %}
 
 {% if step == 'done' %}
-<p class="lede">Карточка создана. Отметьте, кому её показывать, и сохраните —
-   тогда она встанет в каталог.</p>
+<p class="lede">{{ t('add.done.lede') }}</p>
 
 <div class="box">
     <div class="done-card">
@@ -133,7 +132,7 @@
         {% endif %}
         <div class="done-card-body">
             <div class="card-name"><span class="card-owner">{{ card.owner }}/</span>{{ card.name }}</div>
-            <p class="card-sum">{{ card.summary_short or "Описание пока не готово" }}</p>
+            <p class="card-sum">{{ card.summary_short or t('add.done.no_summary') }}</p>
         </div>
     </div>
 </div>
@@ -142,11 +141,11 @@
     <input type="hidden" name="artifact_id" value="{{ card.id }}">
     <label class="zone-opt">
         <input type="radio" name="zone" value="shared" checked>
-        <span><b>Расшаренная</b> — видят все, кто входит в программу</span>
+        <span>{{ t('add.done.zone_shared') | safe }}</span>
     </label>
     <label class="zone-opt">
         <input type="radio" name="zone" value="private">
-        <span><b>Личная</b> — видите только вы</span>
+        <span>{{ t('add.done.zone_private') | safe }}</span>
     </label>
 </form>
 {% endif %}
@@ -163,11 +162,10 @@
     {% endif %}
 {% endfor %}
 
-<p class="lede">Не сводится к одному репозиторию? Сохраните черновик — вернётесь
-   к нему позже.</p>
+<p class="lede">{{ t('add.refused.lede') }}</p>
 <form method="post" action="/add/draft" onsubmit="working(this)">
     <input type="hidden" name="source" value="{{ url }}">
-    <button class="btn-secondary" type="submit">Создать черновик</button>
+    <button class="btn-secondary" type="submit">{{ t('add.draft.create') }}</button>
 </form>
 {% endif %}
 {% endblock %}
@@ -175,19 +173,19 @@
 {% block modal_foot %}
 <footer class="modal-foot">
     {% if step == 'start' %}
-    <a class="btn-secondary foot-left" href="/">Выйти</a>
-    <button class="cta" type="submit" form="addform">Разобрать</button>
+    <a class="btn-secondary foot-left" href="/">{{ t('add.foot.exit') }}</a>
+    <button class="cta" type="submit" form="addform">{{ t('add.foot.parse') }}</button>
     {% elif step == 'found' %}
-    <a class="btn-secondary foot-left" href="/add">← другой источник</a>
+    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.other_source') }}</a>
     {% elif step == 'plan' %}
-    <a class="btn-secondary foot-left" href="/add">← отмена</a>
-    <button class="cta" type="submit" form="runform">Тащить в Gitea</button>
+    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.cancel') }}</a>
+    <button class="cta" type="submit" form="runform">{{ t('add.foot.pull') }}</button>
     {% elif step == 'done' %}
-    <button class="cta" type="submit" form="saveform">Сохранить</button>
+    <button class="cta" type="submit" form="saveform">{{ t('add.foot.save') }}</button>
     {% elif step == 'refused' %}
-    <a class="btn-secondary foot-left" href="/add">← другой источник</a>
+    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.other_source') }}</a>
     {% else %}
-    <a class="btn-secondary" href="/">Закрыть</a>
+    <a class="btn-secondary" href="/">{{ t('add.foot.close') }}</a>
     {% endif %}
 </footer>
 {% endblock %}
@@ -200,7 +198,7 @@
 function working(form) {
     var b = form.querySelector('button[type="submit"]')
         || document.querySelector('button[type="submit"][form="' + form.id + '"]');
-    if (b) { b.disabled = true; b.textContent = 'Работаю…'; }
+    if (b) { b.disabled = true; b.textContent = {{ t('add.js_working') | tojson }}; }
 }
 
 // Одно окно принимает всё: текст, вставленную ссылку, картинку из буфера,
@@ -210,6 +208,7 @@ function working(form) {
     if (!drop) return;
     var file = document.getElementById('file');
     var src = document.getElementById('src');
+    var field = document.getElementById('field');
     var chip = document.getElementById('chip');
     var chipname = document.getElementById('chipname');
     var thumb = document.getElementById('thumb');
@@ -233,7 +232,7 @@ function working(form) {
         }
         chip.hidden = false;
         src.value = '';
-        src.hidden = true;
+        field.hidden = true;
         hint.hidden = true;
     }
 
@@ -241,7 +240,7 @@ function working(form) {
         file.value = '';
         chip.hidden = true;
         thumb.hidden = true;
-        src.hidden = false;
+        field.hidden = false;
         hint.hidden = false;
         src.focus();
     }
@@ -266,7 +265,7 @@ function working(form) {
             }
         }
         var text = (e.clipboardData || {}).getData ? e.clipboardData.getData('text') : '';
-        if (text && document.activeElement !== src && !src.hidden) {
+        if (text && document.activeElement !== src && !field.hidden) {
             e.preventDefault();
             src.value = text.trim();
             src.focus();

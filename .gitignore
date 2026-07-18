@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .env
+secrets.md
+design/
 *.db
 *.db-wal
 *.db-shm

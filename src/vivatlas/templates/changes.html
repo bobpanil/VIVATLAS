@@ -1,18 +1,17 @@
 {% extends "modal_base.html" %}
-{% block title %}Изменения — VivAtlas{% endblock %}
-{% block modal_title %}Изменения{% endblock %}
-{% block modal_help %}Что недавно появилось, обновилось, пропало или залежалось. Записывается при сканировании — задним числом такое не восстановить.{% endblock %}
+{% block title %}{{ t('changes.page_title') }}{% endblock %}
+{% block modal_title %}{{ t('nav.changes') }}{% endblock %}
+{% block modal_help %}{{ t('changes.modal_help') }}{% endblock %}
 
 {% block modal_body %}
-<p class="hint">Записывается в момент сканирования. Задним числом такое не восстановить —
-   после удаления репозитория узнать, что он был, уже неоткуда.</p>
+<p class="hint">{{ t('changes.hint') }}</p>
 
 <nav class="filters" style="margin: var(--s-md) 0 var(--s-lg)">
-    <a class="filter" href="/changes" {% if not kind and not stale_mode %}aria-current="true"{% endif %}>всё <b>{{ total }}</b></a>
+    <a class="filter" href="/changes" {% if not kind and not stale_mode %}aria-current="true"{% endif %}>{{ t('changes.filter_all') }} <b>{{ total }}</b></a>
     {% for k, n in counts_by_kind.items() %}
     <a class="filter" href="/changes?kind={{ k }}" {% if kind == k %}aria-current="true"{% endif %}>{{ kind_name(k) }} <b>{{ n }}</b></a>
     {% endfor %}
-    <a class="filter" href="/changes?stale=1" {% if stale_mode %}aria-current="true"{% endif %}>протухло <b>{{ stale_count }}</b></a>
+    <a class="filter" href="/changes?stale=1" {% if stale_mode %}aria-current="true"{% endif %}>{{ t('changes.filter_stale') }} <b>{{ stale_count }}</b></a>
 </nav>
 
 {% if stale_mode %}
@@ -25,15 +24,14 @@
                 <a class="ev-title" href="/a/{{ it.artifact.id }}">{{ it.artifact.repository.full_name }}</a>
                 <span class="ev-det">{{ it.reason }}</span>
             </div>
-            <time class="ev-time">{{ it.days }} дн.</time>
+            <time class="ev-time">{{ t('changes.days_short', n=it.days) }}</time>
         </li>
         {% endfor %}
     </ul>
     {% else %}
     <div class="empty">
-        <b>Протухшего нет</b>
-        Ничего не залежалось дольше {{ stale_days }} дней. Самому старому в каталоге — {{ oldest }} дн., самому свежему — {{ newest }} дн.
-        Список наполнится сам, когда что-то перестанут трогать.
+        <b>{{ t('changes.none_stale_title') }}</b>
+        {{ t('changes.none_stale_body', stale_days=stale_days, oldest=oldest, newest=newest) }}
     </div>
     {% endif %}
 {% elif items %}
@@ -55,14 +53,14 @@
 </ul>
 {% else %}
 <div class="empty">
-    <b>Пока пусто</b>
-    Записывать начали только что, поэтому истории ещё нет. Она появится после следующих сканирований.
+    <b>{{ t('changes.empty_title') }}</b>
+    {{ t('changes.empty_body') }}
 </div>
 {% endif %}
 {% endblock %}
 
 {% block modal_foot %}
 <footer class="modal-foot">
-    <a class="btn-secondary foot-left" href="/">Закрыть</a>
+    <a class="btn-secondary foot-left" href="/">{{ t('changes.close') }}</a>
 </footer>
 {% endblock %}

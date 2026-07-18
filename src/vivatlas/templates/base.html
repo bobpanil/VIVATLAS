@@ -1,5 +1,5 @@
 {% import "_icons.html" as icons %}<!doctype html>
-<html lang="ru">
+<html lang="{{ lang }}" dir="{{ dir }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,9 +21,13 @@
             return t;
         }
         function applyTheme(t) {
-            var eff = resolve(t || 'light');
+            t = t || 'light';
+            var eff = resolve(t);
             if (eff === 'dark' || eff === 'oled') { document.documentElement.setAttribute('data-theme', eff); }
             else { document.documentElement.removeAttribute('data-theme'); }
+            // Сырой режим (light/dark/oled/auto) — по нему CSS выбирает значок темы
+            // в сайдбаре. Ставим до отрисовки, чтобы значок не мигал.
+            document.documentElement.setAttribute('data-thememode', t);
         }
         try { applyTheme(localStorage.getItem('vivatlas-theme') || 'light'); } catch (e) { /* приватный режим */ }
         // Смена темы в модалке настроек (другое окно того же origin) — подхватить
@@ -38,7 +42,17 @@
         // «прыгали» крупные→мелкие). Ставим сразу, до первой отрисовки.
         try {
             var cols = localStorage.getItem('vivatlas-cols');
-            if (cols) document.documentElement.style.setProperty('--cols', cols);
+            if (cols) {
+                document.documentElement.style.setProperty('--cols', cols);
+                var sc = Math.max(0.72, Math.min(1.3, 5 / (parseInt(cols, 10) + 1)));
+                document.documentElement.style.setProperty('--card-scale', sc.toFixed(3));
+            }
+        } catch (e) { /* приватный режим */ }
+        // Свёрнута ли боковая панель — до отрисовки, чтобы не мигало.
+        try {
+            if (localStorage.getItem('vivatlas-side') === 'collapsed') {
+                document.documentElement.classList.add('side-collapsed');
+            }
         } catch (e) { /* приватный режим */ }
     })();
     </script>
@@ -57,132 +71,165 @@
     }
     </script>
 
-    <a class="skip" href="#main">К содержимому</a>
+    <a class="skip" href="#main">{{ t('skip.content') }}</a>
 
     {# Выдвижная панель на галочке, а не на скрипте: панель — это навигация,
        и она обязана работать, даже если скрипт не загрузился. #}
     <input type="checkbox" id="navt" class="navt">
 
     <header class="topbar">
-        <label class="burger" for="navt" title="Меню">
+        <label class="burger" for="navt" title="{{ t('nav.menu') }}">
             <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M3 5.5h14M3 10h14M3 14.5h14"/>
             </svg>
-            <span class="vh-text">Меню</span>
+            <span class="vh-text">{{ t('nav.menu') }}</span>
         </label>
         {# Тот же логотип, что в панели. Отдельная текстовая надпись рядом была
            бы повтором: слова SKILL ATLAS есть в самой картинке. #}
         <a class="logo logo-sm" href="/">
             <img src="/static/logo-dark.webp" width="640" height="197" alt="VivAtlas">
         </a>
-        {% if nav != 'add' %}<a class="cta cta-sm" href="/add" data-modal>Добавить</a>{% endif %}
+        {% if nav != 'add' %}<a class="cta cta-sm" href="/add" data-modal>{{ t('nav.add') }}</a>{% endif %}
     </header>
 
     <label class="scrim" for="navt" aria-hidden="true"></label>
 
     <aside class="side">
+        {# Логотип закреплён вверху панели — при прокрутке разделов и папок не
+           уезжает. Прокручивается только средняя часть (.side-scroll); низ
+           (аккаунт, помощь/тема, «свернуть») прижат к низу. #}
         {# Логотип столбиком по центру: значок, слово, девиз. #}
         <a class="logo" href="/">
             <img class="logo-mark" src="/static/logo-mark.webp" width="166" height="220"
-                 alt="VivAtlas — на главную">
+                 alt="{{ t('logo.home_alt') }}">
             <img class="logo-word" src="/static/logo-word.webp" width="560" height="76" alt="">
         </a>
         <div class="logo-tagline" aria-hidden="true">
             <span>Organize</span><i>·</i><span>Connect</span><i>·</i><span>Empower</span>
         </div>
 
-        {# Сепаратор и большой отступ: кнопка и разделы отодвинуты вниз, чтобы
-           визуально отделиться от логотипа. #}
+        {# Сепаратор и большой отступ: разделы отодвинуты вниз, чтобы визуально
+           отделиться от логотипа. Кнопка «Добавить» переехала вниз панели. #}
         <hr class="side-sep">
 
-        {# Единственная жёлтая кнопка во всей программе — только на главное
-           действие. На странице добавления её нет: там жёлтая — кнопка записи. #}
-        {% if nav != 'add' %}
-        <a class="cta side-cta" href="/add" data-modal>Добавить инструмент</a>
-        {% endif %}
-
-        <nav class="side-nav" aria-label="Разделы">
-            {# «Каталог» — весь список. Под ним сразу видны свои категории-папки;
-               в папку можно перетащить карточку. Типы — не здесь, они пилюлями
-               в шапке. #}
-            <a class="side-item{% if nav == 'all' and not active_cat %} on{% endif %}" href="/">
-                {{ icons.ic('all') }}<span>Каталог</span><b>{{ counts.artifacts }}</b>
+        {# Прокручивается только эта часть — разделы и папки. #}
+        <div class="side-scroll">
+        <nav class="side-nav" aria-label="{{ t('nav.sections') }}">
+            {# Верхнеуровневые виды: весь каталог, черновики, изменения. Папки —
+               отдельной секцией ниже. Типы — пилюлями в шапке, не здесь. #}
+            <a class="side-item{% if nav == 'all' and not active_cat and not active_draft %} on{% endif %}" href="/"
+               title="{{ t('nav.catalog') }}">
+                {{ icons.ic('catalogue') }}<span>{{ t('nav.catalog') }}</span><b>{{ counts.artifacts }}</b>
             </a>
+            <a class="side-item{% if active_draft %} on{% endif %}" href="/?draft=1"
+               title="{{ t('nav.drafts') }}">
+                {{ icons.ic('drafts') }}<span>{{ t('nav.drafts') }}</span><b>{{ counts.drafts }}</b>
+            </a>
+            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal
+               title="{{ t('nav.changes') }}">
+                {{ icons.ic('review') }}<span>{{ t('nav.changes') }}</span>
+            </a>
+
+            {# Папки — своей секцией: сперва общие (с меткой «общая»), затем личные.
+               Перетаскивание карточки на папку добавляет её туда; общие принимают
+               бросок только от администратора (data-nodrop у остальных). #}
+            <p class="side-sub-head side-folders-head">{{ t('side.folders_head') }}</p>
+            {% if categories %}
             <div class="cat-list" id="cat-list">
-                {% for c in categories %}
+                {% for c in categories if not c.owned %}
                 <a class="side-sub side-drop{% if active_cat == c.value %} on{% endif %}"
-                   data-cat="{{ c.value }}" data-color="{{ c.color }}" href="/?cat={{ c.value }}">{% if c.icon %}{{ caticon(c.icon) }}{% endif %}<span>{{ c.label }}</span><b>{{ c.count }}</b></a>
+                   data-cat="{{ c.value }}" data-color="{{ c.color }}"{% if not request.state.is_owner %} data-nodrop="1"{% endif %} href="/?cat={{ c.value }}" title="{{ c.label }}">{% if c.icon %}{{ caticon(c.icon) }}{% else %}{{ caticon('folder') }}{% endif %}<span>{{ c.label }}</span><em class="side-tag">{{ t('side.shared_tag') }}</em><b>{{ c.count }}</b></a>
                 {% endfor %}
-                {% if not categories %}
-                <p class="side-sub-hint">Папок пока нет. Заведите их в
-                   <a href="/settings" data-modal>настройках</a> — потом сюда можно
-                   перетаскивать карточки.</p>
-                {% endif %}
-
-                {# Черновики — постоянный подраздел: недоделанные карточки, что
-                   ждут обработки, копятся здесь, а не мешаются в общем списке. #}
-                <a class="side-sub side-drafts{% if active_draft %} on{% endif %}" href="/?draft=1">
-                    <span>Черновики</span><b>{{ counts.drafts }}</b>
-                </a>
+                {% for c in categories if c.owned %}
+                <a class="side-sub side-drop side-drop-mine{% if active_cat == c.value %} on{% endif %}"
+                   data-cat="{{ c.value }}" data-owned="1" data-color="{{ c.color }}" href="/?cat={{ c.value }}" title="{{ c.label }}">{% if c.icon %}{{ caticon(c.icon) }}{% else %}{{ caticon('folder') }}{% endif %}<span>{{ c.label }}</span><b>{{ c.count }}</b></a>
+                {% endfor %}
             </div>
-
-            <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal>
-                {{ icons.ic('changes') }}<span>Изменения</span>
-            </a>
+            {% else %}
+            {% set _slink %}<a href="/settings" data-modal>{{ t('side.settings_word') }}</a>{% endset %}
+            <p class="side-sub-hint">{{ t('side.no_folders_hint', settings=_slink) | safe }}</p>
+            {% endif %}
         </nav>
 
         {% block sidebar %}{% endblock %}
+        </div>{# /.side-scroll #}
 
+        {# Низ панели: аккаунт (значок, почта, счётчики; по нажатию — меню),
+           затем иконки «Помощь»/«Тема» и «Свернуть». Всё под одной чертой,
+           прижато к низу — прокрутка списка папок его не трогает. #}
         <div class="side-user">
-            {% if request.state.user_name %}
-            <a class="side-item{% if nav == 'help' %} on{% endif %}" href="/help" data-modal>
-                {{ icons.ic('help') }}<span>Помощь</span>
-            </a>
-            <a class="side-item{% if nav == 'settings' %} on{% endif %}" href="/settings" data-modal>
-                {{ icons.ic('settings') }}<span>Настройки</span>
-            </a>
+            {# Единственная жёлтая кнопка — главное действие, внизу панели, под
+               папками. На странице добавления её нет: там жёлтая — кнопка записи. #}
+            {% if nav != 'add' %}
+            <a class="cta side-cta" href="/add" data-modal title="{{ t('nav.add_tool') }}"><span class="side-cta-plus" aria-hidden="true">+</span><span class="side-cta-text">{{ t('nav.add_tool') }}</span></a>
             {% endif %}
-
-            {# Тема — иконка снизу, по нажатию выпадает список (вверх). Выбор
-               живёт на устройстве, применяется сразу (см. скрипт). #}
-            <div class="side-theme" id="side-theme">
-                <button class="side-item side-theme-btn" id="side-theme-btn" type="button"
-                        aria-haspopup="menu" aria-expanded="false">
-                    <svg class="ic" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor" stroke="none"/></svg>
-                    <span>Тема</span>
-                    <svg class="side-theme-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 6l3 3 3-3"/></svg>
+            {% if request.state.user_name %}
+            <hr class="side-sep-foot">
+            <div class="side-acct" id="side-acct">
+                <button class="side-acct-btn" id="side-acct-btn" type="button"
+                        aria-haspopup="menu" aria-expanded="false"
+                        title="{{ request.state.user_email }}"
+                        aria-label="{{ t('account.aria', name=request.state.user_email) }}">
+                    <span class="side-acct-ava">
+                        <span class="side-acct-initials">{{ request.state.user_initials }}</span>
+                        <img class="side-acct-img" src="/avatar/{{ request.state.user_id }}" alt="" onerror="this.remove()">
+                    </span>
+                    <span class="side-acct-info">
+                        <span class="side-acct-email">{{ request.state.user_email }}</span>
+                        <span class="side-acct-role">{{ t('account.type_admin') if request.state.is_owner else t('account.type_member') }}</span>
+                    </span>
+                    <svg class="side-acct-caret" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>
                 </button>
-                <div class="side-theme-menu" id="side-theme-menu" hidden role="menu" aria-label="Тема оформления">
-                    <button class="side-theme-opt" type="button" data-theme-val="light" role="menuitem">Светлая</button>
-                    <button class="side-theme-opt" type="button" data-theme-val="dark" role="menuitem">Тёмная</button>
-                    <button class="side-theme-opt" type="button" data-theme-val="oled" role="menuitem">OLED</button>
-                    <button class="side-theme-opt" type="button" data-theme-val="auto" role="menuitem">Как в системе</button>
+                <div class="side-acct-menu" id="side-acct-menu" hidden role="menu">
+                    <a class="usermenu-item" href="/settings" role="menuitem" data-modal>{{ icons.ic('settings') }}<span>{{ t('nav.settings') }}</span></a>
+                    {% if request.state.is_owner %}
+                    <a class="usermenu-item" href="/admin" role="menuitem" data-modal>{{ icons.ic('admin') }}<span>{{ t('nav.admin') }}</span></a>
+                    {% endif %}
+                    <form method="post" action="/logout">
+                        <button class="usermenu-item" type="submit" role="menuitem">{{ icons.ic('logout') }}<span>{{ t('nav.logout') }}</span></button>
+                    </form>
                 </div>
             </div>
+            {% endif %}
 
-            <p class="side-foot">{{ counts.artifacts }} карточек · {{ counts.tags }} тегов</p>
+            <div class="side-utility">
+                {% if request.state.user_name %}
+                <a class="side-icon{% if nav == 'help' %} on{% endif %}" href="/help" data-modal
+                   title="{{ t('nav.help') }}" aria-label="{{ t('nav.help') }}">{{ icons.ic('help') }}</a>
+                {% endif %}
+
+                {# Тема — иконка, по нажатию выпадает список (вверх). Выбор живёт на
+                   устройстве, применяется сразу (см. скрипт). #}
+                <div class="side-theme" id="side-theme">
+                    {# Без title (значит, без нашей подсказки): обратная связь у этой
+                       кнопки — вылетающая плашка режима, дублировать её подсказкой
+                       незачем. aria-label остаётся для скринридеров. #}
+                    <button class="side-icon side-theme-btn" id="side-theme-btn" type="button"
+                            aria-label="{{ t('theme.label') }}">
+                        {# Значок зависит от режима — показывается тот, что совпал с
+                           html[data-thememode] (см. css). #}
+                        <span class="theme-ic" data-mode="light">{{ icons.ic('theme-light') }}</span>
+                        <span class="theme-ic" data-mode="dark">{{ icons.ic('theme-dark') }}</span>
+                        <span class="theme-ic" data-mode="oled">{{ icons.ic('theme-oled') }}</span>
+                        <span class="theme-ic" data-mode="auto">{{ icons.ic('theme-auto') }}</span>
+                    </button>
+                    {# По нажатию режим переключается по кругу; жёлтая плашка
+                       вылетает и называет выбранный режим (см. скрипт). #}
+                    <span class="side-theme-pill" id="side-theme-pill" role="status" aria-live="polite"></span>
+                </div>
+
+                {# Свернуть панель в колонку значков (на компьютере). Внизу, чтобы
+                   не спорить с логотипом. Состояние помнится на устройстве. #}
+                <button class="side-icon side-collapse" type="button" aria-pressed="false"
+                        aria-label="{{ t('side.collapse_aria') }}" title="{{ t('side.collapse_aria') }}">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 6 8l4 4"/></svg>
+                </button>
+            </div>
         </div>
     </aside>
 
-    {# Аватарка в правом верхнем углу. Имя переехало сюда из панели: кружок с
-       инициалами, по нажатию — меню с именем, настройками и выходом. #}
-    {% if request.state.user_name %}
-    <div class="usermenu">
-        <button class="avatar" id="avatar-btn" type="button" aria-haspopup="menu"
-                aria-expanded="false" title="{{ request.state.user_name }}"
-                aria-label="Аккаунт: {{ request.state.user_name }}">{{ request.state.user_initials }}</button>
-        <div class="usermenu-pop" id="usermenu-pop" hidden role="menu">
-            <p class="usermenu-name">{{ request.state.user_name }}</p>
-            <a class="usermenu-item" href="/settings" role="menuitem" data-modal>{{ icons.ic('settings') }}<span>Настройки</span></a>
-            {% if request.state.is_owner %}
-            <a class="usermenu-item" href="/admin" role="menuitem" data-modal>{{ icons.ic('admin') }}<span>Администрирование</span></a>
-            {% endif %}
-            <form method="post" action="/logout">
-                <button class="usermenu-item" type="submit" role="menuitem">{{ icons.ic('logout') }}<span>Выйти</span></button>
-            </form>
-        </div>
-    </div>
-    {% endif %}
+    {# Аккаунт переехал вниз боковой панели (значок + почта + счётчики), поэтому
+       отдельной аватарки в углу больше нет. #}
 
     <main class="main" id="main">
         {% block content %}{% endblock %}
@@ -193,7 +240,7 @@
        скрипта они просто открывают ту же модалку отдельной страницей. #}
     <div class="modalhost" id="modalhost" aria-hidden="true">
         <div class="modalhost-scrim" id="modalhost-scrim"></div>
-        <iframe class="modalframe" id="modalframe" title="Окно" src="about:blank"></iframe>
+        <iframe class="modalframe" id="modalframe" title="{{ t('modal.window_title') }}" src="about:blank"></iframe>
     </div>
 
     <script>
@@ -251,61 +298,94 @@
     </script>
 
     <script>
-    // Переключатель темы в сайдбаре: иконка снизу, по нажатию выпадает список.
-    // Выбор живёт на устройстве (localStorage) и применяется сразу.
+    // Тема в сайдбаре: нажатие ПЕРЕКЛЮЧАЕТ режим по кругу (без меню). Выбор живёт
+    // на устройстве (localStorage), применяется сразу; жёлтая плашка вылетает и
+    // называет выбранный режим на секунду.
     (function () {
-        var wrap = document.getElementById('side-theme');
-        if (!wrap) return;
         var btn = document.getElementById('side-theme-btn');
-        var menu = document.getElementById('side-theme-menu');
-        var opts = menu.querySelectorAll('.side-theme-opt');
+        var pill = document.getElementById('side-theme-pill');
+        if (!btn || !pill) return;
+        var MODES = ['light', 'dark', 'oled', 'auto'];
+        var LABELS = {
+            light: {{ t('theme.light') | tojson }},
+            dark: {{ t('theme.dark') | tojson }},
+            oled: {{ t('theme.oled') | tojson }},
+            auto: {{ t('theme.system') | tojson }}
+        };
         function cur() { try { return localStorage.getItem('vivatlas-theme') || 'light'; } catch (e) { return 'light'; } }
-        function mark(v) {
-            opts.forEach(function (o) { o.classList.toggle('on', o.getAttribute('data-theme-val') === v); });
+        var hideTimer = null;
+        function flyPill(mode) {
+            pill.textContent = LABELS[mode] || mode;
+            // Перезапуск анимации: снять класс, форсировать reflow, вернуть.
+            pill.classList.remove('show');
+            void pill.offsetWidth;
+            pill.classList.add('show');
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(function () { pill.classList.remove('show'); }, 1500);
         }
-        function openMenu() { mark(cur()); menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
-        function closeMenu() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            menu.hidden ? openMenu() : closeMenu();
+        btn.addEventListener('click', function () {
+            var i = MODES.indexOf(cur());
+            var next = MODES[(i + 1) % MODES.length];
+            try { localStorage.setItem('vivatlas-theme', next); } catch (e) { /* приватный режим */ }
+            if (window.applyVivTheme) { window.applyVivTheme(next); }
+            flyPill(next);
         });
-        opts.forEach(function (o) {
-            o.addEventListener('click', function () {
-                var v = o.getAttribute('data-theme-val');
-                try { localStorage.setItem('vivatlas-theme', v); } catch (e) { /* приватный режим */ }
-                if (window.applyVivTheme) { window.applyVivTheme(v); }
-                mark(v);
-                closeMenu();
-            });
-        });
-        document.addEventListener('click', function (e) {
-            if (!menu.hidden && !wrap.contains(e.target)) closeMenu();
-        });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
     })();
     </script>
 
     {% if request.state.user_name %}
     <script>
-    // Меню аватарки: имя, настройки, выход. Закрывается по клику вне, по Esc.
+    // Меню аккаунта внизу панели: настройки, админка, выход. Выпадает вверх;
+    // закрывается по клику вне и по Esc.
     (function () {
-        var btn = document.getElementById('avatar-btn');
-        var pop = document.getElementById('usermenu-pop');
+        var btn = document.getElementById('side-acct-btn');
+        var pop = document.getElementById('side-acct-menu');
         if (!btn || !pop) return;
         function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
+        // Без stopPropagation: клик долетает до document, где обработчик темы
+        // закроет её меню — иначе оба меню висели бы одновременно.
+        btn.addEventListener('click', function () {
             pop.hidden = !pop.hidden;
             btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
         });
+        // Выбор пункта (Настройки/Админка — data-modal; Выход — форма) закрывает
+        // меню, чтобы оно не осталось раскрытым за модалкой.
+        pop.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('a, button')) close();
+        });
         document.addEventListener('click', function (e) {
-            if (!pop.hidden && !pop.contains(e.target)) close();
+            if (!pop.hidden && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
         });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') close();
+            if (e.key === 'Escape' && !pop.hidden) { e.stopPropagation(); close(); btn.focus(); }
         });
     })();
     </script>
     {% endif %}
+
+    <script>
+    // Свернуть/развернуть боковую панель (на компьютере). Состояние — на
+    // documentElement, чтобы восстанавливаться до отрисовки (см. голову).
+    (function () {
+        // Сворачивание в узкую колонку значков (на компьютере). Панель остаётся
+        // на виду и рабочей, поэтому inert/aria-hidden не нужны — прячем только
+        // подписи (см. css). Одна кнопка-переключатель туда-обратно.
+        var btn = document.querySelector('.side-collapse');
+        function sync() {
+            if (btn) btn.setAttribute('aria-pressed',
+                document.documentElement.classList.contains('side-collapsed') ? 'true' : 'false');
+        }
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest || !e.target.closest('.side-collapse')) return;
+            var on = !document.documentElement.classList.contains('side-collapsed');
+            document.documentElement.classList.toggle('side-collapsed', on);
+            try { localStorage.setItem('vivatlas-side', on ? 'collapsed' : 'open'); } catch (e2) {}
+            sync();
+        });
+        sync();
+    })();
+    </script>
+
+    <script src="/static/tooltip.js"></script>
 </body>
 </html>

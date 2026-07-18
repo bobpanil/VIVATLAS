@@ -71,7 +71,16 @@
     --charcoal: #33342d;
     --mute: #6c6e63;
     --ash: #9b9c92;
-    --stone: #b6b7af;
+    /* Был #b6b7af — ~1.9:1 на кремовом фоне, текст на нём не проходил WCAG AA.
+       Приподняли контраст, оставив «самым тихим» уровнем. Нужен строгий AA на
+       мелком тексте — уводить дальше к #6c6e63 (как --mute). */
+    --stone: #767970;
+
+    /* Цвета зон (общая/частная) — токенами, а не сырым hex: на светлой теме
+       нужны тёмные (проходят WCAG AA как текст), на тёмной — светлые (иначе
+       тёмный янтарь сливается с тёмным фоном). См. [data-theme] ниже. */
+    --zone-common: #157a56;
+    --zone-private: #8a5d00;
 
     --hairline: #bfc1b7;
     --hairline-soft: #dcdfd2;
@@ -103,10 +112,10 @@
     --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
 
     /* --- скругления и отступы набора --- */
-    --r-xs: 2px;
-    --r-sm: 4px;
-    --r-md: 6px;
-    --r-lg: 8px;
+    --r-xs: 3px;
+    --r-sm: 6px;
+    --r-md: 9px;
+    --r-lg: 13px;
     --r-full: 9999px;
     --radius: var(--r-md);
 
@@ -118,6 +127,7 @@
     --s-xxl: 32px;
 
     --sidebar-w: 240px;
+    --sidebar-rail: 64px;   /* свёрнутая панель: одни значки */
 
     /* --- тёмная панель ------------------------------------------------------
        Фон взят не из набора PostHog, а из самого логотипа: он приходит своим
@@ -171,6 +181,10 @@
     --ash: #7f8278;
     --stone: #6d7066;
 
+    /* На тёмном фоне светлее, иначе тёмный янтарь/зелёный сливаются с картой. */
+    --zone-common: #35c495;
+    --zone-private: #d99a2a;
+
     --hairline: #3b3f36;
     --hairline-soft: #2c2f28;
 
@@ -199,6 +213,9 @@
     --ash: #74776e;
     --stone: #5f6259;
 
+    --zone-common: #37cc9a;
+    --zone-private: #e0a63a;
+
     --hairline: #333630;
     --hairline-soft: #1e201c;
 
@@ -222,6 +239,39 @@
     box-sizing: border-box;
 }
 
+/* Полосы прокрутки: везде резервируем место (scrollbar-gutter), чтобы UI не
+   дёргался при их появлении/исчезновении, и рисуем свою тонкую полосу вместо
+   системной. */
+html {
+    scrollbar-gutter: stable;
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--mute);
+    background-clip: padding-box;
+}
+
 body {
     margin: 0;
     background: var(--canvas);
@@ -241,19 +291,33 @@ a {
    уезжает за край и выходит по кнопке; жёлтая кнопка «Добавить» при этом
    переезжает в верхнюю полосу, чтобы остаться видимой на любой ширине. */
 
+/* Прячем ссылку «к содержимому» так же, как .vh-text — обрезкой в точку, а не
+   уводом за левый край (left: -9999px). В rtl увод влево раздувал ширину
+   документа на 10000px и сдвигал всю страницу; обрезка не трогает раскладку. */
 .skip {
     position: absolute;
-    left: -9999px;
     top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
     background: var(--ink);
     color: var(--on-ink);
-    padding: 10px 16px;
+    padding: 0;
     z-index: 100;
 }
 
 .skip:focus {
-    left: 8px;
+    inset-inline-start: 8px;
     top: 8px;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    padding: 10px 16px;
 }
 
 /* Галочка, которой открывается панель. Спрятана от глаз, но не от клавиатуры:
@@ -284,13 +348,32 @@ a {
     background: var(--panel);
     color: var(--panel-text);
     border-right: 1px solid var(--panel-line);
-    padding: var(--s-lg) var(--s-lg) var(--s-xl);
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    padding: var(--s-lg) var(--s-lg) var(--s-lg);
+    /* Прокручивается только верхняя часть (.side-scroll); сама панель — нет,
+       чтобы всплывающие меню аккаунта/темы не обрезались. */
+    overflow: visible;
     z-index: 30;
-    /* Колонка, чтобы блок «Помощь/Настройки/Тема» ушёл в самый низ. */
+    /* Колонка: верх (.side-scroll) тянется, низ (.side-user) прижат книзу. */
     display: flex;
     flex-direction: column;
+}
+
+/* Верхняя, прокручиваемая часть панели: логотип, кнопка, разделы, папки.
+   Прокрутка только вертикальная; горизонтальной нет (длинные имена папок
+   обрезаются многоточием). Полосу прячем — она налезала на счётчики папок
+   справа: колёсиком/тачем список крутится по-прежнему. */
+.side-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: none;             /* Firefox: без полосы */
+}
+
+.side-scroll::-webkit-scrollbar {      /* WebKit: без полосы */
+    width: 0;
+    height: 0;
 }
 
 /* Логотип столбиком по центру: значок, слово, девиз. Приходят со своим чёрным
@@ -343,7 +426,7 @@ a {
     border: 0;
     /* Цвет и толщина — как у иконок разделов: прежний тёмный терялся на фоне. */
     border-top: 1.5px solid #7d7a68;
-    margin: var(--s-xl) 0 var(--s-xl);
+    margin: var(--s-md) 0 var(--s-md);
 }
 
 /* Иконки разделов. Красятся цветом текста рядом. */
@@ -357,8 +440,102 @@ a {
    рекламная страница с текстом, а тут витрина: лишние сантиметры экрана
    становятся лишними карточками, а не воздухом по краям. */
 .main {
-    margin-left: var(--sidebar-w);
+    /* Логическое поле под панель: слева в ltr, справа в rtl. Один источник
+       правды, чтобы rtl и телефон не расходились. */
+    margin-inline-start: var(--sidebar-w);
     padding: var(--s-xl) var(--s-xl) 80px;
+}
+
+/* --- сворачивание панели в узкую колонку значков (на компьютере) --- */
+
+/* Кнопка «свернуть/развернуть» — значок внизу панели, у правого края ряда
+   «помощь/тема». Стрелка разворачивается в свёрнутом виде. */
+.side-collapse {
+    margin-inline-start: auto;
+}
+
+.side-collapse svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.15s ease;
+}
+
+/* Значок «плюс» кнопки «Добавить» — виден только в свёрнутом виде. */
+.side-cta-plus {
+    display: none;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+/* Свёрнутое — только на компьютере: на телефоне панель и так выезжает бургером.
+   Панель остаётся на виду и рабочей — прячем ТОЛЬКО подписи, значки живут. */
+@media (min-width: 641px) {
+    html.side-collapsed .side {
+        width: var(--sidebar-rail);
+        padding-inline: 8px;
+        /* В свёрнутой колонке всплывающие меню (аккаунт/тема) вылезают вправо
+           поверх .main; поднимаем панель выше липкой шапки (50), чтобы шапка их
+           не перекрывала. Ниже модалки (100). */
+        z-index: 55;
+    }
+
+    html.side-collapsed .main {
+        margin-inline-start: var(--sidebar-rail);
+    }
+
+    html.side-collapsed .side .logo-word,
+    html.side-collapsed .side .logo-tagline,
+    html.side-collapsed .side .side-sub-head,
+    html.side-collapsed .side .side-sub-hint,
+    html.side-collapsed .side .side-acct-info,
+    html.side-collapsed .side .side-acct-caret,
+    html.side-collapsed .side .side-item > span,
+    html.side-collapsed .side .side-item > b,
+    html.side-collapsed .side .side-sub > span,
+    html.side-collapsed .side .side-sub > b,
+    html.side-collapsed .side .side-tag,
+    html.side-collapsed .side .side-cta-text {
+        display: none;
+    }
+
+    html.side-collapsed .side .side-item,
+    html.side-collapsed .side .side-sub,
+    html.side-collapsed .side .side-cta,
+    html.side-collapsed .side .side-acct-btn {
+        justify-content: center;
+        padding-inline: 0;
+    }
+
+    html.side-collapsed .side .side-cta-plus {
+        display: inline-block;
+    }
+
+    html.side-collapsed .side .logo-mark {
+        height: 40px;
+    }
+
+    /* Ряд «помощь/тема/свернуть» — в узкой колонке ставим столбиком, чтобы
+       значки помещались. «Свернуть» тогда без прижима вправо. */
+    html.side-collapsed .side .side-utility {
+        flex-direction: column;
+    }
+
+    html.side-collapsed .side .side-collapse {
+        margin-inline-start: 0;
+    }
+
+    html.side-collapsed .side-collapse svg {
+        transform: scaleX(-1);
+    }
+}
+
+/* На телефоне панель открывается бургером — «свернуть» тут ни к чему.
+   Селектор с .side — перебить более позднее .side-icon{display:inline-flex}. */
+@media (max-width: 640px) {
+    .side .side-collapse {
+        display: none;
+    }
 }
 
 .brand {
@@ -402,8 +579,16 @@ a {
     font-size: 13px;
 }
 
+/* Кнопка «Добавить» теперь внизу панели (над аккаунтом) — отступ снизу до черты. */
 .side-cta {
-    margin-bottom: var(--s-xl);
+    margin: 0 0 var(--s-md);
+}
+
+/* Разделы и папки — с воздухом между строками (просьба «разредить»). */
+.side-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 /* Подзаголовок группы фильтров: мельче раздела, с иконкой. */
@@ -462,10 +647,10 @@ a {
     line-height: 1.43;
     color: var(--panel-text);
     text-decoration: none;
-    padding: 8px 10px;
+    padding: 6px 10px;
     margin: 0;   /* не шире кнопки «Добавить»: подложка в границах содержимого */
     border-radius: var(--r-sm);
-    min-height: 36px;
+    min-height: 32px;
 }
 
 .side-item > span {
@@ -510,88 +695,285 @@ a {
     color: var(--panel-bright);
 }
 
-.side-foot {
-    font-size: 12px;
-    color: #7d7a68;
+/* --- низ панели: аккаунт + ряд значков «помощь/тема/свернуть» --- */
+
+/* Черта над нижним блоком — как разделитель под логотипом. */
+.side-sep-foot {
+    border: 0;
     border-top: 1.5px solid #7d7a68;
-    padding-top: var(--s-md);
-    margin: var(--s-xl) 0 0;
+    margin: 0 0 var(--s-sm);
 }
 
-/* Переключатель темы: пункт-иконка снизу, по нажатию — список вверх. */
+/* Аккаунт: значок + почта + счётчики; по нажатию — меню (вверх). */
+.side-acct {
+    position: relative;
+}
+
+.side-acct-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--s-md);
+    width: 100%;
+    border: 0;
+    background: none;
+    font-family: var(--sans);
+    color: var(--panel-text);
+    text-align: start;
+    padding: 9px 8px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+}
+
+.side-acct-btn:hover {
+    background: #141a2b;
+}
+
+.side-acct-ava {
+    position: relative;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2b3550;
+    color: var(--panel-bright);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.side-acct-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+}
+
+.side-acct-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.3;
+}
+
+.side-acct-email {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--panel-bright);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.side-acct-role {
+    font-size: 11px;
+    color: #8a8672;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.side-acct-caret {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    color: #7d7a68;
+}
+
+.side-acct-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    min-width: 190px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: 0 -12px 32px -12px rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    z-index: 45;
+}
+
+/* Ряд значков внизу: помощь, тема, свернуть. Без подписей — только значки. */
+.side-utility {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.side-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border: 0;
+    background: none;
+    border-radius: var(--r-sm);
+    color: var(--panel-text);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.side-icon:hover {
+    background: #141a2b;
+    color: var(--panel-bright);
+}
+
+.side-icon .ic,
+.side-icon > svg {
+    width: 16px;
+    height: 16px;
+    color: var(--mute);
+}
+
+.side-icon:hover .ic,
+.side-icon:hover > svg {
+    color: var(--panel-text);
+}
+
+.side-icon.on,
+.side-icon.on .ic {
+    color: var(--primary);
+}
+
+/* Переключатель темы: значок в ряду; нажатие меняет режим по кругу, а сбоку на
+   секунду вылетает жёлтая плашка с названием режима. Значок зависит от режима. */
 .side-theme {
     position: relative;
 }
 
 .side-theme-btn {
-    width: 100%;
     border: 0;
     background: none;
     font-family: var(--sans);
-    text-align: left;
     cursor: pointer;
 }
 
-.side-theme-caret {
-    width: 13px;
-    height: 13px;
-    fill: none;
-    stroke: #7d7a68;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    flex: none;
+/* Значок темы: показываем тот, что совпал с текущим режимом (data-thememode на
+   <html>). До установки атрибута — светлый по умолчанию. */
+.theme-ic {
+    display: none;
+    align-items: center;
+    justify-content: center;
 }
 
-.side-theme-menu {
+html[data-thememode="light"] .theme-ic[data-mode="light"],
+html[data-thememode="dark"] .theme-ic[data-mode="dark"],
+html[data-thememode="oled"] .theme-ic[data-mode="oled"],
+html[data-thememode="auto"] .theme-ic[data-mode="auto"],
+html:not([data-thememode]) .theme-ic[data-mode="light"] {
+    display: inline-flex;
+}
+
+/* Плашка режима: жёлтая, вылетает ВПРАВО (в rtl — в сторону содержимого) от
+   значка и гаснет. По умолчанию скрыта. */
+.side-theme-pill {
     position: absolute;
-    bottom: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background: #141a2b;
-    border: 1px solid var(--panel-line);
-    border-radius: var(--r-md);
-    padding: 4px;
-    box-shadow: 0 -10px 28px -10px rgba(0, 0, 0, 0.55);
-    z-index: 40;
+    inset-inline-start: calc(100% + 8px);
+    top: 50%;
+    white-space: nowrap;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-50%) translateX(-8px) scale(0.9);
+    transform-origin: center left;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    z-index: 46;
 }
 
-.side-theme-opt {
-    display: block;
-    width: 100%;
-    text-align: left;
-    border: 0;
-    background: none;
+.side-theme-pill.show {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+}
+
+/* В rtl плашка стоит слева от значка — вылетать должна тоже наружу (влево), а не
+   внутрь: сдвиг и точка роста зеркалим. */
+[dir="rtl"] .side-theme-pill {
+    transform: translateY(-50%) translateX(8px) scale(0.9);
+    transform-origin: center right;
+}
+
+[dir="rtl"] .side-theme-pill.show {
+    transform: translateY(-50%) translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side-theme-pill,
+    [dir="rtl"] .side-theme-pill,
+    .side-theme-pill.show,
+    [dir="rtl"] .side-theme-pill.show {
+        transition: opacity 0.16s ease;
+        transform: translateY(-50%);
+    }
+}
+
+/* Своя подсказка (замена системного title, см. tooltip.js) — тёмная плашка над
+   элементом. Выше всего (модалка 100, списки 200), поэтому z-index 300. */
+.tip {
+    position: fixed;
+    z-index: 300;
+    max-width: 280px;
+    padding: 5px 9px;
+    background: var(--ink);
+    color: var(--on-ink);
     font-family: var(--sans);
-    font-size: 13px;
-    color: var(--panel-text);
-    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
     border-radius: var(--r-sm);
-    cursor: pointer;
+    box-shadow: 0 6px 20px -6px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
-.side-theme-opt:hover {
-    background: #232c44;
-    color: var(--panel-bright);
+.tip.show {
+    opacity: 1;
+    transform: none;
 }
 
-.side-theme-opt.on {
-    color: var(--primary);
-    font-weight: 600;
-}
+/* (Переключатель языка уехал из панели в Настройки — его стили удалены.) */
 
-/* Свои категории-папки под «Каталогом» — всегда на виду. */
+/* Папки — своей секцией под заголовком «FOLDERS», на одном уровне с видами
+   (без отступа-дерева): так каталог/черновики/изменения и папки читаются как
+   равнозначные пункты, а не как ветки «Каталога». */
 .cat-list {
-    margin: 2px 0 var(--s-sm) 12px;
-    padding-left: 12px;
-    border-left: 1px solid var(--panel-line);
+    margin: 2px 0 var(--s-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-/* «Черновики» — постоянный подраздел, отделён тонкой чертой от папок. */
-.side-drafts {
-    margin-top: 4px;
-    padding-top: 9px;
-    border-top: 1px solid var(--panel-line);
+/* Метка «общая» у общих папок — маленькая приглушённая плашка справа, перед
+   счётчиком: отличает общий каталог от личных папок. */
+.side-tag {
+    flex: none;
+    font-style: normal;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a8672;
+    background: #1b2236;
+    padding: 2px 6px;
+    border-radius: 999px;
 }
 
 .side-sub {
@@ -601,7 +983,7 @@ a {
     font-size: 13px;
     color: var(--panel-text);
     text-decoration: none;
-    padding: 5px 10px;
+    padding: 6px 10px;
     margin: 0;   /* правый край — в границах содержимого, не шире кнопки */
     border-radius: var(--r-sm);
 }
@@ -659,6 +1041,18 @@ a {
     margin: var(--s-sm) 0 2px;
 }
 
+/* Заголовок группы личных папок в панели — отделяет их от общих чертой. */
+.side-sub-head {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7d7a68;
+    margin: var(--s-md) 0 2px;
+    padding-top: var(--s-sm);
+    border-top: 1px solid var(--panel-line);
+}
+
 .side-sub-hint {
     font-size: 12px;
     color: #7d7a68;
@@ -692,13 +1086,25 @@ a {
 .admin-user {
     display: flex;
     align-items: center;
-    gap: var(--s-md);
+    flex-wrap: wrap;
+    gap: var(--s-sm) var(--s-md);
     padding: 10px 0;
     border-bottom: 1px solid var(--hairline-soft);
 }
 
 .admin-user.off {
     opacity: 0.6;
+}
+
+/* Аватар в строке человека — круглый, из набора/загрузки (или пропадает). */
+.admin-user-ava {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-full);
+    object-fit: cover;
+    background: var(--surface-soft);
+    border: 1px solid var(--hairline);
+    flex: none;
 }
 
 .admin-user-main {
@@ -741,7 +1147,7 @@ a {
 
 .admin-tag-on {
     background: var(--accent-green-soft);
-    color: var(--accent-green);
+    color: var(--zone-common);  /* темнее accent-green — проходит контраст AA на плашке */
 }
 
 .admin-tag-off {
@@ -758,6 +1164,50 @@ a {
 .admin-user form {
     margin: 0;
     flex: none;
+}
+
+/* Кнопки при человеке: выключить / сбросить пароль / удалить — в ряд, переносом. */
+.admin-user-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-sm);
+    flex: none;
+}
+
+/* Узкий экран: кнопки уходят на свою строку под именем (мимо аватара), а не
+   вылезают за край строки. */
+@media (max-width: 640px) {
+    .admin-user-actions {
+        flex-basis: 100%;
+        margin-inline-start: calc(36px + var(--s-md));
+    }
+}
+
+/* Флажок с подписью — открыть свободную регистрацию. */
+.admin-check {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    font-size: 14px;
+    color: var(--body-ink);
+    cursor: pointer;
+}
+
+/* Готовая ссылка (приглашение/сброс) — поле только для чтения, по клику всё
+   выделяется, удобно скопировать. */
+.admin-link-box {
+    margin: 4px 0 var(--s-md);
+}
+
+.admin-link-field {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    background: var(--surface-soft);
+    color: var(--body-ink);
+    font-family: var(--mono);
+    font-size: 12px;
 }
 
 .admin-keys {
@@ -780,6 +1230,55 @@ a {
     font-family: var(--mono);
     font-size: 13px;
     letter-spacing: 0.02em;
+}
+
+/* Настройки почты: форма в панели. .fld оформляет только input[type=text],
+   а тут есть пароль, число и выбор — задаём им тот же вид явно. */
+.admin-form .fld input,
+.admin-form .fld select {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 16px; /* меньше 16px — Safari на телефоне зумит страницу */
+    padding: 12px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+}
+
+.admin-form .fld input:focus,
+.admin-form .fld select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Порт и шифрование — в один ряд, чтобы не растягивать форму. */
+.admin-row {
+    display: flex;
+    gap: var(--s-md);
+}
+
+.admin-row .fld {
+    flex: 1;
+}
+
+.admin-test {
+    margin-top: var(--s-md);
+    display: flex;
+    align-items: center;
+    gap: var(--s-md);
+    flex-wrap: wrap;
+}
+
+/* Удачное действие — зелёной плашкой, в пару к .auth-err (красной). */
+.admin-ok {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--accent-green-soft);
+    border-radius: var(--r-md);
+    padding: 10px 14px;
 }
 
 /* Управление категориями в настройках: список с удалением. */
@@ -831,9 +1330,9 @@ a {
     margin: 0 0 10px;
 }
 
-/* Стрелка сворачивания — у правого края заголовка. */
+/* Стрелка сворачивания — у конца заголовка (справа в ltr, слева в rtl). */
 .sec-collapse {
-    margin-left: auto;
+    margin-inline-start: auto;
     flex: none;
     display: inline-flex;
     align-items: center;
@@ -926,9 +1425,10 @@ a {
 
 .sec-tip {
     position: absolute;
-    /* Сбоку от «i», а не под ним — иначе накрывает строки раздела. */
+    /* Сбоку от «i», а не под ним — иначе накрывает строки раздела. Логическое
+       свойство: в ltr всплывает справа от «i», в rtl — слева. */
     top: -6px;
-    left: calc(100% + 8px);
+    inset-inline-start: calc(100% + 8px);
     width: 260px;
     max-width: 60vw;
     padding: 9px 12px;
@@ -1151,17 +1651,43 @@ a {
     padding: 0;
 }
 
-/* Строка источника — редактируемая: хостинг, название, адрес, токен. */
+/* Строка источника: свёрнутая сводка + разворачиваемая форма правки. */
 .src-row {
     padding: 10px 0;
     border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* Свёрнутая сводка: имя + полный адрес слева, «Изменить»/«Удалить» справа. */
+.src-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+}
+
+.src-summary-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.src-summary-name {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.src-summary-addr {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--mute);
+    word-break: break-all;
 }
 
 .src-edit {
     display: flex;
     flex-direction: column;
     gap: var(--s-sm);
-    margin: 0;
+    margin: var(--s-sm) 0 0;
 }
 
 .src-edit-top {
@@ -1278,7 +1804,10 @@ a {
     display: none;
 }
 
-@media (max-width: 768px) {
+/* Боковая панель складывается в выдвижную шторку с бургером ниже 640px, а не
+   768px: на планшете и в узком окне на десктопе панель (240px) спокойно
+   помещается рядом с каталогом, и прятать её за бургером там незачем. */
+@media (max-width: 640px) {
     /* Полоса тёмная, как панель: логотип приходит со своим чёрным фоном, и
        на кремовой полосе он был бы чёрным прямоугольником. Обрамление тёмное,
        содержимое кремовое — так это читается как замысел, а не как заплатка. */
@@ -1368,7 +1897,7 @@ a {
     }
 
     .main {
-        margin-left: 0;
+        margin-inline-start: 0;
         padding: var(--s-lg) var(--s-lg) 64px;
     }
 }
@@ -1386,7 +1915,7 @@ a {
 /* Липкая шапка: при листании стоит на месте, карточки уходят под неё без
    видимой черты. Отрицательные поля выводят фон на всю ширину контента,
    перекрывая паддинги .main; внутренние паддинги возвращают выравнивание
-   к сетке. Аватарка (fixed, z-index выше) стоит поверх справа. */
+   к сетке. */
 .stickyhead {
     position: sticky;
     top: 0;
@@ -1394,6 +1923,21 @@ a {
     background: var(--canvas);
     margin: calc(-1 * var(--s-xl)) calc(-1 * var(--s-xl)) var(--s-lg);
     padding: var(--s-lg) var(--s-xl);
+    /* Черта во всю ширину между верхним рядом и содержимым (edge-to-edge за счёт
+       отрицательных полей .stickyhead). */
+    border-bottom: 1px solid var(--line);
+}
+
+/* На телефоне поле .main меньше (s-lg, не s-xl). Полный вынос шапки на -s-xl
+   вылезал на 8px за край и вся страница ехала вбок. Сводим к полю .main.
+   ВАЖНО: после базового правила выше — иначе оно перебьёт по порядку. */
+@media (max-width: 640px) {
+    .stickyhead {
+        margin-left: calc(-1 * var(--s-lg));
+        margin-right: calc(-1 * var(--s-lg));
+        padding-left: var(--s-lg);
+        padding-right: var(--s-lg);
+    }
 }
 
 /* Ряд шапки в три части: равные распорки по краям, посередине — поиск с
@@ -1403,29 +1947,30 @@ a {
     display: flex;
     align-items: center;
     gap: var(--s-md);
+    /* Аватарка из угла убрана (аккаунт теперь внизу панели) — резервировать
+       место справа больше не нужно. */
 }
 
 /* Левая распорка равна правой — поиск встаёт по центру программы. */
+/* Распорка-центровка убрана: из-за неё правая колонка ужималась уже своего
+   содержимого, и «Найти» налезал на «Фильтры». Поиск занимает строку, действия
+   встают справа по своему размеру — без наложения на любой ширине. */
 .toolbar-left {
-    flex: 1 1 0;
-    min-width: 0;
+    display: none;
 }
 
 .toolbar-right {
     position: relative;   /* якорь для выпадающей шторки */
-    flex: 1 1 0;
+    flex: 0 0 auto;       /* по содержимому, не сжимается — не наезжает на поиск */
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: var(--s-md);
-    min-width: 0;
-    padding-right: 46px;   /* не залезать под аватарку в углу */
 }
 
-/* Поиск с «Найти» — по центру и заметно длиннее прежнего. Ужимается, если
-   рядом мало места; на телефоне уходит на всю ширину. */
+/* Поиск с «Найти» — занимает свободную ширину. На телефоне уходит на всю ширину. */
 .searchform {
-    flex: 0 1 800px;
+    flex: 1 1 auto;
     display: flex;
     gap: var(--s-sm);
     min-width: 0;
@@ -1441,7 +1986,6 @@ a {
 
 /* Все контролы ряда — одной высоты и в одном стиле кнопки. */
 .toolbar .searchform input,
-.toolbar .btn-secondary,
 .toolbar .filters-btn,
 .toolbar .sizectl {
     min-height: 44px;
@@ -1487,6 +2031,7 @@ a {
     font-family: var(--sans);
     font-size: 16px;   /* меньше — и Safari на телефоне зумит страницу */
     padding: 9px 12px;
+    padding-inline-end: 42px;   /* место под значок поиска внутри поля */
     min-height: 40px;
     border: 1px solid var(--hairline);
     border-radius: var(--r-md);
@@ -1502,11 +2047,37 @@ a {
     outline: none;
     border: 2px solid var(--accent-blue);
     padding: 8px 11px;   /* рамка стала толще на 1px — отступ на столько же меньше */
+    padding-inline-end: 41px;
     box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.searchform .btn-secondary {
-    flex: 0 0 auto;
+/* Кнопка отправки поиска — значок-лупа внутри поля, у конца строки (в rtl —
+   у начала). Enter отправляет форму и без неё; кнопка — для тех, кто кликает. */
+.search-go {
+    position: absolute;
+    inset-inline-end: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: transparent;
+    border-radius: var(--r-sm);
+    color: var(--mute);
+    cursor: pointer;
+}
+
+.search-go:hover {
+    color: var(--ink);
+    background: var(--surface-soft);
+}
+
+.search-go .ic {
+    width: 17px;
+    height: 17px;
 }
 
 a:focus-visible,
@@ -1873,20 +2444,44 @@ summary:focus-visible {
     border-color: var(--ink);
 }
 
-/* Рамка по зоне — под цвет значка: публичная зелёная, частная янтарная. Контур
-   вдвое толще (2px), чтобы цвет читался. На наведении — тот же цвет, но темнее.
-   Значения те же, что у .zone-btn.zone-common / .zone-private. */
-.card[data-zone="common"],
-.card[data-zone="private"] { border-width: 2px; }
-.card[data-zone="common"] { border-color: #1d9e75; }
-.card[data-zone="private"] { border-color: #c98a00; }
+/* Зону (общая/частная) показывает значок замок/глобус в подвале — раскрашивать
+   ещё и всю рамку карточки не нужно: ряд одинаково-зелёных/янтарных коробок читался
+   как приборная панель, а не как каталог. Рамка у всех спокойная, в волос. */
 .card[data-zone="common"]:hover { border-color: #177a5a; }
 .card[data-zone="private"]:hover { border-color: #a06f00; }
 
-/* Пока карточку тащат — она бледнеет и чуть сжимается: видно, что «взяли». */
+/* Пока карточку тащат — она чуть сжимается: видно, что «взяли». */
 .card.dragging {
-    opacity: 0.45;
+    opacity: 0.6;
     transform: scale(0.97);
+}
+
+/* Пока тащат карточку: остальные плитки гаснут (ясно, что режим переноса
+   включён), а область папок подсвечивается свечением — видно, куда бросать. */
+html.card-dragging .grid .card:not(.dragging) {
+    opacity: 0.35;
+    transition: opacity 0.15s ease;
+}
+
+html.card-dragging .cat-list {
+    border-radius: var(--r-md);
+    animation: cat-drop-glow 1.3s ease-in-out infinite;
+}
+
+html.card-dragging .side-folders-head {
+    color: var(--primary);
+}
+
+@keyframes cat-drop-glow {
+    0%, 100% { box-shadow: 0 0 0 2px var(--primary), 0 0 10px -4px var(--primary); }
+    50%      { box-shadow: 0 0 0 2px var(--primary), 0 0 22px 0 var(--primary); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.card-dragging .cat-list {
+        animation: none;
+        box-shadow: 0 0 0 2px var(--primary);
+    }
 }
 
 /* Карточку положили в папку — мягкий отклик: чуть подрастает и оседает, значок
@@ -1908,20 +2503,18 @@ summary:focus-visible {
 /* «Новинка»: карточка добавлена недавним сканом и ещё не открыта. Заметна
    бейджем в углу; рамкой при этом управляет зона (публичная/частная). */
 .card-new {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 3;
-    padding: 2px 8px;
+    /* Углы заняты зоной и избранным — «новинку» показываем маленькой плашкой в
+       начале тела карточки (над именем). */
+    align-self: flex-start;
+    padding: 1px 7px;
     background: var(--primary);
     color: var(--on-primary);
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    border-bottom-right-radius: var(--r-md);
-    pointer-events: none;
+    border-radius: var(--r-full);
 }
 
 /* Карточка, только что вставленная во время скана, — мягко проявляется. */
@@ -1954,6 +2547,26 @@ summary:focus-visible {
     text-decoration: none;
 }
 
+/* Верхние углы карточки поверх превью: слева — зона/владение, справа —
+   избранное. Сам ряд кликов не ловит (проходят на карточку), ловят только
+   кнопки — чтобы клик по превью между ними открывал карточку. */
+.card-corners {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px;
+    pointer-events: none;
+}
+
+.card-corners > * {
+    pointer-events: auto;
+}
+
 .thumb {
     aspect-ratio: 16 / 10;
     background: var(--surface-card);
@@ -1972,55 +2585,62 @@ summary:focus-visible {
 }
 
 /* У скиллов превью нет. Показываем сам идентификатор — он и есть их лицо. */
+/* Плашка-заглушка без превью: раньше держала пропорцию 16:10 и занимала
+   впустую полкарточки. Теперь сжата по содержимому — карточка стала короче. */
 .thumb-text {
-    aspect-ratio: 16 / 10;
     background: var(--surface-doc);
     border-bottom: 1px solid var(--hairline-soft);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--s-xs);
-    padding: var(--s-lg);
+    gap: 2px;
+    padding: var(--s-md) var(--s-lg);
     overflow: hidden;
 }
 
+/* Содержимое карточки масштабируется вместе с сеткой (--card-scale от ползунка
+   размера): мельче плитки — мельче и шрифт/отступы, а не только уже. Плавно. */
 .thumb-text span {
-    font-family: var(--mono);
-    font-size: 17px;
+    font-family: var(--sans);
+    font-size: calc(16px * var(--card-scale, 1));
     font-weight: 600;
-    letter-spacing: -0.04em;
-    color: var(--stone);
-    word-break: break-all;
-    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.25;
+    transition: font-size 0.22s ease;
 }
 
 .card-body {
-    padding: var(--s-lg);   /* 16px: карточки каталога плотные, это не витрина */
+    padding: calc(var(--s-lg) * var(--card-scale, 1));
     display: flex;
     flex-direction: column;
-    gap: var(--s-sm);
+    gap: calc(var(--s-sm) * var(--card-scale, 1));
     flex: 1;
+    transition: padding 0.22s ease;
 }
 
 /* heading-sm-mixed набора: 18px/600. Имя набрано моноширинным намеренно —
    это идентификатор в Git, а не заголовок статьи. */
 .card-name {
     font-family: var(--mono);
-    font-size: 14px;
+    font-size: calc(14px * var(--card-scale, 1));
     font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--ink);
     word-break: break-all;
+    transition: font-size 0.22s ease;
 }
 
 .card-owner {
-    color: var(--stone);
+    color: var(--mute);  /* было --stone (~4.4:1) — --mute проходит AA */
     font-weight: 400;
 }
 
 .card-sum {
-    font-size: 13px;
+    font-size: calc(13px * var(--card-scale, 1));
     color: var(--muted);
     line-height: 1.45;
     margin: 0;
@@ -2028,6 +2648,7 @@ summary:focus-visible {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: font-size 0.22s ease;
 }
 
 /* Подвал карточки. Отделён чертой. Компактный: цветной значок направления
@@ -2035,12 +2656,17 @@ summary:focus-visible {
    (--pur-color), чтобы раздел читался с одного взгляда даже в узкой карточке. */
 .card-foot {
     --pur-color: var(--muted);
-    /* Один ряд с сепараторами: значок слева, дата по центру, действия справа. */
+    /* Ряд: папка слева, дата, «копировать» справа. Черта над подвалом — во всю
+       ширину карточки (edge-to-edge): выносим подвал отрицательными полями за
+       паддинг тела и возвращаем внутренний отступ. */
     display: flex;
     align-items: center;
     gap: 8px;
     margin-top: auto;
-    padding-top: 9px;
+    /* Отрицательное поле совпадает со (масштабируемым) паддингом тела, чтобы
+       черта шла ровно от края до края при любом размере плиток. */
+    margin-inline: calc(-1 * var(--s-lg) * var(--card-scale, 1));
+    padding: 10px calc(var(--s-lg) * var(--card-scale, 1)) 0;
     border-top: 1px solid var(--line);
     font-family: var(--mono);
     font-size: 11px;
@@ -2071,24 +2697,25 @@ summary:focus-visible {
 }
 
 .fav-btn {
-    position: relative;
-    z-index: 2;
     flex: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    border: 0;
-    background: none;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: var(--surface-card);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     cursor: pointer;
     color: var(--muted);
+    transition: border-color 0.12s, color 0.12s;
 }
 
 .fav-btn svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.4;
@@ -2097,6 +2724,7 @@ summary:focus-visible {
 
 .fav-btn:hover {
     color: #d99a00;
+    border-color: var(--ink);
 }
 
 .fav-btn.on {
@@ -2106,6 +2734,80 @@ summary:focus-visible {
 .fav-btn.on svg {
     fill: #f7a501;
     stroke: #f7a501;
+}
+
+/* Удалить карточку — маленькая кнопка в подвале, как «избранное». Красная при
+   наведении: действие необратимое. */
+.del-form { margin: 0; }
+
+.del-btn {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--faint);
+    cursor: pointer;
+}
+
+.del-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.del-btn:hover { color: var(--accent-red); }
+
+/* Опасная кнопка «Удалить» в футере карточки-модалки. */
+.art-del { margin: 0; }
+
+.btn-danger {
+    font: inherit;
+    padding: 8px 14px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--accent-red);
+    background: none;
+    color: var(--accent-red);
+    cursor: pointer;
+}
+
+.btn-danger:hover { background: var(--accent-red-soft); }
+
+/* Плашка «удалено из избранного»: над сеткой, закрывается кнопкой. */
+.removed-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    background: var(--accent-red-soft);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.removed-text { flex: 1; }
+
+.removed-dismiss {
+    flex: none;
+    font: inherit;
+    padding: 6px 12px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
 }
 
 [data-pur="security"]      { --pur-color: #c0392b; }
@@ -2145,6 +2847,80 @@ summary:focus-visible {
     transition: color 0.3s ease;
 }
 
+/* Личная папка на карточке — тем же значком, но приглушённее, чтобы отличать
+   от общей. Свёрнутый счётчик лишних папок — «+N» моноширинным. */
+.cat-mark-mine {
+    opacity: 0.7;
+}
+
+.cat-more {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+/* Папки на странице карточки: список с крестиком «убрать» + строка добавления. */
+.art-folders {
+    list-style: none;
+    margin: 0 0 var(--s-md);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.art-folder {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    padding: 6px 8px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    background: var(--surface-card);
+}
+
+.art-folder-mine {
+    border-style: dashed;
+}
+
+.art-folder-ic {
+    display: inline-flex;
+    color: var(--mute);
+}
+
+.art-folder-ic .cicon {
+    width: 16px;
+    height: 16px;
+}
+
+.art-folder-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.art-folder-rm {
+    margin: 0;
+}
+
+.art-folder-add {
+    display: flex;
+    gap: var(--s-sm);
+    align-items: center;
+}
+
+.art-folder-add select {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    background: var(--surface-card);
+    color: var(--body-ink);
+    font-family: var(--sans);
+    font-size: 13px;
+}
+
 /* Переключатель зоны слева в подвале — кнопка. Замок (частная, янтарный) или
    глобус (публичная, зелёный). Выше растянутой ссылки: перехватывает свой клик. */
 .zone-form {
@@ -2156,8 +2932,6 @@ summary:focus-visible {
 /* Тот же размер и форма, что у кнопки «скопировать источник»: рамкой обведённый
    квадрат. Цвет значка сохраняет смысл зоны (глобус зелёный / замок янтарный). */
 .zone-btn {
-    position: relative;
-    z-index: 2;
     flex: none;
     display: inline-flex;
     align-items: center;
@@ -2167,9 +2941,20 @@ summary:focus-visible {
     padding: 0;
     border: 1px solid var(--line-strong);
     border-radius: var(--r-sm);
-    background: transparent;
+    /* Плотный фон: кнопка лежит поверх превью, полупрозрачная была бы нечитаемой. */
+    background: var(--surface-card);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     cursor: pointer;
-    transition: filter 0.12s, background 0.12s;
+    transition: border-color 0.12s, background 0.12s;
+}
+
+/* Не-владелец зону не переключает — показываем её как отметку, без нажатия. */
+.zone-btn.zone-static {
+    cursor: default;
+}
+
+.zone-btn.zone-static:hover {
+    border-color: var(--line-strong);
 }
 
 .zone-btn svg {
@@ -2193,8 +2978,8 @@ summary:focus-visible {
 .zone-btn .i-lock { display: none; }
 .zone-btn.zone-private .i-lock { display: inline; }
 
-.zone-btn.zone-common { color: #1d9e75; }
-.zone-btn.zone-private { color: #c98a00; }
+.zone-btn.zone-common { color: var(--zone-common); }
+.zone-btn.zone-private { color: var(--zone-private); }
 
 /* Значок направления — цветной, по разделу. */
 .pur svg {
@@ -2213,14 +2998,53 @@ summary:focus-visible {
     fill: var(--pur-color);
 }
 
-/* Дата обновления — по центру карточки, крупнее и в цвет раздела. Не
-   моноширинным: так «08.07.26» уже и помещается в самой узкой карточке. */
-.when {
-    margin: 0 auto;   /* по центру ряда, слева значок, справа действия */
-    font-family: var(--sans);
-    font-size: 13px;
-    font-weight: 700;
+/* Папка (значок + имя) слева снизу; если папок нет — направление. Занимает
+   свободную ширину, толкая «копировать» к правому краю. Ниже растянутой ссылки —
+   клик по этой зоне открывает карточку (имя видно, подсказка не нужна). */
+.card-cat {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1 1 auto;
     color: var(--pur-color);
+    transition: color 0.3s ease;
+}
+
+.card-cat .cicon,
+.card-cat > svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--pur-color);
+}
+
+.card-cat.pur > svg {
+    stroke: var(--pur-color);
+}
+
+.card-cat.pur > svg [fill="currentColor"] {
+    fill: var(--pur-color);
+}
+
+.card-cat-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--charcoal);
+}
+
+/* Дата обновления — небольшая, приглушённая, слева от «копировать». */
+.when {
+    flex: none;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
     white-space: nowrap;
     transition: color 0.3s ease;
 }
@@ -2430,13 +3254,12 @@ summary:focus-visible {
 }
 
 .box h3 {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--faint);
-    margin: 0 0 10px;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
 }
 
 /* Финальный шаг создания: превью карточки и выбор зоны. */
@@ -2530,8 +3353,8 @@ summary:focus-visible {
 }
 
 /* Цвет — под значок: публичная зелёная (глобус), частная янтарная (замок). */
-.art-meta .zone.zone-common { color: #1d9e75; }
-.art-meta .zone.zone-private { color: #c98a00; }
+.art-meta .zone.zone-common { color: var(--zone-common); }
+.art-meta .zone.zone-private { color: var(--zone-private); }
 
 .art-meta .pur {
     display: inline-flex;
@@ -2556,6 +3379,128 @@ summary:focus-visible {
     background: var(--line-strong);
 }
 
+/* --- карточка (модалка): чистый, плотный вид --------------------------------
+   Крупное описание, плашки «зона/тип/направление», разделы с чертой во всю
+   ширину и компактным отступом (без прежних огромных пустот). */
+.art-lede {
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0 0 var(--s-md);
+}
+
+.art-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-sm);
+    margin: 0;
+}
+
+.art-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: var(--surface-card);
+    color: var(--body-ink);
+}
+
+.art-chip svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.art-chip.zone-common { color: var(--zone-common); }
+.art-chip.zone-private { color: var(--zone-private); }
+.art-chip-pur { color: var(--pur-color); }
+.art-chip-pur svg [fill="currentColor"] { fill: currentColor; }
+
+/* Раздел карточки: черта во всю ширину модалки (−24 = паддинг тела) + плотнее. */
+.art-sec {
+    border-top: 1px solid var(--line);
+    margin: var(--s-md) -24px 0;
+    padding: var(--s-md) 24px 0;
+}
+
+.art-sec h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 var(--s-sm);
+}
+
+.art-sec > p {
+    margin: 0;
+    line-height: 1.55;
+}
+
+/* Плашки у заголовка окна, справа (см. modal_head_extra). */
+.modal-head-side {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    flex: none;
+}
+
+.modal-head h1 {
+    min-width: 0;   /* даём заголовку ужиматься, а не выталкивать плашки */
+}
+
+/* Тело карточки в два столбца: слева фото + описание, справа всё остальное. */
+.art-cols {
+    display: flex;
+    gap: var(--s-xl);
+    align-items: flex-start;
+}
+
+.art-main,
+.art-side {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* В столбцах черта раздела идёт по ширине столбца (не во всю модалку). */
+.art-cols .art-sec {
+    margin-inline: 0;
+    padding-inline: 0;
+}
+
+/* Первый раздел правого столбца — без верхней черты (над ним ничего нет). */
+.art-side > .art-sec:first-child {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Узкий экран — столбцы друг под другом; черта над правой частью возвращается. */
+@media (max-width: 767px) {
+    .art-cols {
+        flex-direction: column;
+        gap: var(--s-md);
+    }
+    .art-side > .art-sec:first-child {
+        border-top: 1px solid var(--line);
+        margin-top: var(--s-md);
+        padding-top: var(--s-md);
+    }
+}
+
+@media (max-width: 640px) {
+    .modal-head {
+        flex-wrap: wrap;
+    }
+}
+
 /* Кнопки копирования в футере карточки — на миг зелёные при успехе. */
 .art-copy.ok {
     border-color: var(--accent-green);
@@ -2566,6 +3511,53 @@ summary:focus-visible {
 .modal-head .art-owner {
     color: var(--stone);
     font-weight: 400;
+}
+
+/* Список выбора (язык и т.п.) — строки во всю ширину, галочка у выбранной.
+   Списком, а не пилюлями: под будущие языки растёт вниз, а не переносами. */
+.opt-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 340px;
+}
+
+.opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-sm);
+    padding: 9px 12px;
+    margin-bottom: 6px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    background: var(--surface-card);
+    color: var(--body-ink);
+    font-size: 14px;
+    text-decoration: none;
+    transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.opt-row:hover {
+    border-color: var(--ink);
+}
+
+.opt-row.on {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--on-ink);
+    font-weight: 600;
+}
+
+.opt-check {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* Пилюли выбора темы. Активная — как выбранный фильтр (тёмная заливка). */
@@ -2586,18 +3578,20 @@ summary:focus-visible {
     color: var(--on-ink);
 }
 
-/* Каждая секция в модалке (настройки, админ, добавление) — в своей рамке,
-   чтобы разделы читались отдельно, а не сливались в один поток. */
+/* Разделы модалки (настройки, админ, добавление) — разделены ВОЗДУХОМ и жирным
+   заголовком, а не чертой у каждого: пачка серых карточек была «свалкой», а
+   черта под каждым разделом превращалась в частокол линий. Крупный отступ
+   сверху + сильный заголовок ясно говорят «начался новый раздел». */
 .modal-body .box {
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-lg);
-    padding: var(--s-lg);
-    margin-bottom: var(--s-md);
-    background: var(--surface-soft);
+    border: 0;
+    border-radius: 0;
+    padding: var(--s-xxl) 0 0;
+    margin: 0;
+    background: none;
 }
 
-.modal-body .box:last-child {
-    margin-bottom: 0;
+.modal-body .box:first-child {
+    padding-top: var(--s-sm);
 }
 
 .facts {
@@ -2619,11 +3613,11 @@ summary:focus-visible {
 }
 
 .legend {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--faint);
-    line-height: 1.8;
-    margin: 10px 0 0;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--mute);
+    line-height: 1.55;
+    margin: 6px 0 0;
 }
 
 /* Команда на карточке — её сюда пришли скопировать, а не прочитать. */
@@ -2672,9 +3666,10 @@ summary:focus-visible {
 }
 
 .empty {
-    padding: 56px 0 80px;
+    padding: var(--s-lg) 0 64px;
     color: var(--muted);
-    max-width: 46ch;
+    max-width: 52ch;
+    line-height: 1.5;
 }
 
 .empty b {
@@ -2963,12 +3958,13 @@ summary:focus-visible {
 }
 
 .thumb-text em {
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-style: normal;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
-    color: var(--stone);
+    letter-spacing: 0.04em;
+    color: var(--mute);
 }
 
 .pur-big {
@@ -3036,13 +4032,18 @@ summary:focus-visible {
 
 .fld span {
     display: block;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--faint);
-    margin-bottom: 6px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--charcoal);
+    margin-bottom: 5px;
 }
 
-.fld input[type="text"] {
+.fld input[type="text"],
+.fld input[type="email"],
+.fld input[type="password"],
+.fld input[type="url"],
+.fld select {
     width: 100%;
     font-family: var(--sans);
     font-size: 16px; /* меньше 16px — Safari на телефоне зумит страницу */
@@ -3053,31 +4054,356 @@ summary:focus-visible {
     color: var(--text);
 }
 
+/* --- свой выпадающий список (замена системного <select>) ------------------- */
+
+.dd-native {
+    display: none;   /* значение всё равно уходит с формой */
+}
+
+.dd {
+    position: relative;
+}
+
+/* Кнопка — как поле ввода: одна высота, рамка, скругление. */
+.dd-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-sm);
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    font-family: var(--sans);
+    font-size: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    text-align: start;
+}
+
+.dd-btn:hover {
+    border-color: var(--ink);
+}
+
+.dd-btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+    border-color: var(--accent-blue);
+}
+
+.dd-btn[aria-expanded="true"] {
+    border-color: var(--accent-blue);
+}
+
+.dd-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.dd-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dd-caret {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--mute);
+    transition: transform 0.15s ease;
+}
+
+.dd-btn[aria-expanded="true"] .dd-caret {
+    transform: rotate(180deg);
+}
+
+/* Список — вынесен в body (position:fixed), чтобы прокрутка модалки не обрезала.
+   Ширину/место ставит скрипт. */
+.dd-list {
+    position: fixed;
+    z-index: 200;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-width: calc(100vw - 24px);
+    padding: 4px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.4);
+}
+
+.dd-opt {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    padding: 9px 10px;
+    border-radius: var(--r-sm);
+    font-size: 14px;
+    color: var(--body-ink);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dd-opt.act {
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
+.dd-opt[aria-selected="true"] {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.dd-opt[aria-selected="true"]::after {
+    content: "✓";
+    margin-inline-start: auto;
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.dd-opt[aria-disabled="true"] {
+    color: var(--ash);
+    cursor: default;
+}
+
+/* Вкладки настроек: разделы по одному, чтобы не листать всё подряд. */
+.settabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin: 0 0 var(--s-sm);
+    border-bottom: 1px solid var(--hairline-soft);
+}
+
+.settab {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mute);
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.settab:hover {
+    color: var(--ink);
+}
+
+.settab.on {
+    color: var(--ink);
+    border-bottom-color: var(--primary);
+}
+
+/* Панель вкладки держит спокойную высоту: без этого «пустая» вкладка (напр.
+   «Репозитории» с одним разделом) сжимала бы всё окно в узкую полоску.
+
+   Раскладка в ДВЕ колонки: раньше каждое поле тянулось во всю ширину окна
+   (порт на 840px), а разделы шли одной длинной колонкой — пусто по бокам,
+   длинно вниз. Теперь короткие разделы встают рядом, большие — во всю ширину
+   (.box.wide). Плашек и линий под разделами по-прежнему нет — только воздух и
+   жирный заголовок (так решили в taste-проходе). */
+.setpanel {
+    min-height: 360px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-xl) var(--s-xxl);
+    align-content: start;
+}
+
+/* Разделяет сетка (gap), а не верхний отступ .box — снимаем его тут. */
+.setpanel > .box {
+    padding: 0;
+    margin: 0;
+}
+
+/* Раздел во всю ширину панели: списки, крупные формы, сетка аватаров. */
+.setpanel > .box.wide {
+    grid-column: 1 / -1;
+}
+
+/* Сообщения раздела (ошибка/успех) — тоже во всю ширину, над сеткой разделов. */
+.setpanel > .warn,
+.setpanel > .set-on,
+.setpanel > .admin-ok,
+.setpanel > .auth-err {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+
+/* Поля формы парами: два коротких поля в ряд, а не два во всю ширину. Отступ
+   строк держит собственный margin у .fld, колонки разводит gap. */
+.field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 var(--s-md);
+}
+
+.field-grid > .fld.wide {
+    grid-column: 1 / -1;
+}
+
+/* Узкий экран — одна колонка и для разделов, и для полей. */
+@media (max-width: 720px) {
+    .setpanel {
+        grid-template-columns: 1fr;
+        gap: var(--s-xl) 0;
+    }
+    .field-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Фото профиля: превью-кружок + кнопки загрузки/снятия. */
+.avatar-edit {
+    display: flex;
+    align-items: center;
+    gap: var(--s-lg);
+    flex-wrap: wrap;
+}
+
+.avatar-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--r-full);
+    overflow: hidden;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-soft);
+    border: 1px solid var(--hairline);
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-initial {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--mute);
+}
+
+.avatar-form {
+    display: flex;
+    gap: var(--s-sm);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* label как кнопка выбора файла — сам input скрыт (.vh). */
+.avatar-form label.btn-secondary {
+    cursor: pointer;
+}
+
+/* Набор готовых аватаров — сетка кружков. Каждый — своя форма (без JS),
+   клик отправляет выбор. Активный обведён фирменным. */
+.avatar-presets {
+    margin-top: var(--s-lg);
+}
+
+.avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: var(--s-sm);
+    margin-top: var(--s-sm);
+    max-width: 460px;
+}
+
+.avatar-opt-form {
+    margin: 0;
+    display: block;
+}
+
+.avatar-opt {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 2px;
+    border: 2px solid transparent;
+    border-radius: var(--r-full);
+    background: var(--surface-soft);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.12s, transform 0.12s;
+}
+
+.avatar-opt img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--r-full);
+    display: block;
+}
+
+.avatar-opt:hover {
+    border-color: var(--hairline);
+    transform: translateY(-1px);
+}
+
+.avatar-opt.on {
+    border-color: var(--primary);
+}
+
+.lang-select {
+    max-width: 260px;
+}
+
 /* --- одно окно на всё -----------------------------------------------------
    Ссылка, картинка из буфера, перетащенный файл, просто слова. Разные
    устройства умеют разное, поэтому путей внутрь три, а окно одно. */
 
+/* Приёмник ссылки/картинки/имени — одно поле на всё. Сверху строка ввода со
+   значком-ссылкой и тонкой чертой (так поле читается как поле), ниже —
+   подсказка про картинку со значком. Наведённый файл подсвечивает всю рамку. */
 .drop {
-    border: 1px dashed var(--line-strong);
-    border-radius: var(--radius);
+    border: 1.5px dashed var(--line-strong);
+    border-radius: var(--r-lg);
     background: var(--surface);
-    padding: 18px;
-    transition: border-color 0.15s, background 0.15s;
+    padding: var(--s-lg) var(--s-lg) var(--s-md);
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .drop:focus-within {
     border-style: solid;
-    border-color: var(--text);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 .drop.over {
     border-style: solid;
-    border-color: var(--text);
-    background: var(--surface-2);
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
+
+.drop-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: var(--s-md);
+    border-bottom: 1px solid var(--hairline-soft);
+}
+
+.drop-field-ic {
+    display: flex;
+    flex: none;
+    color: var(--faint);
+}
+
+.drop-field-ic .ic { width: 18px; height: 18px; }
 
 .drop-in {
     width: 100%;
+    min-width: 0;
     font-family: var(--sans);
     font-size: 16px; /* меньше 16px — Safari на телефоне зумит страницу */
     padding: 0;
@@ -3090,13 +4416,26 @@ summary:focus-visible {
 
 .drop-in::placeholder { color: var(--faint); }
 
+/* Подсказка про картинку: значок + текст. Крупнее прежнего мелкого моно —
+   строчку реально читают, а не только сканируют. */
 .drop-hint {
-    font-family: var(--mono);
-    font-size: 11px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12.5px;
     color: var(--faint);
-    line-height: 1.8;
-    margin: 14px 0 0;
+    line-height: 1.6;
+    margin: var(--s-md) 0 0;
 }
+
+.drop-hint-ic {
+    display: flex;
+    flex: none;
+    margin-top: 1px;
+    color: var(--faint);
+}
+
+.drop-hint-ic .ic { width: 16px; height: 16px; }
 
 /* Выбор файла — не кнопка, а слово в тексте: путь запасной, он для тех, у
    кого картинка лежит в файлах, а не в буфере. */
@@ -3299,6 +4638,7 @@ summary:focus-visible {
 
 .auth-body {
     min-height: 100vh;
+    min-height: 100dvh;   /* dvh — честная высота на мобильном Safari; vh — запас */
     margin: 0;
     background: var(--panel);
     display: flex;
@@ -3400,6 +4740,32 @@ summary:focus-visible {
     text-decoration: underline;
 }
 
+/* Переключатель языка на странице двери — на тёмной подложке (--panel). Раньше
+   ссылки шли цветом по умолчанию (тёмно-синим по тёмному, контраст ~2.4). */
+.auth-lang {
+    display: flex;
+    justify-content: center;
+    gap: var(--s-md);
+    margin-top: var(--s-xl);
+}
+
+.auth-lang-opt {
+    font-size: 13px;
+    color: var(--panel-text);
+    text-decoration: none;
+    padding: 4px 6px;
+    border-radius: var(--r-sm);
+}
+
+.auth-lang-opt:hover {
+    color: var(--panel-bright);
+}
+
+.auth-lang-opt.on {
+    color: var(--panel-bright);
+    font-weight: 600;
+}
+
 /* --- настройки ------------------------------------------------------------ */
 
 .settings {
@@ -3493,16 +4859,16 @@ summary:focus-visible {
 }
 
 .side-user {
-    /* Прижать к низу: помощь, настройки, тема и счётчик — в самом низу панели. */
-    margin-top: auto;
-    padding-top: var(--s-xl);
+    /* Нижний блок: не сжимается и остаётся под прокручиваемой частью, всегда
+       на виду (аккаунт, значки, «свернуть»). */
+    flex: none;
+    padding-top: var(--s-sm);
 }
 
 /* --- помощь --------------------------------------------------------------- */
 
-.help {
-    max-width: 720px;
-}
+/* Справка теперь вкладками (как настройки), а не сплошным свитком — во всю
+   ширину модалки, ограничение по ширине убрано. */
 
 .help h1 {
     font-size: 24px;
@@ -3516,42 +4882,15 @@ summary:focus-visible {
     margin-bottom: var(--s-lg);
 }
 
-/* Выделенная подсказка внутри раздела справки: мягкая плашка с левой чертой. */
+/* Выделенная подсказка внутри раздела справки: мягкая плашка с чертой у начала
+   строки (слева в ltr, справа в rtl). */
 .help-tip {
     margin-top: var(--s-md);
     padding: 10px 12px;
     background: var(--accent-blue-soft);
-    border-left: 3px solid var(--accent-blue);
+    border-inline-start: 3px solid var(--accent-blue);
     border-radius: var(--r-sm);
     line-height: 1.5;
-}
-
-/* Оглавление — строка ссылок-таблеток, ведут к разделам якорями. */
-.help-toc {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-sm);
-    margin: 0 0 var(--s-xl);
-}
-
-.help-toc a {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--body-ink);
-    text-decoration: none;
-    padding: 6px 12px;
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-full);
-    background: var(--surface-card);
-}
-
-.help-toc a:hover {
-    border-color: var(--ink);
-    color: var(--ink);
-}
-
-.help .box {
-    scroll-margin-top: var(--s-lg);   /* якорь не прячется под верх */
 }
 
 .help .box h3 {
@@ -3634,6 +4973,7 @@ summary:focus-visible {
 /* Бейдж в легенде — обычным потоком, не в углу карточки. */
 .lg-badge {
     position: static;
+    transform: none;
     border-radius: var(--r-sm);
 }
 
@@ -3725,19 +5065,20 @@ summary:focus-visible {
     stroke-linejoin: round;
 }
 
-.filter-zone.zone-common svg { color: #1d9e75; }
-.filter-zone.zone-private svg { color: #c98a00; }
+.filter-zone.zone-common svg { color: var(--zone-common); }
+.filter-zone.zone-private svg { color: var(--zone-private); }
 
+/* Только значок фильтра — подпись убрана. Квадратная кнопка, число активных
+   фильтров — жёлтой точкой в углу. */
 .filters-btn {
+    position: relative;
     flex: none;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-family: var(--sans);
-    font-size: 14px;
-    font-weight: 500;
-    padding: 7px 14px;
-    min-height: 36px;
+    justify-content: center;
+    width: 44px;
+    padding: 0;
+    min-height: 44px;
     border: 1px solid var(--hairline);
     border-radius: var(--r-md);
     background: var(--surface-card);
@@ -3751,22 +5092,31 @@ summary:focus-visible {
 }
 
 .filters-btn .ic {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
     color: var(--mute);
 }
 
-/* Счётчик активных фильтров в шторке — единственная жёлтая точка тут уместна:
-   это цифра-акцент, не кнопка. */
+.filters-btn.on .ic {
+    color: var(--ink);
+}
+
+/* Счётчик активных фильтров — жёлтая точка в углу кнопки. */
 .fbadge {
+    position: absolute;
+    top: -6px;
+    inset-inline-end: -6px;
     background: var(--primary);
     color: var(--on-primary);
     font-size: 11px;
     font-weight: 700;
+    line-height: 16px;
     border-radius: 999px;
-    padding: 0 6px;
+    padding: 0 5px;
     min-width: 16px;
+    height: 16px;
     text-align: center;
+    box-shadow: 0 0 0 2px var(--canvas);
 }
 
 /* Активные фильтры видно и снимается, не открывая шторку. */
@@ -3882,7 +5232,11 @@ summary:focus-visible {
         border-radius: 14px 14px 0 0;
     }
 
-    .scrim {
+    /* ТОЛЬКО шторка фильтров (#fscrim), а не любой .scrim: раньше это правило
+       ловило и шторку меню (label.scrim без атрибута hidden), из-за чего на
+       телефоне полупрозрачный слой навсегда накрывал каталог и глушил нажатия.
+       :not([hidden]) — чтобы hidden-атрибут (им управляет скрипт) реально скрывал. */
+    #fscrim:not([hidden]) {
         display: block;
         position: fixed;
         inset: 0;
@@ -3903,59 +5257,9 @@ summary:focus-visible {
     margin-top: var(--s-md);
 }
 
-/* --- аватарка в правом верхнем углу ---------------------------------------
-   Имя переехало сюда из панели: кружок с инициалами, по нажатию — меню. */
-
-.usermenu {
-    position: fixed;
-    /* По центру ряда кнопок: шапка отступает сверху на --s-lg, кнопки высотой
-       44px → их центр на --s-lg + 22px; аватарка (38px) встаёт центром туда. */
-    top: calc(var(--s-lg) + 3px);
-    right: 16px;
-    z-index: 60;
-}
-
-.avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    border: 0;
-    background: var(--ink);
-    color: var(--on-ink);
-    font-family: var(--sans);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.avatar:hover {
-    background: var(--charcoal);
-}
-
-.usermenu-pop {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    min-width: 200px;
-    background: var(--surface-card);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-md);
-    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.25);
-    padding: 6px;
-}
-
-.usermenu-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink);
-    padding: 6px 10px 8px;
-    margin: 0;
-    border-bottom: 1px solid var(--hairline-soft);
-}
+/* --- меню аккаунта внизу панели -------------------------------------------
+   Кнопки пунктов (настройки/админка/выход) — общий стиль для выпадающего меню
+   аккаунта (само меню — .side-acct-menu выше). */
 
 .usermenu-item {
     display: flex;
@@ -3971,7 +5275,7 @@ summary:focus-visible {
     background: none;
     border-radius: var(--r-sm);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
 }
 
 .usermenu-item:hover {
@@ -3985,16 +5289,8 @@ summary:focus-visible {
     color: var(--mute);
 }
 
-.usermenu form {
+.side-acct-menu form {
     margin: 0;
-}
-
-@media (max-width: 768px) {
-    /* На телефоне место справа занято кнопкой «Добавить»; аккаунт — через
-       меню-бургер (Настройки внизу). Аватарку прячем, чтобы не налезала. */
-    .usermenu {
-        display: none;
-    }
 }
 
 @media (max-width: 768px) {
@@ -4015,7 +5311,6 @@ summary:focus-visible {
 
     .toolbar-right {
         flex-basis: 100%;
-        padding-right: 0;   /* аватарки нет — резервировать нечего */
         justify-content: space-between;
         flex-wrap: wrap;
         gap: var(--s-sm);
@@ -4038,6 +5333,7 @@ summary:focus-visible {
 
 .modalpage {
     min-height: 100vh;
+    min-height: 100dvh;
     margin: 0;
     background: #0e1017;
     display: flex;
@@ -4054,7 +5350,7 @@ summary:focus-visible {
 .modalhost {
     position: fixed;
     inset: 0;
-    z-index: 100;   /* выше аватарки (60) и липкой шапки (50) */
+    z-index: 100;   /* выше боковой панели и липкой шапки (50) */
     display: none;
 }
 
@@ -4101,6 +5397,7 @@ html.modal-open {
     width: 880px;
     max-width: 100%;
     max-height: calc(100vh - 80px);
+    max-height: calc(100dvh - 80px);
     display: flex;
     flex-direction: column;
     background: var(--surface-card);
@@ -4119,7 +5416,7 @@ html.modal-open {
     border-bottom: 1px solid var(--hairline);
 }
 
-.modal-head h2 {
+.modal-head h1 {
     font-size: 18px;
     font-weight: 700;
     letter-spacing: -0.2px;
@@ -4155,7 +5452,7 @@ html.modal-open {
     border-radius: 50%;
     border: 1px solid var(--hairline);
     background: var(--surface-soft);
-    color: var(--mute);
+    color: var(--charcoal);  /* было --mute (~4.2:1 на surface-soft) */
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
@@ -4170,7 +5467,7 @@ html.modal-open {
 .modal-help-tip {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    inset-inline-end: 0;
     width: 280px;
     max-width: 70vw;
     margin: 0;
@@ -4230,7 +5527,9 @@ html.modal-open {
         width: 100%;
         max-width: 100%;
         min-height: 100vh;
+        min-height: 100dvh;
         max-height: 100vh;
+        max-height: 100dvh;
         border: 0;
         border-radius: 0;
     }
@@ -4238,3 +5537,36 @@ html.modal-open {
 
 /* Помощь в модалке — по центру, читаемой шириной. */
 .modal-body .help { margin: 0 auto; }
+
+/* --- Иврит: справа налево -------------------------------------------------
+   dir="rtl" на <html> сам разворачивает текст и выравнивание. Здесь — то, что
+   он не трогает: фиксированная раскладка на физических left/right. Держим
+   вместе, чтобы вся зеркальность была в одном месте. */
+[dir="rtl"] .side {
+    left: auto;
+    right: 0;
+    border-right: 0;
+    border-left: 1px solid var(--panel-line);
+}
+
+/* Выпадающая шторка фильтров — из-под кнопки справа; в rtl слева. */
+[dir="rtl"] .sheet {
+    right: auto;
+    left: 0;
+}
+
+/* Стрелка свёрнутого раздела настроек: в ltr смотрит вправо (rotate -90),
+   в rtl — влево, «в сторону чтения». Зеркалим поворот. */
+[dir="rtl"] .box.collapsed .sec-collapse svg {
+    transform: rotate(90deg);
+}
+
+@media (max-width: 640px) {
+    /* Меню-шторка выезжает слева; в rtl — справа. Порог тот же, что у панели. */
+    [dir="rtl"] .side {
+        transform: translateX(100%);
+    }
+    [dir="rtl"] .navt:checked ~ .side {
+        transform: none;
+    }
+}

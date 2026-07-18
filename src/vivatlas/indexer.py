@@ -74,7 +74,16 @@ async def index_repository(
     content_hash = hashlib.sha256(blob).hexdigest()
 
     if artifact is None:
-        artifact = Artifact(repository_id=row.id)
+        # Владение и «общий» — по владельцу источника: у ОБЩЕГО источника (без
+        # владельца) карточки общие, у ЛИЧНОГО — личные, за владельцем. Так ни
+        # один путь создания (в т.ч. массовый index_all) не оставит карточку
+        # публичной по умолчанию. Владельца читаем ДО создания карточки:
+        # обращение к row.source — запрос, а он вызвал бы autoflush ещё пустой
+        # (name=NULL) карточки и уронил бы вставку.
+        src_owner = row.source.owner_user_id
+        artifact = Artifact(
+            repository_id=row.id, owner_user_id=src_owner, shared=src_owner is None
+        )
         session.add(artifact)
         outcome = "created"
     else:

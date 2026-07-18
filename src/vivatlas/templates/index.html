@@ -6,8 +6,14 @@
 {% endmacro %}
 
 {% block content %}
-{# Сколько фильтров спрятано за кнопкой «Фильтры» (Тип живёт наверху отдельно). #}
-{% set sheet_active = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) %}
+{# Заголовок страницы для доступности: на экране его не видно (логотип и так
+   говорит, где мы), но по нему работает переход по заголовкам в скринридере и
+   он задаёт тему документа. #}
+<h1 class="vh">{{ t('catalog.h1') }}</h1>
+{# Сколько фильтров активно — все теперь за кнопкой «Фильтры» (тип/зона/избранное
+   переехали в шторку из верхнего ряда). Бейдж на кнопке показывает это число. #}
+{% set sheet_active = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0)
+    + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) %}
 {# Липкая шапка: при листании остаётся на месте, карточки уходят под неё.
    Один ряд — поиск по центру программы, справа «Фильтры» и размер, аватар
    стоит у base.html поверх справа. Под рядом — подсказка, тип-таблетки,
@@ -21,25 +27,24 @@
         <form class="searchform" action="/" method="get" role="search">
             <div class="searchbox">
                 <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
-                       placeholder="Найдите инструмент, опишите задачу или вставьте ссылку"
-                       aria-label="Поиск инструмента или ссылка">
+                       placeholder="{{ t('index.search_placeholder') }}"
+                       aria-label="{{ t('index.search_aria') }}">
+                {# Enter отправляет форму; значок — та же кнопка отправки для тех,
+                   кто кликает. Значок внутри поля, у конца строки. #}
+                <button class="search-go" type="submit" aria-label="{{ t('index.find_btn') }}"
+                        title="{{ t('index.find_btn') }}">{{ icons.ic('search') }}</button>
                 {# Подробное описание — по наведению, чтобы не занимать место постоянно. #}
-                <p class="search-tip" role="tooltip">Ищет по смыслу, а не по совпадению букв —
-                   язык запроса не обязан совпадать с названием. Впишите название, опишите
-                   задачу словами («оформить лендинг как Airbnb») или вставьте ссылку на
-                   GitHub, сайт или рилс — разберём. Скриншот из буфера примем здесь же.</p>
+                <p class="search-tip" role="tooltip">{{ t('index.search_tip') }}</p>
             </div>
             {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
-            {# Мягкая, а не жёлтая: жёлтая на всю программу одна, и она за
-               «Добавить». Две жёлтых на экране — прямой запрет набора. #}
-            <button class="btn-secondary" type="submit">Найти</button>
         </form>
 
         <div class="toolbar-right">
             {% if not link %}
             <button class="filters-btn{% if sheet_active %} on{% endif %}" type="button"
-                    id="filters-btn" aria-expanded="false" aria-controls="sheet">
-                {{ icons.ic('filter') }}<span>Фильтры</span>{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
+                    id="filters-btn" aria-expanded="false" aria-controls="sheet"
+                    aria-label="{{ t('index.filters') }}" title="{{ t('index.filters') }}">
+                {{ icons.ic('filter') }}{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
             </button>
             {% endif %}
             {% if items %}
@@ -49,12 +54,12 @@
                ряд не пишем: оно зависит от ширины экрана и вводило бы в
                заблуждение. #}
             <div class="sizectl">
-                <span class="sizectl-ic sizectl-few" aria-hidden="true" title="крупнее — меньше в ряду">
+                <span class="sizectl-ic sizectl-few" aria-hidden="true" title="{{ t('index.size_bigger') }}">
                     <svg viewBox="0 0 16 16"><rect x="4.5" y="2.5" width="7" height="11" rx="1.3"/></svg>
                 </span>
                 <input type="range" id="cols" min="1" max="9" step="1" value="4"
-                       aria-label="Размер карточек: левее — крупнее, правее — мельче">
-                <span class="sizectl-ic sizectl-many" aria-hidden="true" title="мельче — больше в ряду">
+                       aria-label="{{ t('index.size_aria') }}">
+                <span class="sizectl-ic sizectl-many" aria-hidden="true" title="{{ t('index.size_smaller') }}">
                     <svg viewBox="0 0 16 16"><rect x="1.5" y="1.5" width="3.8" height="3.8" rx="0.8"/><rect x="6.1" y="1.5" width="3.8" height="3.8" rx="0.8"/><rect x="10.7" y="1.5" width="3.8" height="3.8" rx="0.8"/><rect x="1.5" y="6.1" width="3.8" height="3.8" rx="0.8"/><rect x="6.1" y="6.1" width="3.8" height="3.8" rx="0.8"/><rect x="10.7" y="6.1" width="3.8" height="3.8" rx="0.8"/><rect x="1.5" y="10.7" width="3.8" height="3.8" rx="0.8"/><rect x="6.1" y="10.7" width="3.8" height="3.8" rx="0.8"/><rect x="10.7" y="10.7" width="3.8" height="3.8" rx="0.8"/></svg>
                 </span>
             </div>
@@ -62,15 +67,49 @@
 
             {% if not link %}
             <div class="scrim" id="fscrim" hidden></div>
-            <aside class="sheet" id="sheet" hidden aria-label="Фильтры">
+            <aside class="sheet" id="sheet" hidden aria-label="{{ t('index.filters') }}">
                 <div class="sheet-head">
-                    <b>Фильтры</b>
-                    <button class="sheet-x" type="button" id="sheet-x" aria-label="Закрыть">×</button>
+                    <b>{{ t('index.filters') }}</b>
+                    <button class="sheet-x" type="button" id="sheet-x" aria-label="{{ t('index.close') }}">×</button>
                 </div>
                 <div class="sheet-body">
+                    {# Тип/зона/избранное — теперь здесь, а не отдельным рядом наверху. #}
+                    <p class="fgroup">{{ t('index.view_group') }}</p>
+                    <nav class="filters" aria-label="{{ t('index.view_group') }}">
+                        <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
+                           {% if not f.type and not f.fav and not f.zone %}aria-current="true"{% endif %}>{{ t('index.type_all') }} <b id="count-all">{{ counts.artifacts }}</b></a>
+                        <a class="filter filter-fav{% if f.fav %} on{% endif %}"
+                           href="/?{{ f.as_query(fav='' if f.fav else '1') | combine(q=q) | urlencode }}"
+                           {% if f.fav %}aria-current="true"{% endif %}>
+                            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/></svg>
+                            {{ t('index.favorites') }} <b>{{ fav_count }}</b>
+                        </a>
+                        <a class="filter filter-zone zone-common{% if f.zone == 'common' %} on{% endif %}"
+                           href="/?{{ f.as_query(zone='' if f.zone == 'common' else 'common') | combine(q=q) | urlencode }}"
+                           {% if f.zone == 'common' %}aria-current="true"{% endif %}>
+                            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
+                            {{ t('index.common') }} <b>{{ zone_counts.common }}</b>
+                        </a>
+                        <a class="filter filter-zone zone-private{% if f.zone == 'private' %} on{% endif %}"
+                           href="/?{{ f.as_query(zone='' if f.zone == 'private' else 'private') | combine(q=q) | urlencode }}"
+                           {% if f.zone == 'private' %}aria-current="true"{% endif %}>
+                            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
+                            {{ t('index.private') }} <b>{{ zone_counts.private }}</b>
+                        </a>
+                    </nav>
+
+                    {% if types %}
+                    <p class="fgroup">{{ icons.ic('type') }}{{ t('index.type_group') }}</p>
+                    <nav class="filters" aria-label="{{ t('index.type_group') }}">
+                        {% for t in types %}
+                        {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
+                        {% endfor %}
+                    </nav>
+                    {% endif %}
+
                     {% if periods %}
-                    <p class="fgroup">{{ icons.ic('updated') }}Обновлялись</p>
-                    <nav class="filters" aria-label="Когда обновлялись">
+                    <p class="fgroup">{{ icons.ic('updated') }}{{ t('index.updated_group') }}</p>
+                    <nav class="filters" aria-label="{{ t('index.updated_aria') }}">
                         {% for p in periods %}
                         {{ chip(p.label, p.count, f.as_query(days=p.value if f.days != p.value else "") | combine(q=q), f.days == p.value) }}
                         {% endfor %}
@@ -78,8 +117,8 @@
                     {% endif %}
 
                     {% if statuses %}
-                    <p class="fgroup">{{ icons.ic('source') }}Источник</p>
-                    <nav class="filters" aria-label="Источник">
+                    <p class="fgroup">{{ icons.ic('source') }}{{ t('index.source_group') }}</p>
+                    <nav class="filters" aria-label="{{ t('index.source_group') }}">
                         {% for st in statuses %}
                         {{ chip(st.label, st.count, f.as_query(status=st.value if f.status != st.value else "") | combine(q=q), f.status == st.value) }}
                         {% endfor %}
@@ -97,7 +136,7 @@
                 </div>
                 {% if f.active() %}
                 <div class="sheet-foot">
-                    <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">Снять все фильтры</a>
+                    <a href="/{% if q %}?q={{ q|urlencode }}{% endif %}">{{ t('index.clear_filters') }}</a>
                 </div>
                 {% endif %}
             </aside>
@@ -106,50 +145,13 @@
     </div>
 
     {% if link %}
-    <p class="hint">Это ссылка — не ищем, а разбираем.</p>
+    <p class="hint">{{ t('index.hint_link') }}</p>
     {% elif q %}
-    <p class="hint">Нашлось: {{ items|length }}.</p>
+    <p class="hint">{{ t('index.found_count', count=items|length) }}</p>
     {% endif %}
 
-    {% if not link %}
-    <nav class="type-pills" aria-label="Тип">
-        <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
-           {% if not f.type and not f.fav %}aria-current="true"{% endif %}>все <b id="count-all">{{ counts.artifacts }}</b></a>
-        {# Избранное — своя пилюля: личный отбор поверх типов. #}
-        <a class="filter filter-fav{% if f.fav %} on{% endif %}"
-           href="/?{{ f.as_query(fav='' if f.fav else '1') | combine(q=q) | urlencode }}"
-           {% if f.fav %}aria-current="true"{% endif %}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/></svg>
-            избранное <b>{{ fav_count }}</b>
-        </a>
-        {# Зона: общие (глобус, зелёный) и частные (замок, янтарный) — цветом
-           под значок карточки. #}
-        <a class="filter filter-zone zone-common{% if f.zone == 'common' %} on{% endif %}"
-           href="/?{{ f.as_query(zone='' if f.zone == 'common' else 'common') | combine(q=q) | urlencode }}"
-           {% if f.zone == 'common' %}aria-current="true"{% endif %}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
-            общие <b>{{ zone_counts.common }}</b>
-        </a>
-        <a class="filter filter-zone zone-private{% if f.zone == 'private' %} on{% endif %}"
-           href="/?{{ f.as_query(zone='' if f.zone == 'private' else 'private') | combine(q=q) | urlencode }}"
-           {% if f.zone == 'private' %}aria-current="true"{% endif %}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
-            частные <b>{{ zone_counts.private }}</b>
-        </a>
-        {% for t in types %}
-        {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
-        {% endfor %}
-    </nav>
-
-    {% if sheet_active %}
-    <div class="active-chips">
-        {% if f.days %}<a class="achip" href="/?{{ f.as_query(days='') | combine(q=q) | urlencode }}">{{ period_names.get(f.days, f.days) }} <i>×</i></a>{% endif %}
-        {% if f.status %}<a class="achip" href="/?{{ f.as_query(status='') | combine(q=q) | urlencode }}">{% for st in statuses %}{% if st.value == f.status %}{{ st.label }}{% endif %}{% endfor %} <i>×</i></a>{% endif %}
-        {% if f.tag %}<a class="achip" href="/?{{ f.as_query(tag='') | combine(q=q) | urlencode }}">{{ f.tag }} <i>×</i></a>{% endif %}
-        <a class="achip-clear" href="/{% if q %}?q={{ q|urlencode }}{% endif %}">снять все</a>
-    </div>
-    {% endif %}
-    {% endif %}
+    {# Активные фильтры больше не выносим отдельным рядом наверх — их число видно
+       бейджем на кнопке «Фильтры», а сами они отмечены галочкой в шторке. #}
 </div>
 
 {# Полоса скана: живёт, пока идёт сбор из личного источника. Заполняется и
@@ -162,12 +164,12 @@
     <div class="scanbar-row">
         <span class="scanbar-spin" aria-hidden="true"></span>
         <div class="scanbar-text">
-            <b class="scanbar-title">Собираю ваши инструменты…</b>
+            <b class="scanbar-title">{{ t('index.scan_collecting') }}</b>
             <span class="scanbar-sub"></span>
         </div>
         <div class="scanbar-actions">
-            <a class="scanbar-show" href="/" hidden>Показать</a>
-            <button class="scanbar-x" type="button" aria-label="Скрыть" hidden>×</button>
+            <a class="scanbar-show" href="/" hidden>{{ t('index.scan_show') }}</a>
+            <button class="scanbar-x" type="button" aria-label="{{ t('index.scan_hide') }}" hidden>×</button>
         </div>
     </div>
     <div class="scanbar-track"><div class="scanbar-fill"></div></div>
@@ -178,15 +180,31 @@
    Раньше это молча возвращало пустоту. Предлагаем то, зачем её и принесли. #}
 <div class="banner banner-blue">
     <div>
-        <b>Это ссылка, а не запрос.</b>
-        Искать её среди названий нечего — давайте разберём, что там, и покажем,
-        что нашлось. Ничего не создастся без вашего нажатия.
+        <b>{{ t('index.banner_link_title') }}</b>
+        {{ t('index.banner_link_body') }}
     </div>
     <form method="post" action="/add">
         <input type="hidden" name="source" value="{{ q }}">
-        <button class="btn-secondary" type="submit">Разобрать ссылку</button>
+        <button class="btn-secondary" type="submit">{{ t('index.parse_link') }}</button>
     </form>
 </div>
+{% endif %}
+
+{# «У вас пропало из избранного»: карточку удалил её владелец. Избранное —
+   ссылка, не копия, поэтому не даём ей исчезнуть молча. Закрывается — и гаснет
+   в базе. #}
+{% if removed_notices %}
+<div class="removed-banner" id="removed-banner" role="status">
+    <span class="removed-text">{{ t('index.removed_from_fav', names=removed_notices | map(attribute='name') | join(', ')) }}</span>
+    <button type="button" class="removed-dismiss" onclick="dismissRemoved()">{{ t('index.got_it') }}</button>
+</div>
+<script>
+function dismissRemoved() {
+    var b = document.getElementById('removed-banner');
+    if (b) b.remove();
+    try { fetch('/notices/dismiss', {method: 'POST', headers: {'Accept': 'application/json'}}); } catch (e) {}
+}
+</script>
 {% endif %}
 
 {% if items or scan %}
@@ -201,21 +219,18 @@
 {% elif not link %}
 <div class="empty">
     {% if active_draft %}
-    <b>Черновиков нет</b>
-    Сюда попадают карточки, которые не удалось свести к репозиторию, — чтобы
-    обработать их позже. Появятся, когда при добавлении вы нажмёте «Создать черновик».
+    <b>{{ t('index.no_drafts') }}</b>
+    {{ t('index.drafts_hint') }}
     {% else %}
-    <b>Ничего не нашлось</b>
+    <b>{{ t('index.nothing_found') }}</b>
     {% if q and f.active() %}
-    По запросу «{{ q }}» с такими фильтрами ничего нет. Попробуйте <a href="/?q={{ q|urlencode }}">снять фильтры</a>.
+    {{ t('index.empty_q_filters', q=q|e, link='<a href="/?q=' ~ q|urlencode ~ '">' ~ t('index.remove_filters_link') ~ '</a>') | safe }}
     {% elif q %}
-    По запросу «{{ q }}» подходящего инструмента нет. Это не ошибка поиска — возможно, такого у вас правда не заведено.
+    {{ t('index.empty_q', q=q) }}
     {% elif f.active() %}
-    С такими фильтрами ничего нет. <a href="/">Снять всё</a>.
+    {{ t('index.empty_filters', link='<a href="/">' ~ t('index.clear_all_link') ~ '</a>') | safe }}
     {% else %}
-    Каталог пуст. Добавьте инструмент кнопкой «Добавить» или подключите свой
-    репозиторий в <a href="/settings" data-modal>настройках</a> — его инструменты
-    появятся здесь.
+    {{ t('index.empty_catalog', link='<a href="/settings" data-modal>' ~ t('side.settings_word') ~ '</a>') | safe }}
     {% endif %}
     {% endif %}
 </div>
@@ -236,6 +251,11 @@
 
     function apply(n, remember) {
         document.documentElement.style.setProperty('--cols', n);
+        // Масштаб содержимого карточки: больше столбцов → мельче карточки не
+        // только по ширине (сетка), но и по высоте (шрифт/отступы). Так плитки
+        // уменьшаются в обе стороны, а не вытягиваются узкими и длинными.
+        var scale = Math.max(0.72, Math.min(1.3, 5 / (parseInt(n, 10) + 1)));
+        document.documentElement.style.setProperty('--card-scale', scale.toFixed(3));
         slider.value = n;
         if (remember) {
             try { localStorage.setItem('vivatlas-cols', n); } catch (e) { /* приватный режим */ }
@@ -345,16 +365,25 @@ document.addEventListener('paste', function (e) {
     });
 })();
 
-// Перетаскивание карточки в категорию-папку сайдбара. Тянем карточку, наводим
-// на «Все инструменты» — список раскрывается, бросаем на папку — карточка туда
-// ложится. Раскладывать может владелец; иначе сервер ответит отказом.
+// Перетаскивание карточки в папку сайдбара. Пока тянем — приложение слегка
+// затемняется, остальные карточки гаснут, а область папок подсвечивается
+// (свечение), чтобы было ясно, куда бросать. Бросили на папку — карточка туда
+// ложится (владелец; иначе сервер ответит отказом). После успеха перезагружаем
+// вид — карточка/счётчики встают верно без хрупкой ручной правки DOM.
 (function () {
     var dragId = null;
+    var root = document.documentElement;
 
-    // Подправить счётчик папки в сайдбаре на delta (не даём уйти ниже нуля).
-    function bumpCat(catId, delta) {
-        var el = document.querySelector('.side-drop[data-cat="' + catId + '"] b');
-        if (el) el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) + delta);
+    function unlight() {
+        var lit = document.querySelectorAll('.side-drop.drag-over');
+        for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
+    }
+    function endDrag() {
+        root.classList.remove('card-dragging');
+        var d = document.querySelector('.card.dragging');
+        if (d) d.classList.remove('dragging');
+        unlight();
+        dragId = null;
     }
 
     document.addEventListener('dragstart', function (e) {
@@ -363,86 +392,68 @@ document.addEventListener('paste', function (e) {
         dragId = card.getAttribute('data-id');
         try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); } catch (x) {}
         card.classList.add('dragging');
+        // Затемняем поле и подсвечиваем область папок (см. css .card-dragging).
+        root.classList.add('card-dragging');
     });
-    document.addEventListener('dragend', function (e) {
-        var card = e.target.closest ? e.target.closest('.card') : null;
-        if (card) card.classList.remove('dragging');
-        dragId = null;
-        var lit = document.querySelectorAll('.side-drop.drag-over');
-        for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
-    });
+    document.addEventListener('dragend', endDrag);
 
-    function unlight() {
-        var lit = document.querySelectorAll('.side-drop.drag-over');
-        for (var i = 0; i < lit.length; i++) lit[i].classList.remove('drag-over');
-    }
-
-    // Пока тащим карточку, весь список категорий принимает бросок (курсор не
-    // запрещающий), но кладём только на реальную папку.
+    // Пока тащим карточку, весь список категорий принимает бросок, но кладём
+    // только на реальную папку.
     var inCat = function (el) { return el && el.closest ? el.closest('#cat-list') : null; };
 
     document.addEventListener('dragover', function (e) {
         if (!dragId) return;
         var zone = inCat(e.target);
-        if (!zone) return;
+        if (!zone) { unlight(); return; }
         e.preventDefault();
         try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
         var drop = e.target.closest ? e.target.closest('.side-drop') : null;
         unlight();
-        if (drop) drop.classList.add('drag-over');
+        // Общие папки не-администратору бросок не принимают — не подсвечиваем.
+        if (drop && !drop.getAttribute('data-nodrop')) drop.classList.add('drag-over');
     });
+
+    // Мягкий отклик «положили в папку»: короткая анимация.
+    function flash(card) {
+        if (!card) return;
+        card.classList.remove('filed');
+        void card.offsetWidth;
+        card.classList.add('filed');
+        card.addEventListener('animationend', function once() {
+            card.classList.remove('filed');
+            card.removeEventListener('animationend', once);
+        });
+    }
+
     document.addEventListener('drop', function (e) {
-        if (!dragId) return;
-        if (!inCat(e.target)) return;
+        if (!dragId) { endDrag(); return; }
+        if (!inCat(e.target)) { endDrag(); return; }
         e.preventDefault();
         var drop = e.target.closest ? e.target.closest('.side-drop') : null;
-        unlight();
-        if (!drop) return;   // бросили не на папку (тип, заголовок) — ничего
-        var id = dragId, cat = drop.getAttribute('data-cat');
+        var id = dragId;
+        endDrag();
+        if (!drop) return;                               // бросили мимо папки
+        if (drop.getAttribute('data-nodrop')) return;    // общая папка, не админ
         var body = new FormData();
-        body.append('cat', cat);
+        body.append('cat', drop.getAttribute('data-cat'));
+        body.append('op', 'add');   // перетаскивание ДОБАВЛЯЕТ членство
         fetch('/artifact/' + id + '/category', {
             method: 'POST', headers: { 'Accept': 'application/json' }, body: body
         }).then(function (r) {
             if (!r.ok) throw new Error('отказ ' + r.status);
             return r.json();
-        }).then(function () {
-            // Открыт фильтр по категории — карточка могла уйти из выборки: проще
-            // перезагрузить. Иначе меняем значок категории на месте, без мигания.
-            if (/[?&]cat=/.test(location.search)) { location.reload(); return; }
-            var card = document.querySelector('.card[data-id="' + id + '"]');
-            var iconSrc = drop.querySelector('.cicon');
-            var nameEl = drop.querySelector('span');
-            var name = nameEl ? nameEl.textContent : '';
-            var color = drop.getAttribute('data-color') || '';
-            if (card) {
-                var foot = card.querySelector('.card-foot');
-                if (foot && color) foot.style.setProperty('--pur-color', color);
-                var mark = card.querySelector('.cat-mark');
-                if (mark) {
-                    var oldCat = mark.getAttribute('data-cat-id');
-                    mark.classList.remove('pur');
-                    mark.setAttribute('title', 'категория: ' + name);
-                    mark.setAttribute('data-cat-id', cat);
-                    mark.setAttribute('data-cat-name', name);
-                    mark.innerHTML = iconSrc ? iconSrc.outerHTML
-                        : '<svg class="cicon" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.5 1.5h5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z"/></svg>';
-                    // Счётчики папок: +1 новой, −1 прежней (если была другая).
-                    bumpCat(cat, 1);
-                    if (oldCat && oldCat !== cat) bumpCat(oldCat, -1);
-                }
-                // Мягкий отклик «положили в папку»: короткая анимация.
-                card.classList.remove('filed');
-                void card.offsetWidth;   // перезапустить анимацию, если повторно
-                card.classList.add('filed');
-                card.addEventListener('animationend', function once() {
-                    card.classList.remove('filed');
-                    card.removeEventListener('animationend', once);
-                });
+        }).then(function (data) {
+            // Уже лежала там — ничего не изменилось: только мигнём карточкой.
+            if (data && data.changed === false) {
+                flash(document.querySelector('.card[data-id="' + id + '"]'));
+                return;
             }
+            // Изменилось — перерисуем вид: карточка получит папку, счётчики сойдутся.
+            location.reload();
         }).catch(function (err) {
-            alert('Не удалось положить карточку в категорию' +
-                (('' + err).indexOf('403') > -1 ? ': это может только владелец.' : '.'));
+            alert(('' + err).indexOf('403') > -1
+                ? {{ t('err.categorize_forbidden') | tojson }}
+                : {{ t('card.file_failed') | tojson }});
         });
     });
 })();
@@ -583,7 +594,13 @@ document.addEventListener('paste', function (e) {
             method: 'POST',
             headers: { 'Accept': 'application/json' },
             body: new FormData(form)
-        }).then(function (r) { return r.json(); }).then(function (d) {
+        }).then(function (r) {
+            // Сервер отказал (напр. администратор пытается вернуть в общее чужую
+            // карточку — так нельзя): не перекрашиваем оптимистично, а
+            // перезагружаемся обычной отправкой — состояние встанет верное.
+            if (!r.ok) throw new Error('rejected');
+            return r.json();
+        }).then(function (d) {
             if (!btn) return;
             btn.classList.toggle('zone-private', !!d.private);
             btn.classList.toggle('zone-common', !d.private);

@@ -1,5 +1,5 @@
 {% import "_icons.html" as icons %}<!doctype html>
-<html lang="ru">
+<html lang="{{ lang }}" dir="{{ dir }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,17 +28,23 @@
 
     <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header class="modal-head">
-            <h2 id="modal-title">{% block modal_title %}{% endblock %}</h2>
-            {# Вместо крестика — подсказка по этому окну. Закрывают снизу, из
-               футера. Если окно подсказки не задало, справа ничего нет. #}
-            {% set help %}{% block modal_help %}{% endblock %}{% endset %}
-            {% if help.strip() %}
-            <div class="modal-help">
-                <button class="modal-help-btn" type="button" aria-label="Об этом окне"
-                        aria-expanded="false">?</button>
-                <p class="modal-help-tip" role="tooltip">{{ help }}</p>
+            {# h1, а не h2: эти окна открываются и как отдельные страницы
+               (/admin, /settings, /a/…), и как самостоятельный документ должны
+               иметь заголовок первого уровня. #}
+            <h1 id="modal-title">{% block modal_title %}{% endblock %}</h1>
+            {# Справа от заголовка: содержимое окна (напр. плашки карточки) и/или
+               подсказка по окну. Закрывают снизу, из футера. #}
+            <div class="modal-head-side">
+                {% block modal_head_extra %}{% endblock %}
+                {% set help %}{% block modal_help %}{% endblock %}{% endset %}
+                {% if help.strip() %}
+                <div class="modal-help">
+                    <button class="modal-help-btn" type="button" aria-label="{{ t('modal.help_aria') }}"
+                            aria-expanded="false">?</button>
+                    <p class="modal-help-tip" role="tooltip">{{ help }}</p>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </header>
 
         <div class="modal-body">
@@ -87,6 +93,71 @@
         }
     })();
     </script>
+
+    <script>
+    // Вкладки настроек/админки как положено: role=tab/tabpanel, aria-selected,
+    // «бегущий» tabindex и стрелки/Home/End. Один код на все модалки — работает
+    // там, где есть .settabs (ключ памяти — в data-tabkey).
+    (function () {
+        document.querySelectorAll('.settabs').forEach(function (list) {
+            var tabs = [].slice.call(list.querySelectorAll('.settab'));
+            if (!tabs.length) return;
+            var key = 'vivatlas-' + (list.getAttribute('data-tabkey') || 'tab');
+            var panels = [].slice.call(document.querySelectorAll('.setpanel'));
+            var rtl = document.documentElement.dir === 'rtl';
+
+            function panelFor(name) {
+                return document.querySelector('.setpanel[data-panel="' + name + '"]');
+            }
+            function select(name, focus) {
+                tabs.forEach(function (t) {
+                    var on = t.getAttribute('data-tab') === name;
+                    t.classList.toggle('on', on);
+                    t.setAttribute('aria-selected', on ? 'true' : 'false');
+                    t.tabIndex = on ? 0 : -1;
+                    if (on && focus) t.focus();
+                });
+                panels.forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== name; });
+                try { localStorage.setItem(key, name); } catch (e) {}
+            }
+
+            list.setAttribute('role', 'tablist');
+            tabs.forEach(function (t) {
+                var name = t.getAttribute('data-tab');
+                t.setAttribute('role', 'tab');
+                if (!t.id) t.id = key + '-tab-' + name;
+                var panel = panelFor(name);
+                if (panel) {
+                    panel.setAttribute('role', 'tabpanel');
+                    if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '0');
+                    if (!panel.id) panel.id = key + '-panel-' + name;
+                    t.setAttribute('aria-controls', panel.id);
+                    panel.setAttribute('aria-labelledby', t.id);
+                }
+                t.addEventListener('click', function () { select(name); });
+                t.addEventListener('keydown', function (e) {
+                    var idx = tabs.indexOf(t), n = tabs.length, j = null;
+                    var fwd = rtl ? 'ArrowLeft' : 'ArrowRight';
+                    var back = rtl ? 'ArrowRight' : 'ArrowLeft';
+                    if (e.key === fwd || e.key === 'ArrowDown') j = (idx + 1) % n;
+                    else if (e.key === back || e.key === 'ArrowUp') j = (idx - 1 + n) % n;
+                    else if (e.key === 'Home') j = 0;
+                    else if (e.key === 'End') j = n - 1;
+                    if (j === null) return;
+                    e.preventDefault();
+                    select(tabs[j].getAttribute('data-tab'), true);
+                });
+            });
+
+            var saved = null;
+            try { saved = localStorage.getItem(key); } catch (e) {}
+            select(saved && panelFor(saved) ? saved : tabs[0].getAttribute('data-tab'));
+        });
+    })();
+    </script>
+    <script src="/static/dropdown.js"></script>
+    <script src="/static/catmanage.js"></script>
+    <script src="/static/tooltip.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

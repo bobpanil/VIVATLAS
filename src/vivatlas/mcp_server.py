@@ -17,6 +17,7 @@ from mcp.server.fastmcp import FastMCP
 from sqlalchemy import func, select
 
 from vivatlas import changes as ch
+from vivatlas import filters as flt
 from vivatlas.ai import build_embedding_model, build_text_model
 from vivatlas.db import session_scope
 from vivatlas.models import Artifact, ArtifactTag, Repository, Tag
@@ -77,6 +78,10 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
             hits = await do_search(
                 session, query, model, mode=Mode.BOTH, limit=limit, artifact_type=type or None
             )
+            # MCP ходит без входа, значит как аноним — отдаём только общие
+            # карточки. Иначе через него утекало бы чужое личное.
+            visible = set(session.scalars(flt.visible_ids(None)))
+            hits = [h for h in hits if h.artifact_id in visible]
             return {
                 "query": query,
                 "found": len(hits),
@@ -116,6 +121,13 @@ async def recommend_artifact(task: str) -> dict:
                     "suggestions": r.suggestions,
                 }
 
+            # MCP без входа — аноним: из рекомендаций вычищаем всё, что не общее,
+            # иначе через них утекали бы имена чужих личных карточек.
+            visible = set(session.scalars(flt.visible_ids(None)))
+
+            def vis(o) -> bool:
+                return o.artifact.id in visible
+
             def opt(o) -> dict:
                 return {
                     "id": o.artifact.id,
@@ -129,11 +141,14 @@ async def recommend_artifact(task: str) -> dict:
                 "no_suitable_tool": False,
                 "confidence": round(r.confidence, 2),
                 "basis": r.basis,
-                "best": opt(r.best) if r.best else None,
-                "alternatives": [opt(a) for a in r.alternatives],
-                "rejected": [{"name": x.artifact.name, "why_not": x.why_not} for x in r.rejected],
+                "best": opt(r.best) if r.best and vis(r.best) else None,
+                "alternatives": [opt(a) for a in r.alternatives if vis(a)],
+                "rejected": [
+                    {"name": x.artifact.name, "why_not": x.why_not} for x in r.rejected if vis(x)
+                ],
                 "chain": [
-                    {"id": s.artifact.id, "name": s.artifact.name, "step": s.step} for s in r.chain
+                    {"id": s.artifact.id, "name": s.artifact.name, "step": s.step}
+                    for s in r.chain if vis(s)
                 ],
             }
     finally:
@@ -149,7 +164,9 @@ def get_artifact(artifact_id: int) -> dict:
     """
     with session_scope() as session:
         a = session.get(Artifact, artifact_id)
-        if a is None:
+        # Аноним (MCP без входа) видит только общие карточки. Чужое личное — как
+        # будто его нет: тот же ответ, что и для несуществующего номера.
+        if a is None or a.hidden or not a.shared:
             return {"error": f"карточки {artifact_id} нет"}
 
         links = session.scalars(
@@ -196,15 +213,15 @@ def list_artifacts(type: str = "", limit: int = 20) -> dict:
     """
     limit = max(1, min(limit, MAX_LIMIT))
     with session_scope() as session:
-        query = select(Artifact).order_by(Artifact.name)
+        # Только общие карточки: MCP без входа — это аноним.
+        vis = flt.visible_ids(None)
+        query = select(Artifact).where(Artifact.id.in_(vis)).order_by(Artifact.name)
+        count_q = select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
         if type:
             query = query.where(Artifact.artifact_type == type)
+            count_q = count_q.where(Artifact.artifact_type == type)
         rows = session.scalars(query.limit(limit)).all()
-        total = session.scalar(
-            select(func.count())
-            .select_from(Artifact)
-            .where(Artifact.artifact_type == type if type else True)
-        )
+        total = session.scalar(count_q)
         return {
             "total": total,
             "showing": len(rows),
@@ -230,21 +247,29 @@ def list_tags(limit: int = 30) -> dict:
 def catalog_overview() -> dict:
     """Что вообще есть в каталоге: сколько чего, из каких репозиториев."""
     with session_scope() as session:
+        # Аноним (MCP без входа) — только общие карточки во всех счётчиках.
+        vis = flt.visible_ids(None)
         by_type = session.execute(
             select(Artifact.artifact_type, func.count())
+            .where(Artifact.id.in_(vis))
             .group_by(Artifact.artifact_type)
             .order_by(func.count().desc())
         ).all()
         by_owner = session.execute(
-            select(Repository.owner, func.count())
-            .where(Repository.gone_at.is_(None))
+            select(Repository.owner, func.count(Artifact.id))
+            .join(Artifact, Artifact.repository_id == Repository.id)
+            .where(Artifact.id.in_(vis), Repository.gone_at.is_(None))
             .group_by(Repository.owner)
-            .order_by(func.count().desc())
+            .order_by(func.count(Artifact.id).desc())
         ).all()
         return {
-            "artifacts": session.scalar(select(func.count()).select_from(Artifact)),
+            "artifacts": session.scalar(
+                select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
+            ),
             "described": session.scalar(
-                select(func.count()).select_from(Artifact).where(Artifact.summary_short != "")
+                select(func.count())
+                .select_from(Artifact)
+                .where(Artifact.id.in_(vis), Artifact.summary_short != "")
             ),
             "by_type": {t: c for t, c in by_type},
             "by_owner": {o: c for o, c in by_owner},

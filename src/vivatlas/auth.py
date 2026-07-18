@@ -12,18 +12,25 @@
   - перебор запирает аккаунт на время. Считаем неудачи, а не гадаем.
 """
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Request, Response
-from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
-from sqlalchemy import select
+from itsdangerous import (
+    BadData,
+    BadSignature,
+    SignatureExpired,
+    TimestampSigner,
+    URLSafeTimedSerializer,
+)
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from vivatlas import security
 from vivatlas.config import settings
-from vivatlas.models import User, UserSession
+from vivatlas.models import Invite, User, UserSession
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +91,7 @@ def check_login(session: Session, email: str, password: str) -> LoginResult:
     locked = _aware(user.locked_until) if user else None
     if locked and locked > _now():
         left = int((locked - _now()).total_seconds() // 60) + 1
-        return LoginResult(ok=False, locked_minutes=left, error="Слишком много попыток.")
+        return LoginResult(ok=False, locked_minutes=left, error="auth.err.locked")
 
     # Пароль сверяем всегда — и для несуществующей почты тоже, по заглушке.
     stored = user.password_hash if user else _DUMMY_HASH
@@ -98,7 +105,7 @@ def check_login(session: Session, email: str, password: str) -> LoginResult:
                 user.failed_logins = 0
         # Один и тот же ответ на «нет почты» и «неверный пароль»: не подсказываем
         # перебору, что почта угадана.
-        return LoginResult(ok=False, error="Неверная почта или пароль.")
+        return LoginResult(ok=False, error="auth.err.bad_credentials")
 
     # Пароль верный — счётчик неудач обнуляем.
     user.failed_logins = 0
@@ -229,6 +236,110 @@ def read_totp_ticket(request: Request) -> int | None:
 
 def clear_totp_ticket(response: Response) -> None:
     response.delete_cookie(TOTP_TICKET_COOKIE, path="/")
+
+
+# --- ссылка на сброс пароля ------------------------------------------------
+#
+# Ссылка подписана главным ключом, живёт час и не хранится в базе: подделать
+# нельзя, а лишней таблицы под одноразовые токены не заводим. «Одноразовость»
+# держится на отпечатке пароля: в токен зашит отпечаток текущего хеша, и как
+# только пароль сменили (в том числе по этой же ссылке), отпечаток перестаёт
+# совпадать — старая ссылка мертва. Так одна ссылка меняет пароль ровно раз.
+
+RESET_MAX_AGE = 3600  # секунд: час на то, чтобы дойти до почты и сменить пароль
+
+
+def _reset_serializer() -> URLSafeTimedSerializer:
+    if not settings.secret_key:
+        raise security.SecretMissing("Не задан SECRET_KEY — ссылку сброса не подписать.")
+    return URLSafeTimedSerializer(settings.secret_key, salt="skill-atlas/password-reset")
+
+
+def _pw_fingerprint(password_hash: str) -> str:
+    """Короткий отпечаток пароля. Не сам хеш — его в ссылку класть незачем;
+    достаточно того, что меняется вместе с паролем и делает ссылку мёртвой."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+def make_reset_token(user: User) -> str:
+    """Подписанный токен для ссылки сброса. Зовётся, когда человек попросил."""
+    return _reset_serializer().dumps({"uid": user.id, "fp": _pw_fingerprint(user.password_hash)})
+
+
+def read_reset_token(session: Session, token: str, max_age: int = RESET_MAX_AGE) -> User | None:
+    """Кому принадлежит ссылка. None — подделка, протухла или уже сработала.
+
+    Проверяем всё: подпись, срок, что человек есть и активен, и что пароль с
+    момента выдачи не менялся (отпечаток). Любая осечка — None, без подсказок.
+    """
+    if not token:
+        return None
+    try:
+        data = _reset_serializer().loads(token, max_age=max_age)
+    except BadData:  # подпись, срок или мусор — BadData покрывает всё это
+        return None
+    if not isinstance(data, dict):
+        return None
+    uid = data.get("uid")
+    fp = data.get("fp")
+    if not isinstance(uid, int) or not isinstance(fp, str):
+        return None
+    user = session.get(User, uid)
+    if user is None or not user.is_active:
+        return None
+    if not security.same_secret(fp, _pw_fingerprint(user.password_hash)):
+        return None
+    return user
+
+
+# --- приглашения ------------------------------------------------------------
+#
+# Хозяин зовёт человека ссылкой /join?code=… В базе лежит ХЕШ кода, не сам код
+# (украдут базу — не получат рабочих ссылок), как и у сессий. Ссылка живёт две
+# недели и одноразовая: как приняли, помечаем used_at. Приглашение может быть
+# привязано к почте (тогда на /join почта уже задана) или открытым (email="").
+
+INVITE_DAYS = 14
+
+
+def make_invite(session: Session, email: str, created_by: int) -> str:
+    """Завести приглашение и вернуть СЫРОЙ код для ссылки. В базу кладём хеш."""
+    raw = security.new_token()
+    session.add(
+        Invite(
+            code_hash=security.token_hash(raw),
+            email=(email or "").strip().lower(),
+            created_by=created_by,
+            expires_at=_now() + timedelta(days=INVITE_DAYS),
+        )
+    )
+    return raw
+
+
+def read_invite(session: Session, code: str) -> Invite | None:
+    """Живое ли приглашение по коду из ссылки. None — подделка, протухло или
+    уже принято."""
+    if not code:
+        return None
+    row = session.scalar(select(Invite).where(Invite.code_hash == security.token_hash(code)))
+    if row is None or row.used_at is not None or _aware(row.expires_at) <= _now():
+        return None
+    return row
+
+
+def consume_invite(session: Session, inv: Invite, user: User) -> bool:
+    """Пометить приглашение принятым АТОМАРНО — одноразовость под гонкой.
+
+    Условный UPDATE срабатывает, только пока used_at ещё пусто; rowcount==0 —
+    значит его успели принять параллельным запросом (для ОТКРЫТОГО приглашения,
+    где у каждого своя почта, уникальность users.email второй аккаунт не поймала
+    бы). Тогда заводить аккаунт нельзя — вызывающий откатывает транзакцию."""
+    res = session.execute(
+        update(Invite)
+        .where(Invite.id == inv.id, Invite.used_at.is_(None))
+        .values(used_at=_now(), used_by=user.id)
+    )
+    return res.rowcount == 1
 
 
 def _client_ip(request: Request) -> str:

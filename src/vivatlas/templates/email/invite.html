@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block subject %}{{ t('email.invite.subject') }}{% endblock %}
+{% block preheader %}{{ t('email.invite.preheader', days=days) }}{% endblock %}
+
+{% block content %}
+<h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; color:#14161c;">
+    {{ t('email.invite.h1') }}
+</h1>
+<p style="margin:0 0 16px; font-size:15px; line-height:1.6; color:#33363d;">
+    {{ t('email.invite.intro', days=days) }}
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+    <tr><td style="border-radius:10px; background:#04060d;">
+        <a href="{{ link }}" style="display:inline-block; padding:13px 26px;
+           color:#ffffff; font-size:15px; font-weight:600; text-decoration:none;">
+            {{ t('email.invite.button') }}
+        </a>
+    </td></tr>
+</table>
+
+<p style="margin:0 0 8px; font-size:13px; line-height:1.6; color:#8a8d94;">
+    {{ t('email.invite.manual') }}
+</p>
+<p style="margin:0 0 16px; font-size:13px; line-height:1.6; word-break:break-all;">
+    <a href="{{ link }}" style="color:#2b6ccb;">{{ link }}</a>
+</p>
+
+<p style="margin:0; font-size:14px; line-height:1.6; color:#33363d;">
+    {{ t('email.invite.ignore') }}
+</p>
+{% endblock %}
+
+{% block footer_note %}{{ t('email.invite.footer_note') }}{% endblock %}

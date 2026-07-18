@@ -1,8 +1,9 @@
 {% extends "modal_base.html" %}
+{% import "_catmanage.html" as cm with context %}
 
-{% block title %}Настройки — VivAtlas{% endblock %}
-{% block modal_title %}{% if step == 'qr' %}Привяжите приложение{% elif step == 'codes' %}{% if fresh %}Проверка включена{% else %}Новые коды восстановления{% endif %}{% else %}Настройки{% endif %}{% endblock %}
-{% block modal_help %}Двухэтапная проверка: при входе спросим код из приложения. Коды восстановления — на случай потери телефона.{% endblock %}
+{% block title %}{{ t('nav.settings') }} — VivAtlas{% endblock %}
+{% block modal_title %}{% if step == 'qr' %}{{ t('settings.link_app_title') }}{% elif step == 'codes' %}{% if fresh %}{{ t('settings.twofa_enabled_title') }}{% else %}{{ t('settings.new_backup_codes') }}{% endif %}{% else %}{{ t('nav.settings') }}{% endif %}{% endblock %}
+{% block modal_help %}{{ t('settings.modal_help') }}{% endblock %}
 {# Настройки не закрываются по клику вне окна — только «Выйти»/«Сохранить». #}
 {% block body_class %}lock-scrim{% endblock %}
 
@@ -10,119 +11,170 @@
 {% macro sechead(title, tip) %}
 <div class="sec-head">
     <h3>{{ title }}</h3>
-    <span class="sec-info" tabindex="0" role="button" aria-label="Пояснение к разделу"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="4.9" r="0.95" fill="currentColor" stroke="none"/><path d="M8 7.4v4"/></svg><span class="sec-tip">{{ tip }}</span></span>
-    {# Стрелка сворачивания раздела: чтобы стартовое окно помещалось без прокрутки,
-       ненужное можно свернуть. Выбор запоминается на устройстве. #}
-    <button type="button" class="sec-collapse" data-key="{{ title }}" aria-expanded="true"
-            aria-label="Свернуть раздел «{{ title }}»" title="Свернуть раздел">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
-    </button>
+    {% if tip %}<span class="sec-info" tabindex="0" aria-label="{{ t('settings.section_info_aria') }}"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="4.9" r="0.95" fill="currentColor" stroke="none"/><path d="M8 7.4v4"/></svg><span class="sec-tip">{{ tip }}</span></span>{% endif %}
 </div>
 {% endmacro %}
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
 {% if step == 'security' %}
-<div class="box">
-    {{ sechead("Двухэтапная проверка", "Второй ключ при входе: код из приложения плюс коды восстановления на случай потери телефона. Код меняется каждые полминуты — подсмотренный устареет прежде, чем пригодится.") }}
+<nav class="settabs" role="tablist" data-tabkey="settab" aria-label="{{ t('nav.settings') }}">
+    <button class="settab on" type="button" data-tab="account">{{ t('settings.tab_account') }}</button>
+    <button class="settab" type="button" data-tab="appearance">{{ t('settings.tab_appearance') }}</button>
+    <button class="settab" type="button" data-tab="folders">{{ t('settings.tab_folders') }}</button>
+    <button class="settab" type="button" data-tab="repos">{{ t('settings.tab_repos') }}</button>
+    <button class="settab" type="button" data-tab="security">{{ t('settings.tab_security') }}</button>
+</nav>
+
+<section class="setpanel" data-panel="account">
+    {% if account_error %}<p class="warn">{{ account_error }}</p>{% endif %}
+    {% if account_msg %}<p class="set-on">{{ account_msg }}</p>{% endif %}
+
+    <div class="box wide">
+        {{ sechead(t('account.photo_title'), t('account.photo_hint')) }}
+        <div class="avatar-edit">
+            <span class="avatar-preview">
+                {% if has_avatar or avatar_preset %}<img src="/avatar/{{ me.id }}?v={{ range(1000000) | random }}" alt="">{% else %}<span class="avatar-initial">{{ (me.display_name or me.email)[:1] | upper }}</span>{% endif %}
+            </span>
+            <form method="post" action="/settings/account/photo" enctype="multipart/form-data" class="avatar-form">
+                <input type="file" name="photo" id="photofile" class="vh" required
+                       accept="image/png,image/jpeg,image/gif,image/bmp,image/svg+xml,.png,.jpg,.jpeg,.gif,.bmp,.svg">
+                <label for="photofile" class="btn-secondary">{{ t('account.photo_upload') }}</label>
+                {% if has_avatar %}
+                <button type="submit" class="btn-secondary" formaction="/settings/account/photo/delete" formnovalidate>{{ t('account.photo_remove') }}</button>
+                {% endif %}
+            </form>
+        </div>
+
+        {# Готовый набор аватаров. Выбор удаляет своё фото (иначе фото перекрыло бы
+           выбор — см. set_avatar_preset). Активный отмечен, если фото не загружено. #}
+        {% if avatar_presets %}
+        <div class="avatar-presets">
+            <p class="legend">{{ t('account.avatar_pick') }}</p>
+            <div class="avatar-grid">
+                {% for key in avatar_presets %}
+                {% set active = not has_avatar and avatar_preset == key %}
+                <form method="post" action="/settings/account/avatar-preset" class="avatar-opt-form">
+                    <input type="hidden" name="preset" value="{{ key }}">
+                    <button type="submit" class="avatar-opt{% if active %} on{% endif %}"
+                            aria-label="{{ t('account.avatar_choose') }}"{% if active %} aria-current="true"{% endif %}>
+                        <img src="/static/usericons/{{ key }}.webp" alt="" loading="lazy" width="60" height="60">
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="box">
+        {{ sechead(t('account.email_title'), t('account.email_hint')) }}
+        <form method="post" action="/settings/account/email">
+            <label class="fld"><span>{{ t('account.new_email') }}</span>
+                <input type="email" name="email" value="{{ me.email }}" autocomplete="email" required></label>
+            <label class="fld"><span>{{ t('account.current_password') }}</span>
+                <input type="password" name="password" autocomplete="current-password" required></label>
+            <button class="btn-secondary" type="submit">{{ t('account.change_email_btn') }}</button>
+        </form>
+    </div>
+
+    <div class="box">
+        {{ sechead(t('account.password_title'), '') }}
+        <form method="post" action="/settings/account/password">
+            <label class="fld"><span>{{ t('account.current_password') }}</span>
+                <input type="password" name="current" autocomplete="current-password" required></label>
+            <label class="fld"><span>{{ t('account.new_password') }}</span>
+                <input type="password" name="new" autocomplete="new-password" required></label>
+            <label class="fld"><span>{{ t('account.confirm_password') }}</span>
+                <input type="password" name="confirm" autocomplete="new-password" required></label>
+            <button class="btn-secondary" type="submit">{{ t('account.change_password_btn') }}</button>
+        </form>
+    </div>
+
+    <div class="box">
+        {{ sechead(t('account.danger_title'), t('account.danger_hint')) }}
+        <form method="post" action="/settings/account/delete" data-confirm="{{ t('account.delete_confirm') }}">
+            <label class="fld"><span>{{ t('account.current_password') }}</span>
+                <input type="password" name="password" autocomplete="current-password" required></label>
+            <button class="btn-secondary btn-danger" type="submit">{{ t('account.delete_btn') }}</button>
+        </form>
+    </div>
+</section>
+
+<section class="setpanel" data-panel="security" hidden>
+<div class="box wide">
+    {{ sechead(t('settings.twofa_title'), t('settings.twofa_tip')) }}
     {% if totp_on %}
-    <p class="set-on">Включена. При входе спросим код из приложения.</p>
-    <p class="legend">Кодов восстановления: {{ backup_left }} из 10.</p>
+    <p class="set-on">{{ t('settings.twofa_on') }}</p>
+    <p class="legend">{{ t('settings.backup_left', n=backup_left) }}</p>
 
     <form method="post" action="/settings/2fa/backup" class="set-row">
-        <input type="text" name="code" inputmode="numeric" placeholder="код из приложения"
-               aria-label="Код из приложения" required>
-        <button class="btn-secondary" type="submit">Новые коды восстановления</button>
+        <input type="text" name="code" inputmode="numeric" placeholder="{{ t('settings.code_app_placeholder') }}"
+               aria-label="{{ t('auth.totp.code_app') }}" required>
+        <button class="btn-secondary" type="submit">{{ t('settings.new_backup_codes') }}</button>
     </form>
 
     <form method="post" action="/settings/2fa/disable" class="set-row">
-        <input type="password" name="password" placeholder="ваш пароль"
-               aria-label="Пароль" autocomplete="current-password" required>
-        <button class="btn-secondary" type="submit">Выключить проверку</button>
+        <input type="password" name="password" placeholder="{{ t('settings.your_password_placeholder') }}"
+               aria-label="{{ t('auth.password') }}" autocomplete="current-password" required>
+        <button class="btn-secondary" type="submit">{{ t('settings.twofa_disable') }}</button>
     </form>
     {% else %}
     <form method="post" action="/settings/2fa/start" id="enableform" class="set-row">
-        <button class="btn-secondary" type="submit">Включить проверку</button>
+        <button class="btn-secondary" type="submit">{{ t('settings.twofa_enable') }}</button>
     </form>
     {% endif %}
 </div>
+</section>
 
-<div class="box">
-    {{ sechead("Категории", "Папки каталога — с иконкой, именем и порядком. В сайдбаре под «Каталогом». Порядок меняется перетаскиванием за ручку слева; карточки в папки кладут перетаскиванием в каталоге.") }}
-
-    {% if categories %}
-    <ul class="cat-manage" id="cat-manage">
-        {% for c in categories %}
-        <li class="catrow" data-id="{{ c.value }}">
-            <span class="catrow-grip" draggable="true" title="Перетащить" aria-label="Перетащить для порядка">⠿</span>
-            <form method="post" action="/settings/categories/{{ c.value }}/update" class="catrow-form">
-                <button type="button" class="cat-pick" data-target="ic{{ c.value }}"
-                        aria-label="Выбрать иконку">{{ caticon(c.icon) if c.icon else '' }}{% if not c.icon %}<span class="cat-pick-empty">+</span>{% endif %}</button>
-                <input type="hidden" name="icon" id="ic{{ c.value }}" value="{{ c.icon }}">
-                <input type="text" name="name" value="{{ c.label }}" maxlength="128"
-                       aria-label="Название категории">
-                <span class="catrow-count" title="карточек в папке">{{ c.count }}</span>
-                <button type="submit" class="catrow-btn" title="Сохранить имя">✓</button>
-                <button type="submit" class="catrow-btn catrow-del"
-                        formaction="/settings/categories/{{ c.value }}/delete" title="Удалить">✕</button>
-            </form>
-            <div class="icon-grid" id="grid-ic{{ c.value }}" hidden>
-                {% for slug in cat_icons %}
-                <button type="button" class="icon-opt" data-target="ic{{ c.value }}" data-slug="{{ slug }}"
-                        aria-label="{{ slug }}">{{ caticon(slug) }}</button>
-                {% endfor %}
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
-    <form method="post" action="/settings/categories/reorder" id="reorder-form" hidden>
-        <input type="hidden" name="order" id="reorder-order">
-    </form>
-    {% endif %}
-
-    <form method="post" action="/settings/categories" class="catrow-add">
-        <button type="button" class="cat-pick" data-target="icnew" aria-label="Иконка"><span class="cat-pick-empty">+</span></button>
-        <input type="hidden" name="icon" id="icnew" value="">
-        <input type="text" name="name" placeholder="Новая категория"
-               aria-label="Название категории" maxlength="128" required>
-        <button class="btn-secondary" type="submit">Завести</button>
-        <div class="icon-grid" id="grid-icnew" hidden>
-            {% for slug in cat_icons %}
-            <button type="button" class="icon-opt" data-target="icnew" data-slug="{{ slug }}"
-                    aria-label="{{ slug }}">{{ caticon(slug) }}</button>
-            {% endfor %}
-        </div>
-    </form>
+<section class="setpanel" data-panel="folders" hidden>
+{# Личные папки — у каждого свои. Общими папками управляет администратор из
+   админ-панели («Папки»), здесь их нет. #}
+<div class="box wide">
+    {{ sechead(t('settings.my_categories_title'), t('settings.my_categories_tip')) }}
+    {{ cm.cat_manage(categories | selectattr('owned') | list, 'private', 'catmine', t('settings.new_category_placeholder'), '/settings') }}
 </div>
+</section>
 
-<div class="box">
-    {{ sechead("Свои репозитории", "Подключите Gitea с токеном — дайте корневую ссылку на сервер, и «Сканировать» соберёт всё, что видит токен: по всем пользователям и организациям, открытое и приватное. Инструменты лягут в вашу частную зону (замок), видную только вам. Токенов сколько угодно. Токен вводите вы; храним зашифрованным, показываем замаскированным.") }}
+<section class="setpanel" data-panel="repos" hidden>
+<div class="box wide">
+    {{ sechead(t('settings.sources_title'), t('settings.sources_tip')) }}
 
     {% if my_sources %}
     <ul class="src-manage">
         {% for s in my_sources %}
-        {# Каждый источник — правится на месте: хостинг, название, адрес, токен.
-           Токен пустой — прежний остаётся; вписали новый — заменится. #}
+        {# После настройки — свёрнутая строка: имя + полный адрес + «Изменить» /
+           «Удалить». «Изменить» разворачивает форму правки под строкой. #}
         <li class="src-row">
-            <form method="post" action="/settings/sources/{{ s.id }}/update" class="src-edit">
+            <div class="src-summary">
+                <div class="src-summary-text">
+                    <span class="src-summary-name">{{ s.display_name or s.kind }}</span>
+                    <span class="src-summary-addr">{{ s.base_url }}</span>
+                </div>
+                <button type="button" class="btn-secondary src-edit-btn" aria-expanded="false">{{ t('settings.edit') }}</button>
+                <form method="post" action="/settings/sources/{{ s.id }}/delete"
+                      data-confirm="{{ t('settings.source_delete_confirm', name=s.display_name or s.base_url) }}">
+                    <button type="submit" class="btn-secondary btn-danger">{{ t('settings.delete') }}</button>
+                </form>
+            </div>
+            {# Токен пустой — прежний остаётся; вписали новый — заменится. #}
+            <form method="post" action="/settings/sources/{{ s.id }}/update" class="src-edit" hidden>
                 <div class="src-edit-top">
-                    <select name="kind" aria-label="Хостинг">
+                    <select name="kind" aria-label="{{ t('settings.hosting_aria') }}">
                         {% for value, label in source_kinds %}
                         <option value="{{ value }}"{% if value == s.kind_raw %} selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     <input type="text" name="display_name" value="{{ s.display_name }}"
-                           placeholder="Название (для себя)" aria-label="Название" maxlength="128">
+                           placeholder="{{ t('settings.display_name_placeholder') }}" aria-label="{{ t('settings.name_aria') }}" maxlength="128">
                     <button type="submit" class="cta src-scan"
                             formaction="/settings/sources/{{ s.id }}/scan"
-                            title="Обойти репозитории и собрать карточки (может идти долго)">Сканировать</button>
-                    <button type="submit" class="btn-secondary" title="Сохранить">Сохранить</button>
-                    <button type="submit" class="btn-secondary src-del"
-                            formaction="/settings/sources/{{ s.id }}/delete" title="Удалить">Удалить</button>
+                            title="{{ t('settings.scan_title') }}">{{ t('settings.scan') }}</button>
+                    <button type="submit" class="btn-secondary" title="{{ t('settings.save') }}">{{ t('settings.save') }}</button>
                 </div>
-                <input type="url" name="base_url" value="{{ s.base_url }}" required aria-label="Адрес">
+                <input type="url" name="base_url" value="{{ s.base_url }}" required aria-label="{{ t('settings.address_aria') }}">
                 <input type="password" name="token" autocomplete="off" spellcheck="false"
-                       aria-label="Токен доступа"
-                       placeholder="{% if s.has_token %}Токен: {{ s.token_mask }} — впишите новый, чтобы заменить{% else %}Токен доступа (вводите сами){% endif %}">
+                       aria-label="{{ t('settings.token_aria') }}"
+                       placeholder="{% if s.has_token %}{{ t('settings.token_replace_placeholder', mask=s.token_mask) }}{% else %}{{ t('settings.token_placeholder') }}{% endif %}">
             </form>
         </li>
         {% endfor %}
@@ -130,47 +182,50 @@
     {% endif %}
 
     <form method="post" action="/settings/sources" class="src-add">
-        <p class="src-add-title">Подключить новый</p>
+        <p class="src-add-title">{{ t('settings.connect_new') }}</p>
         <div class="src-add-row">
-            <select name="kind" aria-label="Хостинг">
+            <select name="kind" aria-label="{{ t('settings.hosting_aria') }}">
                 {% for value, label in source_kinds %}
                 <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}
             </select>
-            <input type="text" name="display_name" placeholder="Название (для себя)"
-                   aria-label="Название источника" maxlength="128">
+            <input type="text" name="display_name" placeholder="{{ t('settings.display_name_placeholder') }}"
+                   aria-label="{{ t('settings.source_name_aria') }}" maxlength="128">
         </div>
-        <input type="url" name="base_url" placeholder="Адрес, напр. https://git.example.com"
-               aria-label="Адрес источника" required>
-        <input type="password" name="token" placeholder="Токен доступа (вводите сами)"
-               aria-label="Токен доступа" autocomplete="off" spellcheck="false">
-        <p class="note">Для Gitea хватает корневой ссылки на сервер — «Сканировать»
-           соберёт всё, что видит токен: по всем пользователям и организациям,
-           и открытое, и приватное.</p>
-        <button class="btn-secondary" type="submit">Подключить</button>
+        <input type="url" name="base_url" placeholder="{{ t('settings.address_placeholder') }}"
+               aria-label="{{ t('settings.source_address_aria') }}" required>
+        <input type="password" name="token" placeholder="{{ t('settings.token_placeholder') }}"
+               aria-label="{{ t('settings.token_aria') }}" autocomplete="off" spellcheck="false">
+        <p class="note">{{ t('settings.gitea_note') }}</p>
+        <button class="btn-secondary" type="submit">{{ t('settings.connect') }}</button>
     </form>
 </div>
+</section>
 
+<section class="setpanel" data-panel="appearance" hidden>
 {# Тема — личная настройка устройства, как размер карточек. Хранится в
    localStorage, применяется до отрисовки (без вспышки). #}
 <div class="box">
-    {{ sechead("Тема оформления", "Настройка этого устройства. «Как в системе» следует за телефоном или компьютером. OLED — чистый чёрный для амолед-экранов.") }}
-    <nav class="theme-pills" aria-label="Тема оформления">
-        <button type="button" class="filter theme-opt" data-theme-val="light">Светлая</button>
-        <button type="button" class="filter theme-opt" data-theme-val="dark">Тёмная</button>
-        <button type="button" class="filter theme-opt" data-theme-val="oled">OLED</button>
-        <button type="button" class="filter theme-opt" data-theme-val="auto">Как в системе</button>
+    {{ sechead(t('theme.menu_aria'), t('settings.theme_tip')) }}
+    <nav class="theme-pills" aria-label="{{ t('theme.menu_aria') }}">
+        <button type="button" class="filter theme-opt" data-theme-val="light">{{ t('theme.light') }}</button>
+        <button type="button" class="filter theme-opt" data-theme-val="dark">{{ t('theme.dark') }}</button>
+        <button type="button" class="filter theme-opt" data-theme-val="oled">{{ t('theme.oled') }}</button>
+        <button type="button" class="filter theme-opt" data-theme-val="auto">{{ t('theme.system') }}</button>
     </nav>
 </div>
 
 <div class="box">
-    {{ sechead("Язык интерфейса", "Программа рассчитана на тех, кто читает по-английски. Интерфейс переводим на три языка — переключение появится, когда перевод будет готов.") }}
-    <nav class="filters" aria-label="Язык интерфейса">
-        <span class="filter" aria-current="true">Русский</span>
-        <span class="filter">English</span>
-        <span class="filter" dir="rtl">עברית</span>
-    </nav>
+    {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
+    {# Язык — на сервере (кука). Выпадающим списком: под 20 языков строки не
+       растянут страницу. Смена уводит на /lang/… (обработчик ниже). #}
+    <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
+        {% for code, meta in langs.items() %}
+        <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
+        {% endfor %}
+    </select>
 </div>
+</section>
 {% endif %}
 
 {# Диалог подтверждения — маленькая модалка в том же стиле: шапка с вопросом,
@@ -180,32 +235,29 @@
     <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
         <header class="confirm-head"><h2 id="confirm-text"></h2></header>
         <footer class="confirm-foot">
-            <button type="button" class="btn-secondary" id="confirm-cancel">Нет</button>
+            <button type="button" class="btn-secondary" id="confirm-cancel">{{ t('settings.confirm_no') }}</button>
             <button type="button" class="cta" id="confirm-ok"></button>
         </footer>
     </div>
 </div>
 
 {% if step == 'qr' %}
-<p class="legend">Откройте Google Authenticator, Aegis или другое подобное и наведите на QR.
-   Нет сканера — впишите ключ руками.</p>
+<p class="legend">{{ t('settings.qr_lede') }}</p>
 
 <div class="qr">{{ qr }}</div>
 
-<p class="set-secret">Ключ вручную: <code>{{ secret }}</code></p>
+<p class="set-secret">{{ t('settings.secret_manual') }} <code>{{ secret }}</code></p>
 
 <form method="post" action="/settings/2fa/confirm" id="qrform" class="set-confirm">
-    <label class="fld"><span>Код из приложения — чтобы проверить связь</span>
+    <label class="fld"><span>{{ t('settings.confirm_code_label') }}</span>
         <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
                placeholder="000000" autofocus required></label>
 </form>
 {% endif %}
 
 {% if step == 'codes' %}
-<p class="warn">Эти коды показываются один раз. Сохраните их сейчас — потом подсмотреть будет
-   негде, в базе лежат только их отпечатки.</p>
-<p class="legend">Каждый код входит вместо телефона ровно один раз. Держите там, где не
-   держите пароль: в менеджере паролей или на бумаге.</p>
+<p class="warn">{{ t('settings.codes_warn') }}</p>
+<p class="legend">{{ t('settings.codes_legend') }}</p>
 
 <ul class="codes-list">
     {% for c in codes %}<li>{{ c }}</li>{% endfor %}
@@ -216,22 +268,48 @@
 {% block modal_foot %}
 <footer class="modal-foot">
     {% if step == 'qr' %}
-    <a class="btn-secondary foot-left" href="/settings">← отмена</a>
-    <button class="cta" type="submit" form="qrform">Подтвердить и включить</button>
+    <a class="btn-secondary foot-left" href="/settings">{{ t('settings.cancel_arrow') }}</a>
+    <button class="cta" type="submit" form="qrform">{{ t('settings.confirm_enable') }}</button>
     {% elif step == 'codes' %}
-    <a class="cta" href="/settings">Я сохранил, дальше</a>
+    <a class="cta" href="/settings">{{ t('settings.saved_next') }}</a>
     {% else %}
     {# Разделы сохраняются каждый своей кнопкой (иконка, «Завести», «Подключить»,
        ✓). Внизу — общее подтверждение через диалог (см. скрипт). Без скрипта
        ссылки просто закрывают окно. #}
-    <a class="btn-secondary foot-left" href="/" id="settings-exit" data-confirm>Закрыть</a>
-    <a class="cta" href="/" id="settings-save" data-confirm>Сохранить</a>
+    <a class="btn-secondary foot-left" href="/" id="settings-exit" data-confirm>{{ t('settings.close') }}</a>
+    <a class="cta" href="/" id="settings-save" data-confirm>{{ t('settings.save') }}</a>
     {% endif %}
 </footer>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// (Вкладки — общий код в modal_base.html: роли, aria, стрелки/Home/End.)
+
+// Язык — выпадающим списком: смена уводит на серверный /lang/... .
+(function () {
+    var sel = document.querySelector('.lang-select[data-lang-nav]');
+    if (sel) sel.addEventListener('change', function () { if (sel.value) location.href = sel.value; });
+})();
+
+// Подтверждение опасных действий (удаление аккаунта/источника) — текст из
+// data-confirm, приходит уже раскодированным, исполнения нет.
+document.addEventListener('submit', function (e) {
+    var msg = e.target && e.target.getAttribute ? e.target.getAttribute('data-confirm') : null;
+    if (msg && !confirm(msg)) e.preventDefault();
+});
+
+// «Изменить» у источника — разворачивает форму правки под свёрнутой строкой.
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.src-edit-btn') : null;
+    if (!btn) return;
+    var form = btn.closest('.src-row').querySelector('.src-edit');
+    if (!form) return;
+    var open = form.hidden;
+    form.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+
 // Кнопка «Сканировать» — мгновенная реакция на клик: пока идёт переход на
 // главную (там появится полоса прогресса), сама кнопка крутит спиннер и пишет
 // «Сканирую…». Форму не блокируем — она отправляется как обычно.
@@ -239,37 +317,11 @@ document.addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('.src-scan') : null;
     if (!btn || btn.classList.contains('scanning')) return;
     btn.classList.add('scanning');
-    btn.textContent = 'Сканирую…';
+    btn.textContent = {{ t('settings.js_scanning') | tojson }};
 });
 
-// Сворачивание разделов настроек стрелкой. Стартовое окно можно свести к
-// нужному без прокрутки; выбор запоминается на устройстве.
-(function () {
-    var KEY = 'vivatlas-settings-collapsed';
-    var closed = {};
-    try { closed = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
-
-    function apply(btn) {
-        var box = btn.closest ? btn.closest('.box') : null;
-        if (!box) return;
-        var on = !!closed[btn.getAttribute('data-key')];
-        box.classList.toggle('collapsed', on);
-        btn.setAttribute('aria-expanded', on ? 'false' : 'true');
-        btn.setAttribute('title', on ? 'Развернуть раздел' : 'Свернуть раздел');
-    }
-
-    var btns = document.querySelectorAll('.sec-collapse');
-    btns.forEach(apply);
-
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('.sec-collapse') : null;
-        if (!btn) return;
-        var key = btn.getAttribute('data-key');
-        closed[key] = !closed[key];
-        try { localStorage.setItem(KEY, JSON.stringify(closed)); } catch (x) {}
-        apply(btn);
-    });
-})();
+// (Сворачивание разделов убрано: вкладки уже дают по одному разделу за раз, а
+// свёрнутый раздел делал вкладку пустой.)
 
 // Переключение темы. Сохраняем выбор на устройстве и применяем сразу. Каталог
 // за модалкой подхватит смену через событие storage (см. base.html).
@@ -303,79 +355,8 @@ document.addEventListener('click', function (e) {
     });
 })();
 
-// Выбор иконки категории. Кнопка-иконка открывает сетку; клик по значку
-// проставляет его в скрытое поле и на кнопку. У существующей категории тут же
-// сохраняем (форма update), у новой — просто ставим до нажатия «Завести».
-(function () {
-    function closeAll(except) {
-        document.querySelectorAll('.icon-grid').forEach(function (g) {
-            if (g !== except) g.hidden = true;
-        });
-    }
-    document.querySelectorAll('.cat-pick').forEach(function (pick) {
-        pick.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var grid = document.getElementById('grid-' + pick.getAttribute('data-target'));
-            if (!grid) return;
-            var willOpen = grid.hidden;
-            closeAll(grid);
-            grid.hidden = !willOpen;
-        });
-    });
-    document.querySelectorAll('.icon-opt').forEach(function (opt) {
-        opt.addEventListener('click', function () {
-            var target = opt.getAttribute('data-target');
-            var input = document.getElementById(target);
-            var pick = document.querySelector('.cat-pick[data-target="' + target + '"]');
-            if (input) input.value = opt.getAttribute('data-slug');
-            if (pick) { pick.innerHTML = opt.innerHTML; }
-            var grid = document.getElementById('grid-' + target);
-            if (grid) grid.hidden = true;
-            // Существующая категория — сохранить иконку сразу.
-            if (target !== 'icnew' && input) {
-                var form = input.closest('form');
-                if (form) form.submit();
-            }
-        });
-    });
-    document.addEventListener('click', function () { closeAll(null); });
-})();
-
-// Порядок категорий — перетаскиванием за ручку. На бросок собираем новый
-// порядок id и отправляем; страница перезагрузится с новым порядком.
-(function () {
-    var list = document.getElementById('cat-manage');
-    if (!list) return;
-    var dragEl = null;
-    list.querySelectorAll('.catrow-grip').forEach(function (grip) {
-        grip.addEventListener('dragstart', function (e) {
-            dragEl = grip.closest('.catrow');
-            try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch (x) {}
-            if (dragEl) dragEl.classList.add('dragging');
-        });
-        grip.addEventListener('dragend', function () {
-            if (dragEl) dragEl.classList.remove('dragging');
-            dragEl = null;
-        });
-    });
-    list.addEventListener('dragover', function (e) {
-        if (!dragEl) return;
-        e.preventDefault();
-        var over = e.target.closest ? e.target.closest('.catrow') : null;
-        if (!over || over === dragEl) return;
-        var rect = over.getBoundingClientRect();
-        var after = (e.clientY - rect.top) > rect.height / 2;
-        list.insertBefore(dragEl, after ? over.nextSibling : over);
-    });
-    list.addEventListener('drop', function (e) {
-        if (!dragEl) return;
-        e.preventDefault();
-        var ids = [];
-        list.querySelectorAll('.catrow').forEach(function (li) { ids.push(li.getAttribute('data-id')); });
-        document.getElementById('reorder-order').value = ids.join(',');
-        document.getElementById('reorder-form').submit();
-    });
-})();
+// (Иконки папок и порядок перетаскиванием — общий код в /static/catmanage.js,
+// подключён в modal_base.html: тот же на настройки и админ-панель.)
 
 // Уточняющий вопрос при выходе/сохранении — по центру модалки. Разделы и так
 // сохраняются своими кнопками, поэтому обе ветки закрывают окно; вопрос —
@@ -403,8 +384,8 @@ document.addEventListener('click', function (e) {
 
     var save = document.getElementById('settings-save');
     var exit = document.getElementById('settings-exit');
-    if (save) save.addEventListener('click', function (e) { e.preventDefault(); open('Сохранить настройки и выйти?', 'Сохранить', 'Отмена'); });
-    if (exit) exit.addEventListener('click', function (e) { e.preventDefault(); open('Выйти без сохранения изменений?', 'Да', 'Нет'); });
+    if (save) save.addEventListener('click', function (e) { e.preventDefault(); open({{ t('settings.js_confirm_save') | tojson }}, {{ t('common.save') | tojson }}, {{ t('common.cancel') | tojson }}); });
+    if (exit) exit.addEventListener('click', function (e) { e.preventDefault(); open({{ t('settings.js_confirm_exit') | tojson }}, {{ t('common.yes') | tojson }}, {{ t('common.no') | tojson }}); });
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); hide(); }

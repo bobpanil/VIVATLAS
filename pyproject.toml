@@ -61,3 +61,8 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Файлы переводов — данные: длинные строки на трёх языках не разбить осмысленно.
+"src/vivatlas/translations.py" = ["E501"]
+"src/vivatlas/translations_bulk.py" = ["E501"]

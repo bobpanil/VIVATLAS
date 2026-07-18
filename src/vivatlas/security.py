@@ -78,19 +78,20 @@ def password_needs_rehash(stored_hash: str) -> bool:
 
 
 def check_password_strength(password: str) -> str:
-    """Пустая строка — годится. Иначе причина отказа, человеку понятная.
+    """Пустая строка — годится. Иначе КЛЮЧ причины (переводится на месте показа):
+    бизнес-логика не должна знать язык интерфейса.
 
     Правил намеренно мало. Требования вида «заглавная, цифра и звёздочка»
     выгоняют людей в Password1! — короткий и предсказуемый. Длина решает
     больше, поэтому спрашиваем только её.
     """
     if len(password) < 12:
-        return "Пароль короче 12 знаков. Длина защищает лучше, чем спецсимволы."
+        return "err.pw_short"
     if len(password.encode("utf-8")) > 1024:
-        return "Пароль длиннее 1024 байт."
+        return "err.pw_long"
     lowered = password.lower().strip()
     if lowered in _COMMON:
-        return "Такой пароль стоит в списках для перебора первым."
+        return "err.pw_common"
     return ""
 
 

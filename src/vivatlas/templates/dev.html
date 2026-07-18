@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Design language — VivAtlas</title>
+    <link rel="icon" href="/static/favicon.png" sizes="32x32">
+    <link rel="stylesheet" href="/static/app.css">
+    <script>
+    (function () {
+        try {
+            var t = localStorage.getItem('vivatlas-theme') || 'light';
+            if (t === 'auto') { t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+            if (t === 'dark' || t === 'oled') { document.documentElement.setAttribute('data-theme', t); }
+        } catch (e) {}
+    })();
+    </script>
+    <style>
+        /* Каркас справочника — только раскладка. Компоненты ниже настоящие. */
+        .dev { max-width: 1000px; margin: 0 auto; padding: var(--s-xl) var(--s-lg) 80px; }
+        .dev-head { display: flex; align-items: center; gap: var(--s-lg); margin-bottom: var(--s-xl); }
+        .dev-lede { color: var(--mute); font-size: 14px; margin: 4px 0 0; }
+        .dev-sec { padding: var(--s-xl) 0; border-top: 1px solid var(--hairline-soft); }
+        .dev-sec > h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; color: var(--ink); }
+        .dev-sec > p { color: var(--mute); font-size: 13px; margin: 0 0 var(--s-lg); }
+        .dev-row { display: flex; flex-wrap: wrap; gap: var(--s-md); align-items: center; }
+        .dev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-md); }
+        .dev-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--s-sm); }
+        .dev-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; border: 1px solid var(--hairline-soft); border-radius: var(--r-md); background: var(--surface-card); text-align: center; }
+        .dev-tile code, .dev-sw code { font-family: var(--mono); font-size: 11px; color: var(--mute); word-break: break-all; }
+        .dev-tile svg { width: 22px; height: 22px; color: var(--ink); }
+        .dev-tile .cicon { width: 22px; height: 22px; color: var(--ink); }
+        .dev-sw { display: flex; align-items: center; gap: var(--s-sm); }
+        .dev-chip { width: 40px; height: 40px; border-radius: var(--r-md); border: 1px solid var(--hairline); flex: none; }
+        .dev-radii { display: flex; gap: var(--s-lg); flex-wrap: wrap; }
+        .dev-radii div { width: 72px; height: 56px; background: var(--ink); display: flex; align-items: flex-end; justify-content: center; color: var(--on-ink); font-family: var(--mono); font-size: 10px; padding-bottom: 4px; }
+        .dev-space { display: flex; align-items: flex-end; gap: var(--s-md); }
+        .dev-space div { background: var(--primary); width: 24px; }
+        .dev-space span { font-family: var(--mono); font-size: 10px; color: var(--mute); display: block; text-align: center; margin-top: 4px; }
+        .dev-type-row { margin: 0 0 var(--s-md); }
+        .dev-type-row small { font-family: var(--mono); font-size: 10px; color: var(--ash); display: block; }
+        .dev-panel { background: var(--panel); border-radius: var(--r-lg); padding: var(--s-lg); max-width: 300px; }
+        .dev-note { font-family: var(--mono); font-size: 11px; color: var(--mute); margin-top: 6px; }
+        .dev-card-wrap { max-width: 300px; }
+    </style>
+</head>
+<body class="dev-body" style="background: var(--canvas); min-height: 100vh; margin: 0;">
+{% import "_icons.html" as icons %}
+{% set colors = [
+  ['--primary','primary — единственная «громкая» жёлтая'],
+  ['--primary-pressed','primary-pressed'], ['--on-primary','on-primary'],
+  ['--ink','ink'], ['--body-ink','body-ink'], ['--charcoal','charcoal'],
+  ['--mute','mute'], ['--ash','ash'], ['--stone','stone'],
+  ['--zone-common','zone-common — общая зона'], ['--zone-private','zone-private — частная'],
+  ['--canvas','canvas — холст (кремовый)'], ['--surface-soft','surface-soft'],
+  ['--surface-card','surface-card'], ['--surface-doc','surface-doc'], ['--surface-dark','surface-dark'],
+  ['--hairline','hairline'], ['--hairline-soft','hairline-soft'],
+  ['--link-teal','link-teal'], ['--accent-blue','accent-blue'], ['--accent-red','accent-red'],
+  ['--accent-green','accent-green'], ['--accent-purple','accent-purple'],
+  ['--panel','panel — тёмная панель'], ['--panel-text','panel-text'], ['--panel-bright','panel-bright'],
+] %}
+{% set ics = ['catalog','all','recommend','changes','filter','type','source','updated','settings','admin','logout','help','drafts','search',
+              'catalogue','review','fork','merge','star','watch','deploy','automate','insight','protect','link','image',
+              'profile','users','team','invite','admin-user','owner','member','access','collab','guest',
+              'bolt','loupe','layers','hub','network','secure','compass'] %}
+{% set cats = ['folder','star','heart','palette','brush','code','terminal','rocket','bolt','flask','search','database','chart','layers','layout','grid','box','cloud','globe','tag','book','camera','film','cog','wrench','bug','shield','sparkles','pin','flag','bell'] %}
+
+<main class="dev">
+    <header class="dev-head">
+        <img src="/static/logo-dark.webp" width="180" height="55" alt="VivAtlas"
+             style="background: var(--panel); padding: 12px 16px; border-radius: var(--r-lg);">
+        <div>
+            <h1 style="margin:0; font-size:22px; color:var(--ink);">Design language</h1>
+            <p class="dev-lede">Живой справочник: токены, шрифты, компоненты. Один источник правды для всего приложения.</p>
+        </div>
+    </header>
+
+    <section class="dev-sec">
+        <h2>Colours</h2>
+        <p>Холст кремовый, не белый. Жёлтая кнопка — одна на экран. Иерархия — весом и размером, а не цветом.</p>
+        <div class="dev-grid">
+            {% for c in colors %}
+            <div class="dev-sw"><span class="dev-chip" style="background: var({{ c[0] }});"></span><code>{{ c[1] }}</code></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Typography</h2>
+        <p>IBM Plex Sans для всего живого текста; моноширинный — только даты, коды, идентификаторы.</p>
+        <div class="dev-type-row"><small>h1 / 22 / 700</small><span style="font-size:22px;font-weight:700;color:var(--ink);">Каталог инструментов</span></div>
+        <div class="dev-type-row"><small>section h2 / 18 / 700</small><span style="font-size:18px;font-weight:700;color:var(--ink);">Заголовок раздела</span></div>
+        <div class="dev-type-row"><small>box h3 / 15 / 600</small><h3 style="margin:0;">Подраздел настроек</h3></div>
+        <div class="dev-type-row"><small>body / 14 / 400</small><span style="font-size:14px;color:var(--body-ink);">Обычный текст карточки и форм — спокойный, читаемый.</span></div>
+        <div class="dev-type-row"><small>legend / 12.5 / mute</small><p class="legend" style="margin:0;">Пояснение под заголовком раздела — сансом, не моноширинным.</p></div>
+        <div class="dev-type-row"><small>mono / 13</small><span style="font-family:var(--mono);font-size:13px;color:var(--charcoal);">08.07.26 · a1b2c3d</span></div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Radii &amp; spacing</h2>
+        <p>Скругления мягкие (3 / 6 / 9 / 13). Шаг отступов 4 / 8 / 12 / 16 / 24 / 32.</p>
+        <div class="dev-radii" style="margin-bottom: var(--s-xl);">
+            <div style="border-radius:var(--r-xs);">xs 3</div>
+            <div style="border-radius:var(--r-sm);">sm 6</div>
+            <div style="border-radius:var(--r-md);">md 9</div>
+            <div style="border-radius:var(--r-lg);">lg 13</div>
+            <div style="border-radius:var(--r-full);">full</div>
+        </div>
+        <div class="dev-space">
+            <div><div style="height:var(--s-xs);"></div><span>xs 4</span></div>
+            <div><div style="height:var(--s-sm);"></div><span>sm 8</span></div>
+            <div><div style="height:var(--s-md);"></div><span>md 12</span></div>
+            <div><div style="height:var(--s-lg);"></div><span>lg 16</span></div>
+            <div><div style="height:var(--s-xl);"></div><span>xl 24</span></div>
+            <div><div style="height:var(--s-xxl);"></div><span>xxl 32</span></div>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Buttons</h2>
+        <p>Одна жёлтая (cta) — главное действие. Остальное — вторичные; опасное — красным на наведении.</p>
+        <div class="dev-row">
+            <button class="cta" type="button">Add tool</button>
+            <button class="btn-secondary" type="button">Secondary</button>
+            <button class="btn-secondary btn-danger" type="button">Delete</button>
+            <button class="btn-secondary" type="button" disabled>Disabled</button>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Filters &amp; pills</h2>
+        <p>Пилюли-фильтры: выбранная — тёмная заливка. Зоны — цветной значок.</p>
+        <nav class="filters dev-row" aria-label="demo">
+            <span class="filter on">all <b>12</b></span>
+            <span class="filter">favourites <b>3</b></span>
+            <span class="filter filter-zone zone-common">{{ '' }}<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg> common <b>9</b></span>
+            <span class="filter filter-zone zone-private"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg> private <b>0</b></span>
+        </nav>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Inputs</h2>
+        <p>Поля во всю ширину, метка над полем (не placeholder-ом). Фокус — синяя рамка.</p>
+        <div style="max-width: 420px;">
+            <label class="fld"><span>Field label</span>
+                <input type="text" placeholder="Placeholder hint"></label>
+            <label class="fld"><span>Select</span>
+                <select><option>Gitea</option><option>GitHub</option></select></label>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Selection list &amp; theme</h2>
+        <p>Список выбора (язык) — строки с галочкой у выбранной, растёт вниз. Тема — пилюли.</p>
+        <div class="dev-row" style="align-items: flex-start;">
+            <ul class="opt-list" role="list" style="flex:1 1 260px;">
+                <li><a class="opt-row on" href="#"><span class="opt-row-name">English</span><svg class="opt-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg></a></li>
+                <li><a class="opt-row" href="#"><span class="opt-row-name">Русский</span></a></li>
+                <li><a class="opt-row" href="#" dir="rtl"><span class="opt-row-name">עברית</span></a></li>
+            </ul>
+            <nav class="theme-pills" aria-label="theme">
+                <button type="button" class="filter theme-opt on">Light</button>
+                <button type="button" class="filter theme-opt">Dark</button>
+                <button type="button" class="filter theme-opt">OLED</button>
+                <button type="button" class="filter theme-opt">System</button>
+            </nav>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Card</h2>
+        <p>Плоская, рамка в волос. Владение — слева сверху, избранное — справа
+           сверху, папка (значок + имя) — слева снизу, «копировать» — справа снизу.
+           Все кнопки в рамке. Удаление — только со страницы карточки.</p>
+        <div class="dev-card-wrap">
+            <div class="card" data-zone="common">
+                <div class="card-corners">
+                    <span class="zone-btn zone-common"><svg class="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg></span>
+                    <span class="fav-btn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/></svg></span>
+                </div>
+                <div class="thumb-text" data-type="tool"><span>Tool name</span><em>tool</em></div>
+                <div class="card-body">
+                    <div class="card-name"><span class="card-owner">acme/</span>Tool name</div>
+                    <p class="card-sum">Short summary of what the tool does — one calm line or two.</p>
+                    <div class="card-foot" style="--pur-color: var(--zone-common);">
+                        <span class="card-cat">{{ caticon('palette') }}<span class="card-cat-name">Design</span></span>
+                        <time class="when">08.07.26</time>
+                        <span class="card-copy"><svg class="i-link" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/><path d="M3.4 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.4"/></svg></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Sidebar &amp; folders</h2>
+        <p>Тёмная панель. Виды (каталог/черновики/изменения) сверху, затем папки
+           отдельной секцией — общие с меткой «shared», личные без метки.</p>
+        <div class="dev-panel">
+            <button class="side-cta" type="button" style="width:100%;">Add tool</button>
+            <nav class="side-nav" style="margin-top:12px;">
+                <a class="side-item on" href="#">{{ icons.ic('all') }}<span>Catalogue</span><b>12</b></a>
+                <a class="side-item" href="#">{{ icons.ic('drafts') }}<span>Drafts</span><b>0</b></a>
+                <a class="side-item" href="#">{{ icons.ic('changes') }}<span>Changes</span></a>
+                <p class="side-sub-head">Folders</p>
+                <div class="cat-list">
+                    <a class="side-sub side-drop" href="#">{{ caticon('palette') }}<span>Design</span><em class="side-tag">shared</em><b>4</b></a>
+                    <a class="side-sub side-drop side-drop-mine" href="#">{{ caticon('book') }}<span>Reading</span><b>2</b></a>
+                </div>
+            </nav>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Menus &amp; dropdowns</h2>
+        <p>Меню аккаунта — тёмная всплывашка; тема — переключатель по кругу с
+           жёлтой плашкой режима; выбор источника — свой выпадающий список.</p>
+        <div class="dev-row" style="align-items: flex-start;">
+            <div class="side-acct-menu" style="position:static; display:block;" role="menu">
+                <a class="usermenu-item" href="#">{{ icons.ic('settings') }}<span>Settings</span></a>
+                <a class="usermenu-item" href="#">{{ icons.ic('admin') }}<span>Administration</span></a>
+                <button class="usermenu-item" type="button">{{ icons.ic('logout') }}<span>Log out</span></button>
+            </div>
+            <span class="side-theme-pill show" style="position:static;">Dark</span>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Status</h2>
+        <p>Плашки-статусы фиксированной семантики. Зона — замок / глобус.</p>
+        <div class="dev-row">
+            <span class="admin-tag admin-tag-owner">owner</span>
+            <span class="admin-tag admin-tag-on">active</span>
+            <span class="admin-tag admin-tag-off">disabled</span>
+            <span class="admin-tag">2FA</span>
+            <span class="zone-btn zone-common" style="color:var(--zone-common);"><svg class="i-globe" viewBox="0 0 16 16" style="display:inline" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg></span>
+            <span class="zone-btn zone-private" style="color:var(--zone-private);"><svg class="i-lock" viewBox="0 0 16 16" style="display:inline" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg></span>
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Section icons</h2>
+        <p>Один набор, 16×16, обводка currentColor — красятся цветом текста рядом.</p>
+        <div class="dev-icons">
+            {% for name in ics %}
+            <div class="dev-tile">{{ icons.ic(name) }}<code>{{ name }}</code></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="dev-sec">
+        <h2>Category icons</h2>
+        <p>Значки для папок — выбираются при создании категории.</p>
+        <div class="dev-icons">
+            {% for slug in cats %}
+            <div class="dev-tile">{{ caticon(slug) }}<code>{{ slug }}</code></div>
+            {% endfor %}
+        </div>
+    </section>
+</main>
+<script src="/static/dropdown.js"></script>
+</body>
+</html>

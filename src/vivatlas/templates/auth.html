@@ -1,14 +1,17 @@
 <!doctype html>
-<html lang="ru">
+<html lang="{{ lang }}" dir="{{ dir }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#04060d">
-    <title>{% if step == 'setup' %}Настройка{% else %}Вход{% endif %} — VivAtlas</title>
+    <title>{% if step == 'setup' %}{{ t('auth.setup.title') }}{% else %}{{ t('auth.login.title') }}{% endif %} — VivAtlas</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="stylesheet" href="/static/app.css">
     <script>
+    // Дверь всегда во весь экран. Если попали в рамку (напр. редирект на /login
+    // после удаления своего аккаунта из окна настроек) — вырываемся наверх.
+    if (window.self !== window.top) { try { window.top.location = window.location.href; } catch (e) {} }
     (function () {
         try {
             var t = localStorage.getItem('vivatlas-theme') || 'light';
@@ -24,76 +27,210 @@
 
         {% if step == 'setup' %}
         <div class="auth-card">
-            <h1>Первый вход</h1>
-            <p class="auth-lede">Программу ещё никто не настроил. Кто заведёт аккаунт сейчас —
-               станет хозяином: только он решает, пускать ли других.</p>
-            {% if error %}<p class="auth-err">{{ error }}</p>{% endif %}
+            <h1>{{ t('auth.setup.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.setup.lede') }}</p>
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
             <form method="post" action="/setup">
-                <label class="fld"><span>Почта</span>
+                <label class="fld"><span>{{ t('auth.email') }}</span>
                     <input type="email" name="email" value="{{ email or '' }}" required autofocus
                            autocomplete="username"></label>
-                <label class="fld"><span>Как вас звать</span>
+                <label class="fld"><span>{{ t('auth.setup.name') }}</span>
                     <input type="text" name="display_name" value="{{ display_name or '' }}"
                            autocomplete="name"></label>
-                <label class="fld"><span>Пароль</span>
+                <label class="fld"><span>{{ t('auth.password') }}</span>
                     <input type="password" name="password" required minlength="12"
                            autocomplete="new-password"></label>
-                <label class="fld"><span>Пароль ещё раз</span>
+                <label class="fld"><span>{{ t('auth.password_again') }}</span>
                     <input type="password" name="password2" required
                            autocomplete="new-password"></label>
-                <button class="cta cta-wide" type="submit">Завести хозяина</button>
-                <p class="auth-note">Пароль от 12 знаков. Длинная фраза надёжнее короткой
-                   мешанины и запоминается легче.</p>
+                <button class="cta cta-wide" type="submit">{{ t('auth.setup.submit') }}</button>
+                <p class="auth-note">{{ t('auth.password_note') }}</p>
             </form>
         </div>
         {% endif %}
 
         {% if step == 'login' %}
         <div class="auth-card">
-            <h1>Вход</h1>
-            {% if error %}<p class="auth-err">{{ error }}</p>{% endif %}
+            <h1>{{ t('auth.login.title') }}</h1>
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
             <form method="post" action="/login">
                 <input type="hidden" name="next" value="{{ next or '/' }}">
-                <label class="fld"><span>Почта</span>
+                <label class="fld"><span>{{ t('auth.email') }}</span>
                     <input type="email" name="email" value="{{ email or '' }}" required autofocus
                            autocomplete="username"></label>
-                <label class="fld"><span>Пароль</span>
+                <label class="fld"><span>{{ t('auth.password') }}</span>
                     <input type="password" name="password" required
                            autocomplete="current-password"></label>
-                <button class="cta cta-wide" type="submit">Войти</button>
+                <button class="cta cta-wide" type="submit">{{ t('auth.login.submit') }}</button>
             </form>
+            <p class="auth-alt"><a class="auth-link" href="/forgot">{{ t('auth.forgot_link') }}</a></p>
+            {% if can_register %}<p class="auth-alt"><a class="auth-link" href="/register">{{ t('auth.register.link') }}</a></p>{% endif %}
+        </div>
+        {% endif %}
+
+        {% if step == 'register' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.register.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.register.lede') }}</p>
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
+            <form method="post" action="/register">
+                <label class="fld"><span>{{ t('auth.email') }}</span>
+                    <input type="email" name="email" value="{{ email or '' }}" required autofocus
+                           autocomplete="username"></label>
+                <label class="fld"><span>{{ t('auth.setup.name') }}</span>
+                    <input type="text" name="display_name" value="{{ display_name or '' }}"
+                           autocomplete="name"></label>
+                <label class="fld"><span>{{ t('auth.password') }}</span>
+                    <input type="password" name="password" required minlength="12"
+                           autocomplete="new-password"></label>
+                <label class="fld"><span>{{ t('auth.password_again') }}</span>
+                    <input type="password" name="password2" required
+                           autocomplete="new-password"></label>
+                <button class="cta cta-wide" type="submit">{{ t('auth.register.submit') }}</button>
+                <p class="auth-note">{{ t('auth.password_note') }}</p>
+            </form>
+            <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.back_to_login') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'register_closed' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.register_closed.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.register_closed.lede') }}</p>
+            <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.back_to_login') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'join' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.join.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.join.lede') }}</p>
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
+            <form method="post" action="/join">
+                <input type="hidden" name="code" value="{{ code }}">
+                <label class="fld"><span>{{ t('auth.email') }}</span>
+                    <input type="email" name="email" value="{{ email or '' }}"
+                           {% if email_locked %}readonly{% else %}required autofocus{% endif %}
+                           autocomplete="username"></label>
+                <label class="fld"><span>{{ t('auth.setup.name') }}</span>
+                    <input type="text" name="display_name" value="{{ display_name or '' }}"
+                           {% if email_locked %}autofocus{% endif %} autocomplete="name"></label>
+                <label class="fld"><span>{{ t('auth.password') }}</span>
+                    <input type="password" name="password" required minlength="12"
+                           autocomplete="new-password"></label>
+                <label class="fld"><span>{{ t('auth.password_again') }}</span>
+                    <input type="password" name="password2" required
+                           autocomplete="new-password"></label>
+                <button class="cta cta-wide" type="submit">{{ t('auth.join.submit') }}</button>
+                <p class="auth-note">{{ t('auth.password_note') }}</p>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if step == 'join_bad' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.join_bad.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.join_bad.lede') }}</p>
+            <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.back_to_login') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'forgot' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.forgot.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.forgot.lede') }}</p>
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
+            <form method="post" action="/forgot">
+                <label class="fld"><span>{{ t('auth.email') }}</span>
+                    <input type="email" name="email" required autofocus
+                           autocomplete="username"></label>
+                <button class="cta cta-wide" type="submit">{{ t('auth.forgot.submit') }}</button>
+            </form>
+            <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.back_to_login') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'forgot_sent' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.sent.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.sent.lede') }}</p>
+            <p class="auth-note">{{ t('auth.sent.note') }}</p>
+            <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.back_to_login') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'reset' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.reset.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.reset.lede') }}</p>
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
+            <form method="post" action="/reset">
+                <input type="hidden" name="token" value="{{ token }}">
+                <label class="fld"><span>{{ t('auth.reset.new') }}</span>
+                    <input type="password" name="password" required minlength="12"
+                           autofocus autocomplete="new-password"></label>
+                <label class="fld"><span>{{ t('auth.password_again') }}</span>
+                    <input type="password" name="password2" required
+                           autocomplete="new-password"></label>
+                <button class="cta cta-wide" type="submit">{{ t('auth.reset.submit') }}</button>
+                <p class="auth-note">{{ t('auth.password_note') }}</p>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if step == 'reset_bad' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.reset_bad.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.reset_bad.lede') }}</p>
+            <p class="auth-alt"><a class="auth-link" href="/forgot">{{ t('auth.reset_bad.link') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'reset_done' %}
+        <div class="auth-card">
+            <h1>{{ t('auth.reset_done.title') }}</h1>
+            <p class="auth-lede">{{ t('auth.reset_done.lede') }}</p>
+            <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.reset_done.link') }}</a></p>
         </div>
         {% endif %}
 
         {% if step == 'totp' %}
         <div class="auth-card">
-            <h1>Второй код</h1>
+            <h1>{{ t('auth.totp.title') }}</h1>
             <p class="auth-lede">
-                {% if backup %}Введите один из кодов восстановления.
-                {% else %}Откройте приложение и введите шестизначный код.{% endif %}
+                {% if backup %}{{ t('auth.totp.backup') }}
+                {% else %}{{ t('auth.totp.app') }}{% endif %}
             </p>
-            {% if error %}<p class="auth-err">{{ error }}</p>{% endif %}
+            {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
             <form method="post" action="/login/2fa">
                 <input type="hidden" name="next" value="{{ next or '/' }}">
                 {% if backup %}<input type="hidden" name="use_backup" value="1">{% endif %}
                 <label class="fld">
-                    <span>{% if backup %}Код восстановления{% else %}Код из приложения{% endif %}</span>
+                    <span>{% if backup %}{{ t('auth.totp.code_backup') }}{% else %}{{ t('auth.totp.code_app') }}{% endif %}</span>
                     <input type="text" name="code" required autofocus autocomplete="one-time-code"
                            inputmode="{{ 'text' if backup else 'numeric' }}"
                            placeholder="{{ '4f7c-2a91-b3de' if backup else '000000' }}"></label>
-                <button class="cta cta-wide" type="submit">Подтвердить</button>
+                <button class="cta cta-wide" type="submit">{{ t('auth.totp.confirm') }}</button>
             </form>
             <form method="post" action="/login/2fa" class="auth-alt">
                 <input type="hidden" name="next" value="{{ next or '/' }}">
                 {% if not backup %}<input type="hidden" name="use_backup" value="1">{% endif %}
                 <input type="hidden" name="code" value="">
                 <button type="submit" class="auth-link">
-                    {% if backup %}← ввести код из приложения
-                    {% else %}Нет телефона? Ввести код восстановления{% endif %}
+                    {% if backup %}{{ t('auth.totp.to_app') }}
+                    {% else %}{{ t('auth.totp.to_backup') }}{% endif %}
                 </button>
             </form>
         </div>
         {% endif %}
+
+        {# Язык — до входа тоже можно сменить: серверные ссылки, работают без скрипта. #}
+        <div class="auth-lang" role="group" aria-label="{{ t('lang.label') }}">
+            {% for code, meta in langs.items() %}
+            <a class="auth-lang-opt{% if code == lang %} on{% endif %}"
+               href="/lang/{{ code }}?next={{ request.url.path }}">{{ meta[0] }}</a>
+            {% endfor %}
+        </div>
     </main>
 </body>
 </html>

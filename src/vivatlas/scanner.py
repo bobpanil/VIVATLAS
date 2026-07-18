@@ -181,4 +181,7 @@ def _update_row(row: Repository, repo: RepoRef, now: datetime) -> None:
     row.remote_created_at = repo.created_at
     row.remote_updated_at = repo.updated_at
     row.last_seen_at = now
-    row.gone_at = None  # вернулся
+    # Удалённый человеком репозиторий не воскрешаем: он есть на хостинге, но в
+    # каталог его вернул бы скан, а человек убрал карточку намеренно и навсегда.
+    if not row.user_removed:
+        row.gone_at = None  # вернулся

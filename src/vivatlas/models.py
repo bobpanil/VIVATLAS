@@ -5,11 +5,13 @@ from datetime import UTC, datetime
 from sqlalchemy import (
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -86,6 +88,12 @@ class Repository(Base):
     # Проставляется, когда репозиторий пропал из выдачи хостинга.
     gone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Человек удалил карточку насовсем. Держим на репозитории, а не только на
+    # карточке (карточки уже нет): без этого следующий скан увидел бы репозиторий
+    # живым и собрал бы карточку заново — «удалить навсегда» превратилось бы в
+    # «удалить до завтра». Скан такой репозиторий пропускает, не воскрешая.
+    user_removed: Mapped[bool] = mapped_column(default=False, index=True)
+
     source: Mapped[Source] = relationship(back_populates="repositories")
 
     __table_args__ = (UniqueConstraint("source_id", "external_id", name="uq_repo_external"),)
@@ -108,8 +116,10 @@ class Artifact(Base):
     confidence: Mapped[float] = mapped_column(default=0.0)
     detect_reasons: Mapped[str] = mapped_column(Text, default="")
 
-    # Своя категория-папка, если карточку туда положили. Пусто — лежит только
-    # под своим типом (автокатегорией). При удалении категории обнуляется.
+    # ВЕТХОЕ ПОЛЕ. Раньше карточка лежала ровно в одной папке — этот FK. Теперь
+    # членство в папках хранит таблица ArtifactCategory (многие-ко-многим): и в
+    # общей, и в личных папках сразу. Миграция переносит старое значение в
+    # ArtifactCategory; новый код это поле НЕ читает и НЕ пишет.
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL")
     )
@@ -118,9 +128,34 @@ class Artifact(Base):
     # зона). Пусто — общая, видят все. Ставится при создании (личная/расшаренная)
     # поверх зоны источника: импорт идёт из общего Gitea, а личной карточку
     # делает именно эта отметка.
+    #
+    # ВЕТХОЕ ПОЛЕ. Раньше одна эта отметка решала и «кто владеет», и «кто видит».
+    # Теперь это разделено на owner_user_id (владелец, навсегда) и shared (видят
+    # ли все). Поле оставлено, чтобы не ломать схему и чтобы миграция вывела из
+    # него новые. Новый код его НЕ читает и НЕ пишет — см. filters.visible_ids.
     private_to_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+
+    # Кто завёл карточку. Навсегда: даже когда её расшарили, владелец остаётся —
+    # только он (или администратор) может её удалить, и только он видит её у себя
+    # среди «моих». Пусто — общая затравка/скан без владельца (её трогает лишь
+    # администратор). Отдельно от «видят ли все» (shared): владение и видимость —
+    # два разных факта, и раньше их путали в одном поле.
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+
+    # Видят ли карточку все. True — в общем каталоге, видна всем. False — только
+    # владельцу (личная). Переключает владелец; администратор может лишь снять
+    # (уншарить) уже общую. Владение при этом не теряется — в отличие от старого
+    # «опубликовать», которое обнуляло private_to_user_id.
+    #
+    # По умолчанию False — безопасно: карточку, забытую без явного shared, лучше
+    # никому не показать, чем показать всем. «Общий» назначается явно там, где
+    # это к месту: сборка карточки из ОБЩЕГО источника (indexer), кнопка «в
+    # общее» у владельца. Личные источники и добавления остаются частными.
+    shared: Mapped[bool] = mapped_column(default=False, index=True)
 
     # Спрятана из каталога, но НЕ удалена (данные и связь с источником целы).
     # Так помечен первичный «затравочный» массив: показываем только то, что
@@ -348,6 +383,12 @@ class User(Base):
     is_owner: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
 
+    # Аватар по умолчанию из набора «бюсты» (static/usericons/<key>.webp).
+    # Показывается, если человек не загрузил своё фото. При создании достаётся
+    # случайный; в настройках можно сменить. Пусто — только у совсем старых
+    # строк до миграции (migrate проставит им случайный).
+    avatar_preset: Mapped[str] = mapped_column(String(32), default="")
+
     # Двухэтапная проверка. Секрет здесь лежит зашифрованным: он равносилен
     # второму паролю, и в открытом виде обесценивает всю затею.
     totp_secret_enc: Mapped[str] = mapped_column(String(512), default="")
@@ -421,6 +462,22 @@ class BackupCode(Base):
     user: Mapped["User"] = relationship(back_populates="backup_codes")
 
 
+class Avatar(Base):
+    """Фото профиля — уже в webp. Отдельной таблицей, а не столбцом в users:
+    строку пользователя читают на каждый запрос, и таскать за ней десятки
+    килобайт картинки впустую незачем. Здесь её берут только при показе."""
+
+    __tablename__ = "avatars"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    webp: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+
 class Invite(Base):
     """Приглашение. Хозяин зовёт, а не всякий заходит сам."""
 
@@ -453,17 +510,67 @@ class Setting(Base):
 
 
 class Category(Base):
-    """Категория-папка для каталога. Общая: владелец раскладывает инструменты,
-    и все видят один порядок. Автокатегории (типы) сюда не пишутся — они и так
-    есть у каждой карточки; здесь только свои, заведённые руками."""
+    """Категория-папка для каталога.
+
+    Общая (owner_user_id пуст): её ведёт администратор, видят все, один порядок —
+    это тот самый общий каталог. Частная (owner_user_id задан): личная папка
+    одного человека, видит и раскладывает только он; администратор её не видит
+    (приватность). Автокатегории (типы) сюда не пишутся — они и так есть у каждой
+    карточки; здесь только свои, заведённые руками."""
 
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(128), unique=True)
+    name: Mapped[str] = mapped_column(String(128))  # как ввели (источник)
+    # Переводы названия на три языка (JSON {"en","ru","he"}) — заполняются
+    # автоматически при создании/переименовании. Пусто/нет языка — показываем
+    # исходное name. Так папка «Дизайн» видна как Design/עיצוב.
+    names_json: Mapped[str] = mapped_column(Text, default="")
     icon: Mapped[str] = mapped_column(String(32), default="")  # ключ из caticons
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Владелец частной папки. Пусто — общая (админская). CASCADE: удалили
+    # человека — его личные папки уходят вместе с ним.
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+
+    __table_args__ = (
+        # Имя уникально в пределах владельца: два человека могут завести каждый
+        # свою папку «Дизайн». SQLite считает NULL разными, так что уникальность
+        # ОБЩИХ имён (owner пуст) держит отдельный частичный индекс ниже.
+        UniqueConstraint("owner_user_id", "name", name="uq_category_owner_name"),
+        Index(
+            "uq_shared_category_name",
+            "name",
+            unique=True,
+            sqlite_where=text("owner_user_id IS NULL"),
+        ),
+    )
+
+
+class ArtifactCategory(Base):
+    """Карточка в папке (многие-ко-многим). Пришла на смену одиночному
+    Artifact.category_id: одна карточка может лежать и в общей папке, и в личных
+    папках у разных людей — у каждого своя строка. Членство в чужой личной папке
+    другим не видно (приватность держится на owner_user_id самой Category)."""
+
+    __tablename__ = "artifact_categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("artifacts.id", ondelete="CASCADE"), index=True
+    )
+    # CASCADE (не SET NULL, как было у ветхого category_id): удалили папку —
+    # членства уходят с ней, карточки остаются.
+    category_id: Mapped[int] = mapped_column(
+        ForeignKey("categories.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        UniqueConstraint("artifact_id", "category_id", name="uq_artifact_category"),
+    )
 
 
 class Favorite(Base):
@@ -480,3 +587,20 @@ class Favorite(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (UniqueConstraint("user_id", "artifact_id", name="uq_favorite"),)
+
+
+class RemovedNotice(Base):
+    """«У вас пропало вот это». Когда владелец удаляет карточку, а её кто-то
+    держал в избранном, тому нельзя дать ей молча исчезнуть: избранное — это
+    ссылка, не копия, и человек имел право знать, что она удалена.
+
+    Пишется в момент удаления — самой карточки уже не будет, поэтому храним имя
+    отдельной строкой, а не ссылкой на неё. Гаснет, когда человек её закрыл."""
+
+    __tablename__ = "removed_notices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    artifact_name: Mapped[str] = mapped_column(String(256))
+    removed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

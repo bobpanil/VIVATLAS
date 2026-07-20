@@ -2123,6 +2123,18 @@ summary:focus-visible {
     background: var(--surface-card);
 }
 
+/* Недоступная вторичная кнопка (напр. «Убрать фото», пока фото не загружено):
+   приглушена, курсор-запрет, на наведение не реагирует. */
+.btn-secondary:disabled {
+    opacity: 0.5;
+    color: var(--mute);
+    cursor: not-allowed;
+}
+
+.btn-secondary:disabled:hover {
+    background: var(--surface-soft);
+}
+
 /* --- полоса-подсказка ------------------------------------------------------
    banner-tip набора: мягкая пастель, тёмный текст, 6px. В наборе такие
    полосы живут только внутри документации — тут ровно тот же случай:
@@ -4274,9 +4286,10 @@ html.card-dragging .side-folders-head {
 /* Фото профиля: превью-кружок + кнопки загрузки/снятия. */
 .avatar-edit {
     display: flex;
-    align-items: center;
-    gap: var(--s-lg);
-    flex-wrap: wrap;
+    flex-direction: column;   /* превью сверху, кнопки под ним */
+    align-items: center;      /* превью и кнопки по центру */
+    gap: var(--s-md);
+    text-align: center;
 }
 
 .avatar-preview {
@@ -4306,8 +4319,8 @@ html.card-dragging .side-folders-head {
 
 .avatar-form {
     display: flex;
+    flex-direction: column;   /* «Убрать фото» под «Загрузить фото» */
     gap: var(--s-sm);
-    flex-wrap: wrap;
     align-items: center;
 }
 
@@ -4343,10 +4356,17 @@ html.card-dragging .side-folders-head {
 
 .avatar-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    /* Без max-width: сетка занимает всю ширину колонки справа от загрузки —
+       влезает больше кружков (≈9 вместо 6), 17 аватаров ложатся в два ровных
+       ряда, а не в три с пустотой по бокам. */
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
     gap: var(--s-sm);
-    margin-top: var(--s-sm);
-    max-width: 460px;
+    margin-top: 0;
+}
+
+/* Подпись «выберите аватар» вплотную к сетке — без лишнего отступа сверху. */
+.avatar-presets .legend {
+    margin: 0 0 var(--s-sm);
 }
 
 .avatar-opt-form {

@@ -40,9 +40,11 @@
                 <input type="file" name="photo" id="photofile" class="vh" required
                        accept="image/png,image/jpeg,image/gif,image/bmp,image/svg+xml,.png,.jpg,.jpeg,.gif,.bmp,.svg">
                 <label for="photofile" class="btn-secondary">{{ t('account.photo_upload') }}</label>
-                {% if has_avatar %}
-                <button type="submit" class="btn-secondary" formaction="/settings/account/photo/delete" formnovalidate>{{ t('account.photo_remove') }}</button>
-                {% endif %}
+                {# «Убрать фото» всегда на месте, справа от загрузки; серая и
+                   некликабельная, пока не загружено своё фото — у аватара из
+                   набора убирать нечего (это и есть фон по умолчанию). #}
+                <button type="submit" class="btn-secondary" formaction="/settings/account/photo/delete"
+                        formnovalidate{% if not has_avatar %} disabled{% endif %}>{{ t('account.photo_remove') }}</button>
             </form>
         </div>
 
@@ -285,6 +287,18 @@
 (function () {
     var sel = document.querySelector('.lang-select[data-lang-nav]');
     if (sel) sel.addEventListener('change', function () { if (sel.value) location.href = sel.value; });
+})();
+
+// Загрузка фото происходит по выбору файла: отдельной кнопки «отправить» в форме
+// нет («Загрузить фото» — это метка, открывающая диалог; «Убрать фото» шлёт на
+// удаление). requestSubmit без указания кнопки шлёт на action формы (загрузку),
+// а не на formaction «Убрать».
+(function () {
+    var f = document.getElementById('photofile');
+    if (!f) return;
+    f.addEventListener('change', function () {
+        if (f.files && f.files.length && f.form) f.form.requestSubmit();
+    });
 })();
 
 // Подтверждение опасных действий (удаление аккаунта/источника) — текст из

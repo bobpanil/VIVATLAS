@@ -170,7 +170,20 @@ async def require_login(request: Request, call_next):
     return RedirectResponse(f"/login{nxt}", status_code=303)
 
 
-app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+class _RevalidatingStatic(StaticFiles):
+    """Статика с обязательной ревалидацией. Без Cache-Control браузер кэширует
+    app.css/js «по эвристике» и после правок показывает старую вёрстку (человек
+    видит гарь, которой в коде уже нет). no-cache = «храни, но каждый раз
+    спрашивай сервер»: с ETag это дешёвый 304, если файл не менялся, и свежая
+    отдача, если менялся. Так старый CSS больше не залипает."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", _RevalidatingStatic(directory=str(BASE / "static")), name="static")
 app.include_router(auth_router)
 app.include_router(settings_router)
 app.include_router(admin_router)

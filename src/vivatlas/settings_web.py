@@ -92,6 +92,11 @@ def _security_page(
     контекста, чтобы они показывались в окне, а не роняли его. msgs — адресные
     сообщения разделов (account_msg/account_error и т.п.)."""
     lang = getattr(request.state, "lang", "en")
+    # Сбрасываем отложенные изменения в БД до чтения: без этого session.get вернёт
+    # только что удалённый (session.delete) аватар из карты идентичности, и после
+    # «Убрать фото»/выбора аватара из набора страница показала бы has_avatar
+    # устаревшим True (кнопка не гасла, галочка на выбранном не вставала).
+    session.flush()
     has_avatar = session.get(Avatar, me.id) is not None
     return _page(
         request,

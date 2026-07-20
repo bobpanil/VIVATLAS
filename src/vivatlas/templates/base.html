@@ -8,7 +8,7 @@
     <meta name="color-scheme" content="light">
     {# Цвет строки состояния на телефоне — под верхнюю полосу, а она тёмная. #}
     <meta name="theme-color" content="#04060d">
-    <title>{% block title %}VivAtlas{% endblock %}</title>
+    <title>{% block title %}VIVATLAS{% endblock %}</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="stylesheet" href="/static/app.css">
@@ -87,7 +87,7 @@
         {# Тот же логотип, что в панели. Отдельная текстовая надпись рядом была
            бы повтором: слова SKILL ATLAS есть в самой картинке. #}
         <a class="logo logo-sm" href="/">
-            <img src="/static/logo-dark.webp" width="640" height="197" alt="VivAtlas">
+            <img src="/static/logo-dark.webp" width="640" height="197" alt="VIVATLAS">
         </a>
         {% if nav != 'add' %}<a class="cta cta-sm" href="/add" data-modal>{{ t('nav.add') }}</a>{% endif %}
     </header>
@@ -117,9 +117,15 @@
         <nav class="side-nav" aria-label="{{ t('nav.sections') }}">
             {# Верхнеуровневые виды: весь каталог, черновики, изменения. Папки —
                отдельной секцией ниже. Типы — пилюлями в шапке, не здесь. #}
-            <a class="side-item{% if nav == 'all' and not active_cat and not active_draft %} on{% endif %}" href="/"
+            <a class="side-item{% if nav == 'all' and not active_cat and not active_draft and not f.fav %} on{% endif %}" href="/"
                title="{{ t('nav.catalog') }}">
                 {{ icons.ic('catalogue') }}<span>{{ t('nav.catalog') }}</span><b>{{ counts.artifacts }}</b>
+            </a>
+            {# Избранное — между каталогом и черновиками. Своё у каждого; счётчик из
+               counts.favorites. Активно, когда открыт вид /?fav=1. #}
+            <a class="side-item{% if f.fav %} on{% endif %}" href="/?fav=1"
+               title="{{ t('nav.favorites') }}">
+                {{ icons.ic('star') }}<span>{{ t('nav.favorites') }}</span><b>{{ counts.favorites }}</b>
             </a>
             <a class="side-item{% if active_draft %} on{% endif %}" href="/?draft=1"
                title="{{ t('nav.drafts') }}">

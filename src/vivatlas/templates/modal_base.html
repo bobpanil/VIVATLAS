@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#0e1017">
-    <title>{% block title %}VivAtlas{% endblock %}</title>
+    <title>{% block title %}VIVATLAS{% endblock %}</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="stylesheet" href="/static/app.css">
     <script>
@@ -104,6 +104,10 @@
             if (!tabs.length) return;
             var key = 'vivatlas-' + (list.getAttribute('data-tabkey') || 'tab');
             var panels = [].slice.call(document.querySelectorAll('.setpanel'));
+            // Кнопки в футере, привязанные к вкладке (напр. «Сохранить»): видна
+            // только та, что относится к открытой вкладке. Так действие сохранения
+            // всегда внизу справа, напротив «Закрыть», а не посреди панели.
+            var footActions = [].slice.call(document.querySelectorAll('.modal-foot [data-panel]'));
             var rtl = document.documentElement.dir === 'rtl';
 
             function panelFor(name) {
@@ -118,6 +122,7 @@
                     if (on && focus) t.focus();
                 });
                 panels.forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== name; });
+                footActions.forEach(function (b) { b.hidden = b.getAttribute('data-panel') !== name; });
                 try { localStorage.setItem(key, name); } catch (e) {}
             }
 

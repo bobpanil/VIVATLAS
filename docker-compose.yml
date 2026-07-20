@@ -1,0 +1,26 @@
+# Generic / local compose. For TrueNAS, see docs/DEPLOY-TRUENAS.md — it uses the
+# same spec but bind-mounts a dataset instead of a named volume.
+#
+#   docker compose up -d --build           # build + run locally
+#   VIVATLAS_SEED=1 docker compose up -d    # first run with demo cards
+services:
+  vivatlas:
+    image: vivatlas:latest
+    build: .
+    container_name: vivatlas
+    restart: unless-stopped
+    ports:
+      - "8710:8710"          # host:container — change the host side if 8710 is taken
+    environment:
+      # Leave empty to auto-generate a stable key (stored in the volume), or set
+      # your own once and keep it forever:
+      #   python -c "import secrets; print(secrets.token_hex(32))"
+      SECRET_KEY: "${SECRET_KEY:-}"
+      DATABASE_URL: "sqlite:////data/vivatlas.db"
+      # Set to 1 on the very first run to load ~200 demo cards, then back to 0.
+      VIVATLAS_SEED: "${VIVATLAS_SEED:-0}"
+    volumes:
+      - vivatlas_data:/data   # SQLite db + secret_key persist here
+
+volumes:
+  vivatlas_data:

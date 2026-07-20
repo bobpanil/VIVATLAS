@@ -30,11 +30,10 @@
                        placeholder="{{ t('index.search_placeholder') }}"
                        aria-label="{{ t('index.search_aria') }}">
                 {# Enter отправляет форму; значок — та же кнопка отправки для тех,
-                   кто кликает. Значок внутри поля, у конца строки. #}
-                <button class="search-go" type="submit" aria-label="{{ t('index.find_btn') }}"
-                        title="{{ t('index.find_btn') }}">{{ icons.ic('search') }}</button>
-                {# Подробное описание — по наведению, чтобы не занимать место постоянно. #}
-                <p class="search-tip" role="tooltip">{{ t('index.search_tip') }}</p>
+                   кто кликает. Значок внутри поля, у конца строки. Без title —
+                   подсказки у поиска не показываем (aria-label остаётся для
+                   скринридеров). #}
+                <button class="search-go" type="submit" aria-label="{{ t('index.find_btn') }}">{{ icons.ic('search') }}</button>
             </div>
             {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
         </form>
@@ -47,12 +46,12 @@
                 {{ icons.ic('filter') }}{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
             </button>
             {% endif %}
-            {% if items %}
-            {# Ручка размера. Без скриптов останется вид по умолчанию — сетка
-               рабочая в любом случае, поэтому прятать её за скриптом нечестно.
-               Слева — одна карточка (крупнее), справа — много (мельче). Число в
-               ряд не пишем: оно зависит от ширины экрана и вводило бы в
-               заблуждение. #}
+            {# Ручка размера. Показываем всегда на каталоге (даже когда карточек
+               ещё нет) — иначе панель «прыгает» между пустым и полным видом, и
+               значок размера пропадал. Прячем только на разборе ссылки (link).
+               Без скриптов останется вид по умолчанию — сетка рабочая в любом
+               случае. Слева — одна карточка (крупнее), справа — много (мельче). #}
+            {% if not link %}
             <div class="sizectl">
                 <span class="sizectl-ic sizectl-few" aria-hidden="true" title="{{ t('index.size_bigger') }}">
                     <svg viewBox="0 0 16 16"><rect x="4.5" y="2.5" width="7" height="11" rx="1.3"/></svg>
@@ -73,6 +72,20 @@
                     <button class="sheet-x" type="button" id="sheet-x" aria-label="{{ t('index.close') }}">×</button>
                 </div>
                 <div class="sheet-body">
+                    {# Сортировка каталога. При поиске порядок задаёт релевантность —
+                       там сортировку не показываем. #}
+                    {% if not q %}
+                    <p class="fgroup">{{ t('index.sort_group') }}</p>
+                    <nav class="filters" aria-label="{{ t('index.sort_group') }}">
+                        <a class="filter" href="/?{{ f.as_query(sort='name') | urlencode }}"
+                           {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
+                        <a class="filter" href="/?{{ f.as_query(sort='updated') | urlencode }}"
+                           {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
+                        <a class="filter" href="/?{{ f.as_query(sort='added') | urlencode }}"
+                           {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
+                    </nav>
+                    {% endif %}
+
                     {# Тип/зона/избранное — теперь здесь, а не отдельным рядом наверху. #}
                     <p class="fgroup">{{ t('index.view_group') }}</p>
                     <nav class="filters" aria-label="{{ t('index.view_group') }}">
@@ -239,7 +252,7 @@ function dismissRemoved() {
 {# Скриншот, вставленный на главной, уходит на разбор сам. Поле поиска его
    всё равно не примет — картинку не с чем сравнивать по смыслу. #}
 <form id="pasteform" method="post" action="/add" enctype="multipart/form-data" hidden>
-    <input type="file" name="file" id="pastefile">
+    <input type="file" name="file" id="pastefile" aria-label="{{ t('index.paste_file_aria') }}">
 </form>
 <script>
 // Ручка размера карточек. Меняет вид сразу и запоминает выбор на этом

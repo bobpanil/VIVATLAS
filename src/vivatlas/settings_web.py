@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from sqlalchemy import func, select
@@ -176,10 +176,12 @@ def change_password(
 def change_email(
     request: Request,
     email: Annotated[str, Form()] = "",
+    email_confirm: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     """Сменить свою почту: подтверждаем паролем, приводим к нижнему регистру,
-    бережём уникальность."""
+    бережём уникальность. Новую почту вводят дважды — опечатка в адресе заперла
+    бы снаружи (письма сброса уходили бы не туда)."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _require_me(session, request)
@@ -187,6 +189,11 @@ def change_email(
         if "@" not in new or len(new) < 5:
             return _security_page(
                 request, session, me, account_error=i18n.translate("account.err.email_bad", lang)
+            )
+        if new != email_confirm.strip().lower():
+            return _security_page(
+                request, session, me,
+                account_error=i18n.translate("account.err.email_mismatch", lang),
             )
         if not security.verify_password(password, me.password_hash):
             return _security_page(
@@ -373,15 +380,23 @@ def category_create(
     icon: Annotated[str, Form()] = "",
     scope: Annotated[str, Form()] = "private",
     next: Annotated[str, Form()] = "/settings",
-) -> RedirectResponse:
+) -> Response:
     """Завести папку. scope=shared — общая (только администратор); иначе личная
-    (у каждого своя). Имя уникально в пределах своей области."""
+    (у каждого своя). Имя уникально в пределах своей области.
+
+    Для AJAX (Accept: application/json) возвращаем HTML новой строки — скрипт
+    вставляет её в список сразу, без перезагрузки окна. Без скрипта (или сети) —
+    обычный редирект, страница перерисуется с папкой на месте."""
     dest = _safe_next(next)
+    lang = getattr(request.state, "lang", "en")
+    wants_json = "application/json" in request.headers.get("accept", "")
     with session_scope() as session:
         me = _me(session, request)
         name = name.strip()
         if not name:
-            return RedirectResponse(dest, status_code=303)
+            return JSONResponse({"ok": False}) if wants_json else RedirectResponse(
+                dest, status_code=303
+            )
         if scope == "shared":
             if not me.is_owner:
                 raise HTTPException(403, i18n.msg(request, "err.categories_owner_only"))
@@ -389,19 +404,35 @@ def category_create(
         else:
             owner = me.id
         cond = _scope_cond(owner)
-        if session.scalar(select(Category).where(Category.name == name, cond)) is None:
-            pos = session.scalar(select(func.max(Category.position)).where(cond)) or 0
-            # Иконку не выбрали — подберём по смыслу названия; заменить можно потом.
-            chosen = icon[:32] or caticons.suggest_icon(name)
-            session.add(
-                Category(
-                    name=name[:128],
-                    names_json=catnames.translate_category_name(name),
-                    icon=chosen,
-                    position=pos + 1,
-                    owner_user_id=owner,
+        if session.scalar(select(Category).where(Category.name == name, cond)) is not None:
+            if wants_json:
+                return JSONResponse(
+                    {"ok": False, "error": i18n.translate("settings.folder_exists", lang)}
                 )
+            return RedirectResponse(dest, status_code=303)
+        pos = session.scalar(select(func.max(Category.position)).where(cond)) or 0
+        # Иконку не выбрали — подберём по смыслу названия; заменить можно потом.
+        chosen = icon[:32] or caticons.suggest_icon(name)
+        cat = Category(
+            name=name[:128],
+            names_json=catnames.translate_category_name(name),
+            icon=chosen,
+            position=pos + 1,
+            owner_user_id=owner,
+        )
+        session.add(cat)
+        session.flush()
+        if wants_json:
+            c = {
+                "value": cat.id,
+                "label": catnames.label(cat.names_json, cat.name, lang),
+                "icon": cat.icon,
+                "count": 0,
+            }
+            html = templates.env.get_template("_catrow.html").render(
+                c=c, cat_icons=caticons.ICON_SLUGS, back=dest, **i18n.template_context(request)
             )
+            return JSONResponse({"ok": True, "id": cat.id, "html": html})
     return RedirectResponse(dest, status_code=303)
 
 
@@ -696,13 +727,8 @@ def backup_regen(request: Request, code: Annotated[str, Form()] = "") -> HTMLRes
         # Перевыпуск кодов — за кодом из приложения: иначе всякий, кто на минуту
         # сел за открытый экран, распечатает себе новый набор ключей.
         if not twofactor.verify_totp(me, code):
-            return _page(
-                request,
-                session,
-                "security",
-                me=me,
-                totp_on=True,
-                backup_left=twofactor.unused_backup_count(me),
+            return _security_page(
+                request, session, me,
                 error=i18n.msg(request, "settings.2fa.err.bad_code_no_regen"),
             )
         codes = twofactor.make_backup_codes(session, me)
@@ -722,13 +748,8 @@ def totp_disable(request: Request, password: Annotated[str, Form()] = "") -> HTM
         # Выключение — за паролем: снимать вторую дверь должен тот, кто знает
         # первую, а не тот, кто просто оказался за чужим экраном.
         if not security.verify_password(password, me.password_hash):
-            return _page(
-                request,
-                session,
-                "security",
-                me=me,
-                totp_on=True,
-                backup_left=twofactor.unused_backup_count(me),
+            return _security_page(
+                request, session, me,
                 error=i18n.msg(request, "settings.2fa.err.bad_password"),
             )
 

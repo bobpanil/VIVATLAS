@@ -286,6 +286,18 @@ a {
     color: inherit;
 }
 
+/* Формы наследуют шрифт страницы. Без этого кнопки без явного font-family
+   (например крестики «×» у шторки/полосы скана) падают на системный Arial и
+   рушат единственный шрифт набора. Наследуем ТОЛЬКО семейство — размеры у
+   контролов свои. */
+button,
+input,
+select,
+textarea,
+optgroup {
+    font-family: inherit;
+}
+
 /* --- оболочка: боковая панель и содержимое ---------------------------------
    Панель 240px, кремовая, липкая — как doc-sidebar набора. На узком экране
    уезжает за край и выходит по кнопке; жёлтая кнопка «Добавить» при этом
@@ -1232,6 +1244,33 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
     letter-spacing: 0.02em;
 }
 
+/* Отступ от пояснения раздела (.legend) до полей/галочки: раньше держался
+   кнопкой «Сохранить» в конце формы — теперь кнопка в футере, а воздух сверху
+   задаём здесь, одинаково для всех форм админки. */
+.admin-form {
+    margin-top: var(--s-md);
+}
+
+/* Приглашение: поле почты и кнопка «Создать ссылку» — в один ряд. Подпись
+   остаётся над полем (внутри .fld), кнопка встаёт справа вровень с полем. */
+.invite-form {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--s-sm);
+}
+
+.invite-form .fld {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.invite-form .cta {
+    flex: none;
+    min-height: 46px;   /* вровень с высотой поля .admin-form .fld input */
+    white-space: nowrap;
+}
+
 /* Настройки почты: форма в панели. .fld оформляет только input[type=text],
    а тут есть пароль, число и выбор — задаём им тот же вид явно. */
 .admin-form .fld input,
@@ -1992,38 +2031,6 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
     box-sizing: border-box;
 }
 
-/* Подсказка под поиском — вместо постоянного описания. Всплывает при
-   наведении или фокусе, не занимая места в покое. */
-.search-tip {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    margin: 0;
-    padding: 10px 14px;
-    background: var(--surface-card);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-md);
-    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.25);
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.45;
-    color: var(--body-ink);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-4px);
-    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s;
-    pointer-events: none;
-    z-index: 6;
-}
-
-.searchbox:hover .search-tip,
-.searchbox:focus-within .search-tip {
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-}
-
 .searchform input {
     width: 100%;   /* обёртка .searchbox не flex — тянем поле явной шириной */
     box-sizing: border-box;
@@ -2510,7 +2517,7 @@ html.card-dragging .side-folders-head {
     background: var(--primary);
     color: var(--on-primary);
     font-family: var(--mono);
-    font-size: 9px;
+    font-size: 10px;   /* было 9px — слишком мелко даже для микроплашки */
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -2600,10 +2607,13 @@ html.card-dragging .side-folders-head {
 }
 
 /* Содержимое карточки масштабируется вместе с сеткой (--card-scale от ползунка
-   размера): мельче плитки — мельче и шрифт/отступы, а не только уже. Плавно. */
+   размера): мельче плитки — мельче и шрифт/отступы, а не только уже. Плавно.
+   Но у ТЕКСТА есть читаемый пол (max(пол, …)): при мелких плитках отступы всё
+   ещё сжимаются, а буквы не падают ниже порога и не становятся мельче подвала
+   (11px) — иначе заголовок карточки оказывался мельче даты под ним. */
 .thumb-text span {
     font-family: var(--sans);
-    font-size: calc(16px * var(--card-scale, 1));
+    font-size: max(13px, calc(16px * var(--card-scale, 1)));
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--ink);
@@ -2626,7 +2636,7 @@ html.card-dragging .side-folders-head {
    это идентификатор в Git, а не заголовок статьи. */
 .card-name {
     font-family: var(--mono);
-    font-size: calc(14px * var(--card-scale, 1));
+    font-size: max(13px, calc(14px * var(--card-scale, 1)));
     font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--ink);
@@ -2640,7 +2650,7 @@ html.card-dragging .side-folders-head {
 }
 
 .card-sum {
-    font-size: calc(13px * var(--card-scale, 1));
+    font-size: max(12px, calc(13px * var(--card-scale, 1)));
     color: var(--muted);
     line-height: 1.45;
     margin: 0;
@@ -4306,6 +4316,25 @@ html.card-dragging .side-folders-head {
     cursor: pointer;
 }
 
+/* Загрузка фото — слева, набор готовых аватаров — справа от неё. На узком
+   экране набор переносится под загрузку. */
+.avatar-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-xl);
+    flex-wrap: wrap;
+}
+
+.avatar-layout .avatar-edit {
+    flex: 0 0 auto;
+}
+
+.avatar-layout .avatar-presets {
+    flex: 1 1 260px;
+    min-width: 220px;
+    margin-top: 0;   /* стоит в ряд с загрузкой — верхний отступ не нужен */
+}
+
 /* Набор готовых аватаров — сетка кружков. Каждый — своя форма (без JS),
    клик отправляет выбор. Активный обведён фирменным. */
 .avatar-presets {
@@ -4897,6 +4926,33 @@ html.card-dragging .side-folders-head {
     font-size: 17px;
 }
 
+/* Справка — в несколько колонок, чтобы занять ширину окна, а не тянуться узким
+   столбцом (на вкладках с одним разделом половина была пуста). Содержимое
+   перетекает между колонками (~300px каждая: две на десктопе, одна на телефоне).
+   Демо-карточка, пункты списков и плашки-подсказки не разрываются, а заголовок
+   держится со своим текстом. */
+.help .setpanel {
+    display: block;
+    column-width: 300px;
+    column-gap: var(--s-xxl);
+    min-height: 0;
+}
+
+.help .setpanel > .box {
+    margin: 0 0 var(--s-lg);
+}
+
+.help .setpanel h3 {
+    break-after: avoid;
+}
+
+.help .card-guide,
+.help .help-legend li,
+.help-list li,
+.help .help-tip {
+    break-inside: avoid;
+}
+
 .help-list {
     margin: var(--s-sm) 0 0;
     padding-left: 1.2em;
@@ -5165,12 +5221,17 @@ html.card-dragging .side-folders-head {
     top: calc(100% + 6px);
     right: 0;
     width: 320px;
-    max-width: 100%;
-    max-height: 70vh;
-    overflow-y: auto;
-    /* Докрутили шторку до конца — каталог за ней не должен подхватывать
-       прокрутку. Список фильтров и сетка карточек скроллятся независимо. */
-    overscroll-behavior: contain;
+    /* НЕ max-width:100% — процент считается от .toolbar-right (якорь
+       position:relative). Когда карточек нет, там только кнопка «Фильтры» и
+       колонка ~44px: шторка ужималась до неё и все фишки вставали в узкий
+       столбик. Ограничиваем шириной экрана, а не якоря. Телефон переопределяет
+       ниже (position:fixed, width:100%). */
+    max-width: calc(100vw - 2 * var(--s-xl));
+    max-height: 82vh;
+    /* Шапка (заголовок + ×) закреплена, а список фильтров прокручивается внутри
+       (.sheet-body). Поэтому колонка-флекс, а прокрутка — не на самой шторке. */
+    display: flex;
+    flex-direction: column;
     padding: var(--s-lg);
     background: var(--surface-card);
     border: 1px solid var(--hairline);
@@ -5180,10 +5241,75 @@ html.card-dragging .side-folders-head {
 }
 
 .sheet-head {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: var(--s-sm);
+}
+
+/* Список фильтров прокручивается сам, шапка/низ на месте. Потолок ≈ 20 строк:
+   дальше прокрутка идёт ТОЛЬКО по списку, а не растит окно. На низком экране
+   flex сам ужмёт список до высоты вьюпорта. */
+.sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 640px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* Фильтры — списком, строка на всю ширину, а не пилюлями. Значок и подпись
+   слева, счётчик прижат вправо. */
+.sheet .filters {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-bottom: 0;
+}
+
+.sheet .filter {
+    display: flex;
+    align-items: center;
+    gap: var(--s-sm);
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: var(--r-sm);
+    font-size: 13px;
+    line-height: 1.25;
+    white-space: normal;
+    color: var(--body-ink);
+    background: transparent;
+}
+
+.sheet .filter svg {
+    flex: none;
+}
+
+.sheet .filter b {
+    margin-left: auto;
+    color: var(--mute);
+    font-weight: 500;
+}
+
+.sheet .filter:hover {
+    border: 0;
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
+.sheet .filter[aria-current="true"] {
+    border: 0;
+    background: var(--surface-soft);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.sheet .filter[aria-current="true"] b {
+    color: var(--ink);
+    opacity: 0.7;
 }
 
 .sheet-head b {

@@ -8,13 +8,60 @@
 {% block modal_body %}
 <nav class="settabs" role="tablist" data-tabkey="admintab" aria-label="{{ t('admin.title') }}">
     <button class="settab on" type="button" data-tab="users">{{ t('admin.tab_users') }}</button>
-    <button class="settab" type="button" data-tab="access">{{ t('admin.tab_access') }}</button>
+    <button class="settab" type="button" data-tab="sources">{{ t('admin.tab_sources') }}</button>
     <button class="settab" type="button" data-tab="folders">{{ t('admin.tab_folders') }}</button>
     <button class="settab" type="button" data-tab="mail">{{ t('admin.tab_mail') }}</button>
-    <button class="settab" type="button" data-tab="integrations">{{ t('admin.tab_integrations') }}</button>
+    <button class="settab" type="button" data-tab="ai">{{ t('admin.tab_ai') }}</button>
 </nav>
 
 <section class="setpanel" data-panel="users">
+    {% if reset_msg %}<p class="admin-ok">{{ reset_msg }}</p>{% endif %}
+    {% if user_err %}<p class="auth-err" role="alert">{{ user_err }}</p>{% endif %}
+    {% if invite_msg %}<p class="admin-ok">{{ invite_msg }}</p>{% endif %}
+
+    {# Свободная регистрация — открыть/закрыть. Сохранение — кнопкой в футере. #}
+    <div class="box">
+        <h3>{{ t('admin.reg.h') }}</h3>
+        <p class="legend">{{ t('admin.reg.tip') }}</p>
+        <form method="post" action="/admin/registration" class="admin-form" id="admin-reg-form">
+            <label class="admin-check">
+                <input type="checkbox" name="enabled" value="1"{% if registration_open %} checked{% endif %}>
+                <span>{{ t('admin.reg.label') }}</span>
+            </label>
+        </form>
+    </div>
+
+    {# Пригласить человека ссылкой /join (и письмом, если настроена почта).
+       Поле почты и кнопка «Создать ссылку» — в один ряд. #}
+    <div class="box">
+        <h3>{{ t('admin.invite.h') }}</h3>
+        <p class="legend">{{ t('admin.invite.tip') }}</p>
+        <form method="post" action="/admin/invite" class="admin-form invite-form">
+            <label class="fld"><span>{{ t('admin.invite.email') }}</span>
+                <input type="email" name="email" placeholder="{{ t('admin.invite.email_ph') }}"
+                       autocomplete="off"></label>
+            <button class="cta" type="submit">{{ t('admin.invite.create') }}</button>
+        </form>
+    </div>
+
+    {# Готовые ссылки (сброс пароля / приглашение) — во всю ширину, под разделами. #}
+    {% if reset_link %}
+    <div class="box wide">
+        <p class="legend">{{ t('admin.reset.link_ready') }}</p>
+        <p class="admin-link-box"><input type="text" class="admin-link-field" readonly
+               value="{{ reset_link }}" onclick="this.select()"
+               aria-label="{{ t('admin.reset.link_ready') }}"></p>
+    </div>
+    {% endif %}
+    {% if invite_link %}
+    <div class="box wide">
+        <p class="legend">{{ t('admin.invite.link_ready') }}</p>
+        <p class="admin-link-box"><input type="text" class="admin-link-field" readonly
+               value="{{ invite_link }}" onclick="this.select()"
+               aria-label="{{ t('admin.invite.link_ready') }}"></p>
+    </div>
+    {% endif %}
+
 <div class="box wide">
     <h3>{{ t('admin.users.h') }}</h3>
     <p class="legend">{{ t('admin.users.legend') }}</p>
@@ -59,55 +106,6 @@
 </div>
 </section>
 
-<section class="setpanel" data-panel="access" hidden>
-    {% if reset_msg %}<p class="admin-ok">{{ reset_msg }}</p>{% endif %}
-    {% if user_err %}<p class="auth-err" role="alert">{{ user_err }}</p>{% endif %}
-    {% if invite_msg %}<p class="admin-ok">{{ invite_msg }}</p>{% endif %}
-
-    {# Свободная регистрация — открыть/закрыть. #}
-    <div class="box">
-        <h3>{{ t('admin.reg.h') }}</h3>
-        <p class="legend">{{ t('admin.reg.tip') }}</p>
-        <form method="post" action="/admin/registration" class="admin-form">
-            <label class="admin-check">
-                <input type="checkbox" name="enabled" value="1"{% if registration_open %} checked{% endif %}>
-                <span>{{ t('admin.reg.label') }}</span>
-            </label>
-            <button class="btn-secondary" type="submit">{{ t('admin.reg.save') }}</button>
-        </form>
-    </div>
-
-    {# Пригласить человека ссылкой /join (и письмом, если настроена почта). #}
-    <div class="box">
-        <h3>{{ t('admin.invite.h') }}</h3>
-        <p class="legend">{{ t('admin.invite.tip') }}</p>
-        <form method="post" action="/admin/invite" class="admin-form">
-            <label class="fld"><span>{{ t('admin.invite.email') }}</span>
-                <input type="email" name="email" placeholder="{{ t('admin.invite.email_ph') }}"
-                       autocomplete="off"></label>
-            <button class="cta" type="submit">{{ t('admin.invite.create') }}</button>
-        </form>
-    </div>
-
-    {# Готовые ссылки (сброс пароля / приглашение) — во всю ширину, под разделами. #}
-    {% if reset_link %}
-    <div class="box wide">
-        <p class="legend">{{ t('admin.reset.link_ready') }}</p>
-        <p class="admin-link-box"><input type="text" class="admin-link-field" readonly
-               value="{{ reset_link }}" onclick="this.select()"
-               aria-label="{{ t('admin.reset.link_ready') }}"></p>
-    </div>
-    {% endif %}
-    {% if invite_link %}
-    <div class="box wide">
-        <p class="legend">{{ t('admin.invite.link_ready') }}</p>
-        <p class="admin-link-box"><input type="text" class="admin-link-field" readonly
-               value="{{ invite_link }}" onclick="this.select()"
-               aria-label="{{ t('admin.invite.link_ready') }}"></p>
-    </div>
-    {% endif %}
-</section>
-
 <section class="setpanel" data-panel="folders" hidden>
 {# Общие папки каталога — их заводит и ведёт только администратор, отсюда. #}
 <div class="box wide">
@@ -125,7 +123,7 @@
     {% if smtp_msg %}<p class="admin-ok">{{ smtp_msg }}</p>{% endif %}
     {% if smtp_err %}<p class="auth-err" role="alert">{{ smtp_err }}</p>{% endif %}
 
-    <form method="post" action="/admin/smtp" class="admin-form">
+    <form method="post" action="/admin/smtp" class="admin-form" id="admin-smtp-form">
         <div class="field-grid">
             <label class="fld wide"><span>{{ t('admin.smtp.host') }}</span>
                 <input type="text" name="host" value="{{ smtp.host }}"
@@ -149,41 +147,65 @@
                        placeholder="vivatlas@example.com" autocomplete="off"></label>
             <label class="fld"><span>{{ t('admin.smtp.from_name') }}</span>
                 <input type="text" name="from_name" value="{{ smtp.from_name }}"
-                       placeholder="VivAtlas"></label>
+                       placeholder="VIVATLAS"></label>
             <label class="fld wide"><span>{{ t('admin.smtp.site_url') }}</span>
                 <input type="text" name="site_url" value="{{ smtp.site_url }}"
                        placeholder="https://vivatlas.example.com"></label>
         </div>
-        <button class="cta" type="submit">{{ t('admin.smtp.save') }}</button>
     </form>
 
-    <form method="post" action="/admin/smtp/test" class="admin-test">
-        <button class="btn-secondary" type="submit">{{ t('admin.smtp.test') }}</button>
+    {# Кнопка «Отправить проверочное письмо» — в футере, слева от «Сохранить»
+       (submit по form=). Здесь остаётся пояснение, готова ли проверка. #}
+    <form method="post" action="/admin/smtp/test" class="admin-test" id="admin-smtp-test-form">
         <span class="legend">{% if smtp.configured %}{{ t('admin.smtp.test_ready') }}{% else %}{{ t('admin.smtp.test_need') }}{% endif %}</span>
     </form>
 </div>
 </section>
 
-<section class="setpanel" data-panel="integrations" hidden>
+{# Один макрос на поле конфигурации: секрет — маской-плейсхолдером, обычное —
+   значением. Пустой секрет при сохранении оставляет прежний (см. save_config). #}
+{% macro cfg_field(c) %}
+<label class="fld"><span>{{ c.label }}</span>
+    {% if c.secret %}
+    <input type="password" name="{{ c.attr }}" autocomplete="off" spellcheck="false"
+           placeholder="{% if c.is_set %}{{ c.value }} · {{ t('admin.smtp.pw_keep') }}{% else %}{{ t('admin.smtp.pw_unset') }}{% endif %}">
+    {% else %}
+    <input type="text" name="{{ c.attr }}" value="{{ c.value }}" autocomplete="off" spellcheck="false">
+    {% endif %}
+</label>
+{% endmacro %}
+
+{# Источники: откуда каталог читает открытые репозитории (Gitea/GitHub). Своя
+   вкладка — это не про AI и не про сами репозитории сервера. #}
+<section class="setpanel" data-panel="sources" hidden>
+<div class="box wide">
+    <h3>{{ t('admin.sources.title') }}</h3>
+    <p class="legend">{{ t('admin.sources.tip') }}</p>
+    {% if config_msg %}<p class="admin-ok">{{ config_msg }}</p>{% endif %}
+
+    <form method="post" action="/admin/config" class="admin-form" id="admin-sources-form">
+        <div class="field-grid">
+            {% for c in config if c.attr in ['gitea_url', 'gitea_token', 'github_token'] %}
+            {{ cfg_field(c) }}
+            {% endfor %}
+        </div>
+    </form>
+</div>
+</section>
+
+{# ИИ: ключ Google AI и модели для описаний/поиска — отдельно от источников. #}
+<section class="setpanel" data-panel="ai" hidden>
 <div class="box wide">
     <h3>{{ t('admin.config.title') }}</h3>
     <p class="legend">{{ t('admin.config.tip') }}</p>
     {% if config_msg %}<p class="admin-ok">{{ config_msg }}</p>{% endif %}
 
-    <form method="post" action="/admin/config" class="admin-form">
+    <form method="post" action="/admin/config" class="admin-form" id="admin-config-form">
         <div class="field-grid">
-            {% for c in config %}
-            <label class="fld"><span>{{ c.label }}</span>
-                {% if c.secret %}
-                <input type="password" name="{{ c.attr }}" autocomplete="off" spellcheck="false"
-                       placeholder="{% if c.is_set %}{{ c.value }} · {{ t('admin.smtp.pw_keep') }}{% else %}{{ t('admin.smtp.pw_unset') }}{% endif %}">
-                {% else %}
-                <input type="text" name="{{ c.attr }}" value="{{ c.value }}" autocomplete="off" spellcheck="false">
-                {% endif %}
-            </label>
+            {% for c in config if c.attr in ['google_api_key', 'llm_model', 'embedding_model'] %}
+            {{ cfg_field(c) }}
             {% endfor %}
         </div>
-        <button class="cta" type="submit">{{ t('admin.config.save_btn') }}</button>
     </form>
 </div>
 </section>
@@ -201,7 +223,17 @@ document.addEventListener('submit', function (e) {
 {% endblock %}
 
 {% block modal_foot %}
+{# «Закрыть» — слева, «Сохранить» — справа. Кнопка сохранения одна на футер, но
+   своя для каждой вкладки: показывается та, что относится к открытой (см.
+   footActions в modal_base.html). submit по form= — форма лежит внутри панели.
+   Вкладки «Люди» и «Папки» сохраняют по строке, общей кнопки у них нет. #}
 <footer class="modal-foot">
     <a class="btn-secondary foot-left" href="/">{{ t('admin.close') }}</a>
+    <button class="cta" type="submit" form="admin-reg-form" data-panel="users" hidden>{{ t('admin.reg.save') }}</button>
+    {# Проверочное письмо — слева от «Сохранить настройки почты» (обе на вкладке «Почта»). #}
+    <button class="btn-secondary" type="submit" form="admin-smtp-test-form" data-panel="mail" hidden>{{ t('admin.smtp.test') }}</button>
+    <button class="cta" type="submit" form="admin-smtp-form" data-panel="mail" hidden>{{ t('admin.smtp.save') }}</button>
+    <button class="cta" type="submit" form="admin-sources-form" data-panel="sources" hidden>{{ t('admin.config.save_btn') }}</button>
+    <button class="cta" type="submit" form="admin-config-form" data-panel="ai" hidden>{{ t('admin.config.save_btn') }}</button>
 </footer>
 {% endblock %}

@@ -1,0 +1,5 @@
+# Normalize line endings. Shell scripts MUST stay LF — the container runs
+# entrypoint.sh with /bin/sh, and CRLF would break it ("\r" not found).
+* text=auto
+*.sh text eol=lf
+docker/entrypoint.sh text eol=lf

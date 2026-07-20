@@ -45,8 +45,11 @@ class Filters:
     cat: str = ""
     draft: str = ""
     zone: str = ""  # "private" | "common" — отбор по зоне карточки
+    sort: str = ""  # "" | "name" | "updated" | "added" — порядок в каталоге
 
     def active(self) -> bool:
+        # Сортировка — не фильтр: она ничего не прячет, поэтому в счётчик
+        # активных фильтров (бейдж) и в «снять всё» не входит.
         return any(
             (self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat, self.zone)
         )
@@ -63,6 +66,7 @@ class Filters:
             "cat": self.cat,
             "draft": self.draft,
             "zone": self.zone,
+            "sort": self.sort,
         }
         out.update(override)
         if drop:
@@ -159,6 +163,23 @@ def apply(
 
 def count_matching(session: Session, f: Filters) -> int:
     return session.scalar(apply(select(func.count(Artifact.id)), f)) or 0
+
+
+def sort_order(sort: str) -> list:
+    """ORDER BY для просмотра каталога. По умолчанию — по имени (А→Я). «updated» —
+    свежеобновлённые сверху, «added» — недавно заведённые. Дату источника берём
+    подзапросом, а не join, чтобы не спорить с возможным join по владельцу."""
+    if sort == "updated":
+        upd = (
+            select(Repository.remote_updated_at)
+            .where(Repository.id == Artifact.repository_id)
+            .scalar_subquery()
+        )
+        # В SQLite NULL при DESC уходит вниз сам — карточки без даты будут в конце.
+        return [upd.desc(), Artifact.name]
+    if sort == "added":
+        return [Artifact.created_at.desc(), Artifact.name]
+    return [Artifact.name]
 
 
 def tag_groups(

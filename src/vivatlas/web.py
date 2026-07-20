@@ -118,12 +118,26 @@ def _counts(session, user_id: int | None = None) -> dict:
             )
             or 0
         )
+    # Избранное — для бейджа в панели: столько же, сколько покажет вид /?fav=1
+    # (видимое, не черновик, у этого человека). Аноним ничего в избранном не имеет.
+    favorites = 0
+    if user_id is not None:
+        favorites = (
+            session.scalar(
+                select(func.count())
+                .select_from(Favorite)
+                .join(Artifact, Artifact.id == Favorite.artifact_id)
+                .where(Favorite.user_id == user_id, Favorite.artifact_id.in_(vis), not_draft)
+            )
+            or 0
+        )
     return {
         "artifacts": session.scalar(
             select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis), not_draft)
         )
         or 0,
         "mine": mine,
+        "favorites": favorites,
         "drafts": flt.draft_count(session, user_id),
         "tags": session.scalar(select(func.count(func.distinct(ArtifactTag.tag_id)))) or 0,
         "by_type": by_type,
@@ -162,10 +176,11 @@ async def index(
     cat: str = "",
     draft: str = "",
     zone: str = "",
+    sort: str = "",
 ) -> HTMLResponse:
     f = flt.Filters(
         type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat,
-        draft=draft, zone=zone,
+        draft=draft, zone=zone, sort=sort,
     )
 
     # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
@@ -209,7 +224,9 @@ async def index(
                     if h.artifact.id in allowed
                 ][:60]
             else:
-                query = flt.apply(select(Artifact), f, fav_ids, user_id).order_by(Artifact.name)
+                query = flt.apply(select(Artifact), f, fav_ids, user_id).order_by(
+                    *flt.sort_order(f.sort)
+                )
                 items = [
                     _card(session, a, [], fav_ids, lang, user_id) for a in session.scalars(query)
                 ]

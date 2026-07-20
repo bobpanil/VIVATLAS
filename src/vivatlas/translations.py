@@ -16,6 +16,7 @@ CATALOG: dict[str, dict[str, str]] = {
     "nav.add": {"en": "Add", "ru": "Добавить", "he": "הוספה"},
     "nav.add_tool": {"en": "Add tool", "ru": "Добавить инструмент", "he": "הוספת כלי"},
     "nav.catalog": {"en": "Catalogue", "ru": "Каталог", "he": "קטלוג"},
+    "nav.favorites": {"en": "Favourites", "ru": "Избранное", "he": "מועדפים"},
     "nav.drafts": {"en": "Drafts", "ru": "Черновики", "he": "טיוטות"},
     "nav.changes": {"en": "Changes", "ru": "Изменения", "he": "שינויים"},
     "nav.help": {"en": "Help", "ru": "Помощь", "he": "עזרה"},
@@ -697,6 +698,12 @@ CATALOG: dict[str, dict[str, str]] = {
     "settings.tab_folders": {"en": "Folders", "ru": "Папки", "he": "תיקיות"},
     "settings.tab_repos": {"en": "Repositories", "ru": "Репозитории", "he": "מאגרים"},
     "settings.tab_security": {"en": "Security", "ru": "Безопасность", "he": "אבטחה"},
+    "settings.tab_delete": {"en": "Delete account", "ru": "Удаление", "he": "מחיקת חשבון"},
+    "settings.folder_exists": {
+        "en": "A folder with that name already exists.",
+        "ru": "Папка с таким именем уже есть.",
+        "he": "כבר קיימת תיקייה בשם הזה.",
+    },
     # --- аккаунт -------------------------------------------------------------
     "account.photo_title": {"en": "Profile photo", "ru": "Фото профиля", "he": "תמונת פרופיל"},
     "account.photo_hint": {
@@ -723,6 +730,9 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "שינוי הדוא״ל דורש את הסיסמה הנוכחית.",
     },
     "account.new_email": {"en": "New email", "ru": "Новая почта", "he": "דוא״ל חדש"},
+    "account.confirm_email": {
+        "en": "Confirm new email", "ru": "Повтор новой почты", "he": "אישור הדוא״ל החדש",
+    },
     "account.change_email_btn": {"en": "Change email", "ru": "Сменить почту", "he": "שינוי דוא״ל"},
     "account.email_changed": {
         "en": "Email changed.", "ru": "Почта изменена.", "he": "הדוא״ל שונה.",
@@ -777,6 +787,11 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Эта почта уже занята.",
         "he": "הדוא״ל הזה כבר בשימוש.",
     },
+    "account.err.email_mismatch": {
+        "en": "The two emails don't match.",
+        "ru": "Адреса почты не совпадают.",
+        "he": "כתובות הדוא״ל אינן תואמות.",
+    },
     "account.err.last_owner": {
         "en": "You're the last owner — you can't delete yourself.",
         "ru": "Вы последний владелец — себя удалить нельзя.",
@@ -806,12 +821,18 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     # --- админ: конфигурация -------------------------------------------------
     "admin.config.title": {
-        "en": "AI & integrations", "ru": "AI и интеграции", "he": "AI ואינטגרציות",
+        "en": "AI", "ru": "ИИ", "he": "AI",
     },
     "admin.config.tip": {
-        "en": "Addresses, tokens and models. Overrides .env, stored encrypted, applies without a restart. Leave a secret blank to keep it.",
-        "ru": "Адреса, токены и модели. Поверх .env, хранятся шифром, применяются без перезапуска. Пустой секрет — оставить прежний.",
-        "he": "כתובות, אסימונים ומודלים. גובר על .env, נשמר מוצפן, חל ללא הפעלה מחדש. השאירו סוד ריק כדי לשמור אותו.",
+        "en": "Google AI key and the models used for descriptions and search. Overrides .env, stored encrypted, applies without a restart. Leave a secret blank to keep it.",
+        "ru": "Ключ Google AI и модели для описаний и поиска. Поверх .env, хранятся шифром, применяются без перезапуска. Пустой секрет — оставить прежний.",
+        "he": "מפתח Google AI והמודלים לתיאורים ולחיפוש. גובר על .env, נשמר מוצפן, חל ללא הפעלה מחדש. השאירו סוד ריק כדי לשמור אותו.",
+    },
+    "admin.sources.title": {"en": "Sources", "ru": "Источники", "he": "מקורות"},
+    "admin.sources.tip": {
+        "en": "Where the catalog reads public repositories from — Gitea and GitHub. Overrides .env, stored encrypted, applies without a restart. Leave a token blank to keep it.",
+        "ru": "Откуда каталог читает открытые репозитории — Gitea и GitHub. Поверх .env, хранятся шифром, применяются без перезапуска. Пустой токен — оставить прежний.",
+        "he": "מהיכן הקטלוג קורא מאגרים ציבוריים — Gitea ו-GitHub. גובר על .env, נשמר מוצפן, חל ללא הפעלה מחדש. השאירו אסימון ריק כדי לשמור אותו.",
     },
     "admin.config.saved": {
         "en": "Configuration saved.", "ru": "Настройки сохранены.", "he": "ההגדרות נשמרו.",
@@ -819,9 +840,11 @@ CATALOG: dict[str, dict[str, str]] = {
     "admin.config.save_btn": {"en": "Save", "ru": "Сохранить", "he": "שמירה"},
     "admin.tab_users": {"en": "Users", "ru": "Люди", "he": "משתמשים"},
     "admin.tab_access": {"en": "Access", "ru": "Доступ", "he": "גישה"},
+    "admin.tab_sources": {"en": "Sources", "ru": "Источники", "he": "מקורות"},
     "admin.tab_folders": {"en": "Folders", "ru": "Папки", "he": "תיקיות"},
     "admin.tab_mail": {"en": "Mail", "ru": "Почта", "he": "דוא״ל"},
     "admin.tab_integrations": {"en": "Integrations", "ru": "Интеграции", "he": "אינטגרציות"},
+    "admin.tab_ai": {"en": "AI", "ru": "ИИ", "he": "AI"},
 }
 
 # Массовые переводы остальных шаблонов лежат отдельным сгенерированным файлом

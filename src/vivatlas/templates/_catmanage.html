@@ -2,37 +2,17 @@
    rid делает id уникальными (иконки, форма порядка); scope уходит в создание;
    back — куда вернуться после действия (/settings или /admin). #}
 {% macro cat_manage(cats, scope, rid, placeholder, back='/settings') %}
-    {% if cats %}
+    {# Список рисуем всегда (даже пустым): созданную папку скрипт вставляет сюда
+       сразу, без перезагрузки — а вставлять некуда, если списка нет. #}
     <ul class="cat-manage" id="{{ rid }}-list" data-reorder="{{ rid }}" data-next="{{ back }}">
         {% for c in cats %}
-        <li class="catrow" data-id="{{ c.value }}">
-            <span class="catrow-grip" draggable="true" title="{{ t('settings.drag') }}" aria-label="{{ t('settings.drag_reorder_aria') }}">⠿</span>
-            <form method="post" action="/settings/categories/{{ c.value }}/update" class="catrow-form">
-                <input type="hidden" name="next" value="{{ back }}">
-                <button type="button" class="cat-pick" data-target="ic{{ c.value }}"
-                        aria-label="{{ t('settings.pick_icon_aria') }}">{{ caticon(c.icon) if c.icon else '' }}{% if not c.icon %}<span class="cat-pick-empty">+</span>{% endif %}</button>
-                <input type="hidden" name="icon" id="ic{{ c.value }}" value="{{ c.icon }}">
-                <input type="text" name="name" value="{{ c.label }}" maxlength="128"
-                       aria-label="{{ t('settings.category_name_aria') }}">
-                <span class="catrow-count" title="{{ t('settings.cards_in_folder') }}">{{ c.count }}</span>
-                <button type="submit" class="catrow-btn" title="{{ t('settings.save_name') }}">✓</button>
-                <button type="submit" class="catrow-btn catrow-del"
-                        formaction="/settings/categories/{{ c.value }}/delete" title="{{ t('settings.delete') }}">✕</button>
-            </form>
-            <div class="icon-grid" id="grid-ic{{ c.value }}" hidden>
-                {% for slug in cat_icons %}
-                <button type="button" class="icon-opt" data-target="ic{{ c.value }}" data-slug="{{ slug }}"
-                        aria-label="{{ slug }}">{{ caticon(slug) }}</button>
-                {% endfor %}
-            </div>
-        </li>
+        {% include "_catrow.html" %}
         {% endfor %}
     </ul>
     <form method="post" action="/settings/categories/reorder" id="{{ rid }}-form" hidden>
         <input type="hidden" name="next" value="{{ back }}">
         <input type="hidden" name="order" id="{{ rid }}-order">
     </form>
-    {% endif %}
 
     <form method="post" action="/settings/categories" class="catrow-add">
         <input type="hidden" name="next" value="{{ back }}">

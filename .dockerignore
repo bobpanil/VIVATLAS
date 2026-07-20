@@ -1,0 +1,25 @@
+# Keep the build context small and never bake secrets or local state into the image.
+.git
+.gitignore
+.venv
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+# Local database and server state — must NOT enter the image.
+*.db
+*.db-*
+logs/
+# Secrets / local config — must NOT enter the image.
+.env
+.env.*
+secrets.md
+# Dev caches and docs not needed at runtime.
+.pytest_cache/
+.ruff_cache/
+tests/
+docs/
+*.cmd
+.DS_Store

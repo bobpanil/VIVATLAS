@@ -154,27 +154,31 @@ def user_toggle(
 @router.post("/admin/config", response_class=HTMLResponse)
 def config_save(
     request: Request,
-    gitea_url: Annotated[str, Form()] = "",
-    gitea_token: Annotated[str, Form()] = "",
-    github_token: Annotated[str, Form()] = "",
-    google_api_key: Annotated[str, Form()] = "",
-    llm_model: Annotated[str, Form()] = "",
-    embedding_model: Annotated[str, Form()] = "",
+    gitea_url: Annotated[str | None, Form()] = None,
+    gitea_token: Annotated[str | None, Form()] = None,
+    github_token: Annotated[str | None, Form()] = None,
+    google_api_key: Annotated[str | None, Form()] = None,
+    llm_model: Annotated[str | None, Form()] = None,
+    embedding_model: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     """Сохранить правки конфигурации. Секреты с пустым полем не трогаем (как
-    пароль SMTP); правки сразу накладываются на settings — перезапуск не нужен."""
+    пароль SMTP); правки сразу накладываются на settings — перезапуск не нужен.
+
+    Форма приходит ЧАСТИЧНОЙ: «Источники» (Gitea/GitHub) и «ИИ» (ключ и модели) —
+    разные вкладки и разные формы. Поля отсутствующей вкладки приходят None и в
+    save_config не попадают, иначе сохранение одной вкладки обнуляло бы другую."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
+        submitted = {
+            runtime_settings.CFG_GITEA_URL: gitea_url,
+            runtime_settings.CFG_GITEA_TOKEN: gitea_token,
+            runtime_settings.CFG_GITHUB_TOKEN: github_token,
+            runtime_settings.CFG_GOOGLE_KEY: google_api_key,
+            runtime_settings.CFG_LLM_MODEL: llm_model,
+            runtime_settings.CFG_EMBEDDING_MODEL: embedding_model,
+        }
         runtime_settings.save_config(
-            session,
-            {
-                runtime_settings.CFG_GITEA_URL: gitea_url,
-                runtime_settings.CFG_GITEA_TOKEN: gitea_token,
-                runtime_settings.CFG_GITHUB_TOKEN: github_token,
-                runtime_settings.CFG_GOOGLE_KEY: google_api_key,
-                runtime_settings.CFG_LLM_MODEL: llm_model,
-                runtime_settings.CFG_EMBEDDING_MODEL: embedding_model,
-            },
+            session, {k: v for k, v in submitted.items() if v is not None}
         )
         session.flush()
         lang = getattr(request.state, "lang", "en")

@@ -1386,6 +1386,11 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
     align-items: center;
     gap: 6px;
     margin: 0 0 10px;
+    /* The ⓘ info icon is taller than the heading text, so a section WITH a tip was
+       ~3px taller than one without — enough to push a whole column (e.g. Email) out
+       of line with the column beside it (Password, no tip). Pin the row height so a
+       heading is the same size with or without the icon. */
+    min-height: 18px;
 }
 
 /* Collapse arrow — at the end of the heading (right in ltr, left in rtl). */

@@ -2,11 +2,15 @@
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import re
 import tempfile
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Annotated
 from urllib.parse import quote
 
@@ -23,13 +27,15 @@ from vivatlas import changes as ch
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
 from vivatlas.ai import build_embedding_model, build_text_model
+from vivatlas.archive import read_archive
 from vivatlas.config import settings
 from vivatlas.db import session_scope
-from vivatlas.embeddings import embed_artifact
+from vivatlas.detector import detect
+from vivatlas.embeddings import embed_artifact, text_hash, to_blob
 from vivatlas.finder import MAX_MEDIA_BYTES, Finder, looks_like_link
 from vivatlas.import_run import execute, record_upstream
 from vivatlas.importer import GitHubFetcher, ImportError_, plan_import
-from vivatlas.indexer import index_repository
+from vivatlas.indexer import _to_ref, index_repository
 from vivatlas.models import (
     Artifact,
     ArtifactCategory,
@@ -50,7 +56,9 @@ from vivatlas.providers.gitea import GiteaProvider
 from vivatlas.scanner import get_or_create_source, scan_source
 from vivatlas.search import Mode, index_artifact_for_words
 from vivatlas.search import search as do_search
-from vivatlas.tagger import tag_artifact
+from vivatlas.summarizer import summarize
+from vivatlas.tagger import ai_tags, apply_tags, derive_tags, tag_artifact
+from vivatlas.upstream_sync import discover_for_artifact
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(
@@ -886,42 +894,266 @@ async def _scan_one_source(
                 )
             )
         bump("total", len(repo_ids))
-        for rid in repo_ids:
+        # Building a card is almost all waiting — on the archive download and on three
+        # AI calls (describe, embed, tag). Doing them one at a time wastes that idle
+        # time, so we build several at once. The catch: SQLite holds a write lock for
+        # the whole of a write transaction, so we must NOT keep one open across the AI
+        # calls, or the workers would just queue on the lock and time out. Hence two
+        # phases — a parallel COMPUTE (network/CPU/AI, no DB lock held) and a short,
+        # serialized PERSIST that writes the finished card in one quick burst.
+        sem = asyncio.Semaphore(max(1, settings.scan_concurrency))
+        persist_lock = asyncio.Lock()
+
+        async def _handle(rid: int) -> None:
             try:
-                with session_scope() as session:
-                    repo = session.get(Repository, rid)
-                    result = await index_repository(
-                        session, provider, text_model, repo, force=force
-                    )
-                    art = session.scalar(select(Artifact).where(Artifact.repository_id == rid))
-                    # "unchanged" — the same commit, the card is already built: we don't
-                    # waste AI (important for the daily auto-scan).
-                    if art is not None and not result.startswith("unchanged"):
-                        await embed_artifact(session, embed_model, art)
-                        await tag_artifact(session, art, text_model)
-                        index_artifact_for_words(session, art)
-                        # A brand-new card is shown ("new" badge); index_repository already
-                        # set its owner and zone from the source (shared if no owner). A
-                        # personal card is filed into the owner's private folder if we can
-                        # guess one; a shared card is left folderless for the admin to file.
-                        if result.startswith("created"):
-                            art.hidden = False
-                            art.is_new = True
-                            if owner_uid is not None:
-                                auto_cid = _auto_category(session, art, owner_uid)
-                                if auto_cid is not None:
-                                    session.add(
-                                        ArtifactCategory(artifact_id=art.id, category_id=auto_cid)
-                                    )
-                            bump("added")
-                    session.commit()
+                async with sem:
+                    plan = await _compute_card(rid, provider, text_model, embed_model, force)
+                # "unchanged" (same commit, card already built) — skip the write entirely.
+                if plan is not None and not plan.unchanged:
+                    async with persist_lock:
+                        created = _persist_card(plan, owner_uid)
+                    if created:
+                        bump("added")
             except Exception:
                 log.exception("scan: repository %s failed to build", rid)
-            bump("done")
+            finally:
+                bump("done")
+
+        await asyncio.gather(*(_handle(rid) for rid in repo_ids))
     finally:
         await provider.aclose()
         await text_model.aclose()
         await embed_model.aclose()
+
+
+@dataclass
+class _CardPlan:
+    """Everything needed to write one card, computed off the DB write path so the
+    persist step is a quick, lock-free-until-the-last-moment burst."""
+
+    row_id: int
+    unchanged: bool
+    head: str
+    contents: object | None = None
+    detection: object | None = None
+    content_hash: str = ""
+    summaries: dict | None = None
+    summary_error: str | None = None
+    summary_model: str | None = None
+    tag_origin: str = "model"
+    embed_vector: list[float] | None = None
+    embed_hash: str = ""
+    embed_model_name: str = "unknown"
+    embed_dim: int = 0
+    ai_tag_candidates: list | None = None
+
+
+async def _compute_card(
+    rid: int, provider, text_model, embed_model, force: bool
+) -> _CardPlan | None:
+    """The parallel half of a scan: download the archive, detect the type, and make
+    the three AI calls (describe, embed, tag). Holds no write transaction, so many of
+    these run at once. Returns a plan for _persist_card, or a cheap "unchanged" marker
+    when the commit and the summary are already in place (the daily auto-scan case)."""
+    with session_scope() as session:
+        row = session.get(Repository, rid)
+        if row is None:
+            return None
+        ref = _to_ref(row)
+        name = row.name
+        art = session.scalar(select(Artifact).where(Artifact.repository_id == rid))
+        existing_commit = art.source_commit if art is not None else None
+        existing_has_summary = bool(art is not None and art.summary_short)
+
+    head = await provider.get_head_sha(ref)
+    if existing_commit == head and existing_has_summary and not force:
+        return _CardPlan(row_id=rid, unchanged=True, head=head)
+
+    blob = await provider.download_archive(ref, head)
+    # gzip/tar parsing, type detection and hashing are pure CPU — off the event loop
+    # so a worker doing them doesn't stall the others' downloads and AI calls.
+    contents = await asyncio.to_thread(read_archive, blob)
+    detection = await asyncio.to_thread(detect, contents)
+    content_hash = await asyncio.to_thread(lambda: hashlib.sha256(blob).hexdigest())
+
+    summaries = {"summary_short": "", "summary_normal": "", "summary_technical": ""}
+    summary_error: str | None = None
+    summary_model: str | None = None
+    if text_model is not None:
+        try:
+            summaries = await summarize(
+                text_model,
+                full_name=ref.full_name,
+                artifact_type=detection.artifact_type,
+                doc_text=detection.doc_text,
+                file_count=len(contents.files),
+            )
+            summary_model = getattr(text_model, "model", None)
+        except Exception as exc:  # noqa: BLE001 — the card is kept, minus its summary
+            summary_error = str(exc)[:500]
+            log.warning("scan: %s summary failed: %s", ref.full_name, exc)
+
+    # The embedding text mirrors embeddings.embedding_text — name plus the summaries,
+    # falling back to the name alone when there is no summary yet.
+    parts = [
+        name,
+        detection.artifact_type,
+        summaries["summary_short"],
+        summaries["summary_normal"],
+        summaries["summary_technical"],
+    ]
+    embed_text = "\n".join(p for p in parts if p) or name
+    vector = await embed_model.embed(embed_text)
+
+    shim = SimpleNamespace(
+        name=name,
+        artifact_type=detection.artifact_type,
+        summary_normal=summaries["summary_normal"],
+        summary_technical=summaries["summary_technical"],
+    )
+    tag_candidates = await ai_tags(text_model, shim) if text_model is not None else []
+
+    return _CardPlan(
+        row_id=rid,
+        unchanged=False,
+        head=head,
+        contents=contents,
+        detection=detection,
+        content_hash=content_hash,
+        summaries=summaries,
+        summary_error=summary_error,
+        summary_model=summary_model,
+        tag_origin=getattr(text_model, "model", "model"),
+        embed_vector=vector,
+        embed_hash=text_hash(embed_text),
+        embed_model_name=getattr(embed_model, "model", "unknown"),
+        embed_dim=embed_model.dim,
+        ai_tag_candidates=tag_candidates,
+    )
+
+
+def _persist_card(plan: _CardPlan, owner_uid: int | None) -> bool:
+    """The serialized half of a scan: write one finished card in a single short
+    transaction. Synchronous by design — nothing awaits inside, so only one runs at a
+    time and SQLite never sees competing writers. Returns True when a card is created.
+    Mirrors indexer.index_repository plus the embed/tag/file-in steps its caller did."""
+    with session_scope() as session:
+        row = session.get(Repository, plan.row_id)
+        if row is None:
+            return False
+        detection = plan.detection
+        artifact = session.scalar(select(Artifact).where(Artifact.repository_id == row.id))
+        if artifact is None:
+            # Ownership and "shared" follow the source owner, exactly as index_repository
+            # does it: a shared source (no owner) yields shared cards, a personal one
+            # yields private cards tied to the owner.
+            src_owner = row.source.owner_user_id
+            artifact = Artifact(
+                repository_id=row.id, owner_user_id=src_owner, shared=src_owner is None
+            )
+            session.add(artifact)
+            created = True
+        else:
+            created = False
+
+        content_changed = artifact.content_hash not in (None, plan.content_hash)
+        previous_type = artifact.artifact_type
+
+        artifact.name = row.name
+        artifact.artifact_type = detection.artifact_type
+        artifact.confidence = detection.confidence
+        artifact.detect_reasons = "; ".join(detection.reasons)
+        artifact.anchor_path = detection.anchor_path
+        artifact.preview_path = detection.preview_path
+        artifact.doc_text = detection.doc_text
+        artifact.file_count = len(plan.contents.files)
+        artifact.file_paths = json.dumps(plan.contents.paths, ensure_ascii=False)
+        artifact.source_commit = plan.head
+        artifact.content_hash = plan.content_hash
+        artifact.updated_at = datetime.now(UTC)
+        if plan.summary_error is None:
+            artifact.summary_short = plan.summaries["summary_short"]
+            artifact.summary_normal = plan.summaries["summary_normal"]
+            artifact.summary_technical = plan.summaries["summary_technical"]
+            artifact.summary_model = plan.summary_model
+            artifact.summary_error = None
+        else:
+            artifact.summary_error = plan.summary_error
+
+        row.last_scanned_commit = plan.head
+        row.last_scanned_at = datetime.now(UTC)
+
+        session.flush()  # artifact.id is needed below
+        discover_for_artifact(
+            session, artifact, plan.contents, original_url=row.original_url or ""
+        )
+
+        if created:
+            ch.record(
+                session,
+                "added",
+                repository_id=row.id,
+                artifact_id=artifact.id,
+                title=row.full_name,
+                details=f"type: {detection.artifact_type}",
+            )
+        elif content_changed:
+            what = "content updated"
+            if previous_type and previous_type != detection.artifact_type:
+                what += f"; type changed: {previous_type} -> {detection.artifact_type}"
+            ch.record(
+                session,
+                "updated",
+                repository_id=row.id,
+                artifact_id=artifact.id,
+                title=row.full_name,
+                details=what,
+            )
+
+        # Embedding: upsert, same shape as embeddings.embed_artifact's write half.
+        if plan.embed_vector is not None:
+            emb = session.scalar(
+                select(Embedding).where(
+                    Embedding.artifact_id == artifact.id,
+                    Embedding.model == plan.embed_model_name,
+                )
+            )
+            if emb is None:
+                session.add(
+                    Embedding(
+                        artifact_id=artifact.id,
+                        model=plan.embed_model_name,
+                        dim=plan.embed_dim,
+                        vector=to_blob(plan.embed_vector),
+                        source_hash=plan.embed_hash,
+                    )
+                )
+            else:
+                emb.vector = to_blob(plan.embed_vector)
+                emb.dim = plan.embed_dim
+                emb.source_hash = plan.embed_hash
+
+        # Tags: rule-derived first, then the model's — order matters (see tagger).
+        apply_tags(session, artifact, derive_tags(artifact), source="derived", origin="rule")
+        if plan.ai_tag_candidates:
+            apply_tags(
+                session, artifact, plan.ai_tag_candidates, source="ai", origin=plan.tag_origin
+            )
+        index_artifact_for_words(session, artifact)
+
+        if created:
+            artifact.hidden = False
+            artifact.is_new = True
+            # A personal card is filed into the owner's guessed folder; a shared card is
+            # left folderless for the admin to place.
+            if owner_uid is not None:
+                auto_cid = _auto_category(session, artifact, owner_uid)
+                if auto_cid is not None:
+                    session.add(
+                        ArtifactCategory(artifact_id=artifact.id, category_id=auto_cid)
+                    )
+        session.commit()
+    return created
 
 
 @router.get("/recommend")

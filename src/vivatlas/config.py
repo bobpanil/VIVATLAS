@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = 30.0
     llm_timeout_seconds: float = 120.0
 
+    # How many repositories a scan builds at once. Each card is mostly waiting —
+    # on a download and on the AI — so overlapping several fills that idle time and
+    # is the difference between a scan taking minutes and taking an hour. The ceiling
+    # is really the AI provider's per-minute quota; past it the extra workers just
+    # trade places sleeping on 429s. 6 is a safe default for the free tier.
+    scan_concurrency: int = 6
+
     # The free tier is limited by requests per minute. A pause between calls
     # is cheaper than catching a 429 and asking again.
     llm_delay_seconds: float = 1.0

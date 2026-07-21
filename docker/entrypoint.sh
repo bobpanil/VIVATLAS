@@ -25,11 +25,4 @@ fi
 # it adds any new columns/indexes (serve itself does no migration).
 python -m vivatlas.cli init-db
 
-# Optional demo data: ~200 cards built from real GitHub repos. Idempotent — it
-# skips repos already present. Turn on with VIVATLAS_SEED=1 (first run only).
-if [ "${VIVATLAS_SEED:-0}" = "1" ]; then
-  echo "vivatlas: seeding demo cards..."
-  python /app/scripts/seed_mock.py || echo "vivatlas: seed skipped/failed"
-fi
-
 exec python -m vivatlas.cli serve --host 0.0.0.0 --port 8710

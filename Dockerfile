@@ -18,8 +18,6 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install .
 
-# Seed tooling + cached repo metadata (used only when VIVATLAS_SEED=1).
-COPY scripts ./scripts
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Non-root user and a data dir for the SQLite db + generated secret.

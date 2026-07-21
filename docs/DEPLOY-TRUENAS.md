@@ -77,7 +77,6 @@ services:
       # If left empty, a stable key is generated and stored in the data folder.
       SECRET_KEY: ""
       DATABASE_URL: "sqlite:////data/vivatlas.db"
-      VIVATLAS_SEED: "0"        # set "1" for the FIRST run to load ~200 demo cards
     volumes:
       - type: bind
         source: /mnt/your-pool/apps/vivatlas/data
@@ -100,21 +99,11 @@ until an owner exists, anyone reaching the page could claim it.
 
 ---
 
-## 5. Demo data (optional)
+## 5. Add your sources
 
-Two ways to load the ~200 sample cards (real GitHub repositories):
-
-- **At deploy:** set `VIVATLAS_SEED: "1"` for the first start, then edit it back to
-  `"0"` (seeding is idempotent, but there's no reason to re-run it every boot).
-- **Anytime:** exec into the running container:
-  ```sh
-  sudo docker exec -it vivatlas python /app/scripts/seed_mock.py
-  # remove them again with:
-  sudo docker exec -it vivatlas python /app/scripts/seed_mock.py --wipe
-  ```
-
-The demo cards live under a single "GitHub (demo data)" source, so `--wipe` only
-ever removes demo cards — never anything you add yourself.
+Sign in as the owner, open **admin → Sources**, set your Gitea address/token and/or a
+GitHub account, **Save**, then **Scan now**. Public repositories import as shared cards
+for everyone; the scan then refreshes daily.
 
 ---
 

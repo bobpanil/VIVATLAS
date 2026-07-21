@@ -2,7 +2,6 @@
 # same spec but bind-mounts a dataset instead of a named volume.
 #
 #   docker compose up -d --build           # build + run locally
-#   VIVATLAS_SEED=1 docker compose up -d    # first run with demo cards
 services:
   vivatlas:
     image: vivatlas:latest
@@ -17,8 +16,6 @@ services:
       #   python -c "import secrets; print(secrets.token_hex(32))"
       SECRET_KEY: "${SECRET_KEY:-}"
       DATABASE_URL: "sqlite:////data/vivatlas.db"
-      # Set to 1 on the very first run to load ~200 demo cards, then back to 0.
-      VIVATLAS_SEED: "${VIVATLAS_SEED:-0}"
     volumes:
       - vivatlas_data:/data   # SQLite db + secret_key persist here
 

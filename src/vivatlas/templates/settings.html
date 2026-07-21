@@ -29,15 +29,6 @@
     {% if account_msg %}<p class="set-on">{{ account_msg }}</p>{% endif %}
 
     <div class="box">
-        {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
-        <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
-            {% for code, meta in langs.items() %}
-            <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="box">
         {{ sechead(t('account.name_title'), t('account.name_hint')) }}
         {# No sub-label (the heading says "Name"), so the field lines up with the
            language dropdown opposite it. Saves itself on blur — no button. #}
@@ -47,6 +38,15 @@
                    aria-label="{{ t('account.name_label') }}"
                    maxlength="128" autocomplete="name"></label>
         <span class="autosave-note" hidden></span>
+    </div>
+
+    <div class="box">
+        {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
+        <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
+            {% for code, meta in langs.items() %}
+            <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
+            {% endfor %}
+        </select>
     </div>
 
     <div class="box wide">

@@ -4183,9 +4183,14 @@ a.art-chip-pur:hover { border-color: currentColor; }
 .fld input[type="url"],
 .fld select {
     width: 100%;
+    box-sizing: border-box;
+    /* Same metrics as the custom dropdown (.dd-btn): 44px tall with 10px vertical
+       padding, so a text field and a language dropdown side by side line up top AND
+       bottom. */
+    min-height: 44px;
     font-family: var(--sans);
     font-size: 16px; /* under 16px — Safari on phones zooms the page */
-    padding: 12px 14px;
+    padding: 10px 14px;
     border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     background: var(--surface);
@@ -4364,6 +4369,13 @@ a.art-chip-pur:hover { border-color: currentColor; }
 .setpanel > .box {
     padding: 0;
     margin: 0;
+}
+
+/* Beat the legacy ".modal-body .box:first-child" top padding (0,3,0): inside the
+   grid it only offsets whichever box happens to be first, pushing it ~8px below the
+   box beside it (e.g. Name under the language dropdown). Same specificity, later. */
+.setpanel > .box:first-child {
+    padding-top: 0;
 }
 
 /* Full-width section: lists, large forms, the avatar grid. */

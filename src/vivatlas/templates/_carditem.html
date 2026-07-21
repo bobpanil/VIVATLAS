@@ -73,6 +73,16 @@
                 <span class="card-cat-name">{{ c0.name }}</span>
                 {% if it.categories | length > 1 %}<span class="cat-more">+{{ it.categories | length - 1 }}</span>{% endif %}
             </span>
+            {% elif it.purpose.key and it.purpose.key != 'unknown' %}
+            {# The purpose is a real filter: clicking it narrows the catalogue to that
+               "what it's for". Sits above the stretched card-link (see .pur-link) so it
+               filters instead of opening the card. #}
+            <a class="card-cat pur pur-link" href="/?purpose={{ it.purpose.key }}"
+               aria-label="{{ t('card.filter_purpose', name=purpose_name(it.purpose.key)) }}"
+               title="{{ t('card.filter_purpose', name=purpose_name(it.purpose.key)) }}">
+                <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>
+                <span class="card-cat-name">{{ purpose_name(it.purpose.key) }}</span>
+            </a>
             {% else %}
             <span class="card-cat pur">
                 <svg viewBox="0 0 16 16" aria-hidden="true">{{ it.purpose.icon|safe }}</svg>

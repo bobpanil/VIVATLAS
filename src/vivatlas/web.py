@@ -182,13 +182,14 @@ async def index(
     owner: str = "",
     fav: str = "",
     cat: str = "",
+    purpose: str = "",
     draft: str = "",
     zone: str = "",
     sort: str = "",
 ) -> HTMLResponse:
     f = flt.Filters(
         type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat,
-        draft=draft, zone=zone, sort=sort,
+        purpose=purpose, draft=draft, zone=zone, sort=sort,
     )
 
     # A link pasted into search — searching for it among names is pointless: such
@@ -225,7 +226,10 @@ async def index(
                 # part of apply, so someone else's private items get filtered out in search too.
                 hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
                 allowed = {
-                    a for a in session.scalars(flt.apply(select(Artifact.id), f, fav_ids, user_id))
+                    a
+                    for a in session.scalars(
+                        flt.apply(select(Artifact.id), f, fav_ids, user_id, session=session)
+                    )
                 }
                 items = [
                     _card(session, h.artifact, h.reasons, fav_ids, lang, user_id)
@@ -233,9 +237,9 @@ async def index(
                     if h.artifact.id in allowed
                 ][:60]
             else:
-                query = flt.apply(select(Artifact), f, fav_ids, user_id).order_by(
-                    *flt.sort_order(f.sort)
-                )
+                query = flt.apply(
+                    select(Artifact), f, fav_ids, user_id, session=session
+                ).order_by(*flt.sort_order(f.sort))
                 items = [
                     _card(session, a, [], fav_ids, lang, user_id) for a in session.scalars(query)
                 ]
@@ -253,6 +257,7 @@ async def index(
                     "categories": flt.category_options(session, user_id, lang),
                     "owners": flt.owner_options(session, user_id),
                     "tag_groups": flt.tag_groups(session, user_id=user_id, lang=lang),
+                    "purposes": flt.purpose_options(session, user_id, lang),
                     "periods": flt.period_options(session, user_id, lang),
                     "statuses": flt.status_options(session, user_id, lang),
                     "period_names": {k: i18n.label("period", k, lang) for k in flt.PERIODS},

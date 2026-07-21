@@ -156,3 +156,79 @@ def test_query_skips_empty_values():
 def test_active_knows_when_nothing_is_set():
     assert filters.Filters().active() is False
     assert filters.Filters(tag="x").active() is True
+
+
+# --- purpose: a derived "what it's for", filtered by resolving it from tags ---
+
+
+@pytest.fixture
+def pcatalog(make_session):
+    """Cards whose tags resolve to a clear purpose. detect() needs at least two
+    matching signals, so each card carries two purpose tags (or none)."""
+    s = make_session()
+    source = Source(kind="f", base_url="https://x", display_name="F")
+    s.add(source)
+    s.flush()
+
+    def add(name, slugs, artifact_type="skill"):
+        repo = Repository(
+            source_id=source.id, external_id=name, owner="lib", name=name, default_branch="main"
+        )
+        s.add(repo)
+        s.flush()
+        art = Artifact(repository_id=repo.id, name=name, artifact_type=artifact_type, shared=True)
+        s.add(art)
+        s.flush()
+        for slug in slugs:
+            tag = s.scalar(select(Tag).where(Tag.slug == slug))
+            if tag is None:
+                tag = Tag(slug=slug, label=slug, category="purpose")
+                s.add(tag)
+                s.flush()
+            s.add(ArtifactTag(artifact_id=art.id, tag_id=tag.id, source="ai", confidence=0.9))
+        return art
+
+    add("tokens", ["design-system", "typography"])   # -> design
+    add("palette-kit", ["color-palette", "css"])      # -> design
+    add("scanner", ["security-scanning", "sast"])     # -> security
+    add("misc", ["python"])                            # -> unknown (no purpose signal)
+    s.commit()
+    return s
+
+
+def _pnames(session, f):
+    q = filters.apply(select(Artifact), f, session=session)
+    return sorted(a.name for a in session.scalars(q))
+
+
+def test_filter_by_purpose_design(pcatalog):
+    assert _pnames(pcatalog, filters.Filters(purpose="design")) == ["palette-kit", "tokens"]
+
+
+def test_filter_by_purpose_security(pcatalog):
+    assert _pnames(pcatalog, filters.Filters(purpose="security")) == ["scanner"]
+
+
+def test_purpose_options_count_and_hide_unknown(pcatalog):
+    opts = {o.value: o.count for o in filters.purpose_options(pcatalog)}
+    assert opts == {"design": 2, "security": 1}
+    assert "unknown" not in opts  # an unclassifiable card is never offered as a facet
+
+
+def test_purpose_options_ordered_as_in_purposes(pcatalog):
+    # PURPOSES lists security before design, so the facet follows that order.
+    assert [o.value for o in filters.purpose_options(pcatalog)] == ["security", "design"]
+
+
+def test_purpose_without_session_is_skipped(pcatalog):
+    # apply() with no session can't resolve a purpose (it's derived) — it must not
+    # crash or silently drop everything; it simply doesn't apply the purpose filter.
+    q = filters.apply(select(Artifact), filters.Filters(purpose="design"))
+    got = sorted(a.name for a in pcatalog.scalars(q))
+    assert got == ["misc", "palette-kit", "scanner", "tokens"]
+
+
+def test_purpose_belongs_in_query_and_counts_as_active():
+    f = filters.Filters(purpose="design")
+    assert f.active() is True
+    assert f.as_query() == {"purpose": "design"}

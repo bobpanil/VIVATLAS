@@ -18,7 +18,8 @@
     </span>
     <span class="art-chip">{{ icons.ic('type') }}{{ type_name(a.artifact_type) }}</span>
     {% if purpose.key and purpose.key != 'unknown' %}
-    <span class="art-chip art-chip-pur"><svg viewBox="0 0 16 16" aria-hidden="true">{{ purpose.icon|safe }}</svg>{{ purpose_name(purpose.key) }}</span>
+    <a class="art-chip art-chip-pur" href="/?purpose={{ purpose.key }}"
+       title="{{ t('card.filter_purpose', name=purpose_name(purpose.key)) }}"><svg viewBox="0 0 16 16" aria-hidden="true">{{ purpose.icon|safe }}</svg>{{ purpose_name(purpose.key) }}</a>
     {% endif %}
 </div>
 {% endblock %}
@@ -113,7 +114,12 @@
 {% if upstream %}
 <section class="art-sec">
     <h3>{{ t('artifact.source_h') }}</h3>
+    {# "unknown" = found the source but haven't compared yet — showing "nothing to
+       compare with" here is just noise, so we skip the status line until there's a
+       real comparison. #}
+    {% if upstream.status and upstream.status != 'unknown' %}
     <p class="up-status" data-st="{{ upstream.status }}">{{ status_name(upstream.status) }}</p>
+    {% endif %}
     <dl class="facts">
         <dt>{{ t('artifact.from_where') }}</dt><dd><a href="{{ upstream.upstream_url }}">{{ upstream.upstream_repo }}</a></dd>
         {% if upstream.upstream_path %}<dt>{{ t('artifact.file') }}</dt><dd>{{ upstream.upstream_path }}</dd>{% endif %}

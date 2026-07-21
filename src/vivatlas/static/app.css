@@ -3097,6 +3097,19 @@ html.card-dragging .side-folders-head {
     color: var(--charcoal);
 }
 
+/* The purpose chip when it's a filter link: above the stretched card-link in
+   z-index so its own click filters by purpose instead of opening the card. */
+.pur-link {
+    position: relative;
+    z-index: 2;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pur-link:hover .card-cat-name {
+    text-decoration: underline;
+}
+
 /* The update date — small, muted, to the left of "copy". */
 .when {
     flex: none;
@@ -3485,6 +3498,10 @@ html.card-dragging .side-folders-head {
 .art-chip.zone-private { color: var(--zone-private); }
 .art-chip-pur { color: var(--pur-color); }
 .art-chip-pur svg [fill="currentColor"] { fill: currentColor; }
+/* On the card page the purpose chip is a filter link — no underline, and the
+   border picks up the purpose colour on hover to read as clickable. */
+a.art-chip-pur { text-decoration: none; cursor: pointer; }
+a.art-chip-pur:hover { border-color: currentColor; }
 
 /* Card section: a full-width line across the modal (−24 = body padding) + denser. */
 .art-sec {

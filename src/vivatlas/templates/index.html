@@ -13,7 +13,7 @@
 {# How many filters are active — they all now live behind the "Filters" button
    (type/zone/favourites moved into the sheet from the top row). The button badge shows this number. #}
 {% set sheet_active = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0)
-    + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) %}
+    + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) + (1 if f.purpose else 0) %}
 {# Sticky header: stays put while scrolling, cards slide underneath it.
    One row — search centred on the app, "Filters" and size on the right, the avatar
    is placed by base.html on top at the right. Below the row — a hint, type chips,
@@ -116,6 +116,17 @@
                     <nav class="filters" aria-label="{{ t('index.type_group') }}">
                         {% for t in types %}
                         {{ chip(type_name(t.value), t.count, f.as_query(type=t.value if f.type != t.value else "") | combine(q=q), f.type == t.value) }}
+                        {% endfor %}
+                    </nav>
+                    {% endif %}
+
+                    {# Purpose — the "what it's for" the cards show (design, security…).
+                       Derived from tags, so it lines up with the chip on the card. #}
+                    {% if purposes %}
+                    <p class="fgroup">{{ t('index.purpose_group') }}</p>
+                    <nav class="filters" aria-label="{{ t('index.purpose_group') }}">
+                        {% for p in purposes %}
+                        {{ chip(p.label, p.count, f.as_query(purpose=p.value if f.purpose != p.value else "") | combine(q=q), f.purpose == p.value) }}
                         {% endfor %}
                     </nav>
                     {% endif %}

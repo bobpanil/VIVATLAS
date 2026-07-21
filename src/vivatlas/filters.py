@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from vivatlas import caticons
+from vivatlas import caticons, purposes
 from vivatlas.categories import visible_category_ids
 from vivatlas.models import (
     Artifact,
@@ -43,6 +43,7 @@ class Filters:
     owner: str = ""
     fav: str = ""
     cat: str = ""
+    purpose: str = ""  # the derived "what it's for" (design, security, testing, …)
     draft: str = ""
     zone: str = ""  # "private" | "common" — filter by card zone
     sort: str = ""  # "" | "name" | "updated" | "added" — order in the catalogue
@@ -51,7 +52,8 @@ class Filters:
         # Sorting is not a filter: it hides nothing, so it's not counted in the
         # active-filter count (badge) or in "clear all".
         return any(
-            (self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat, self.zone)
+            (self.type, self.tag, self.days, self.status, self.owner, self.fav,
+             self.cat, self.purpose, self.zone)
         )
 
     def as_query(self, drop: str = "", **override) -> dict:
@@ -64,6 +66,7 @@ class Filters:
             "owner": self.owner,
             "fav": self.fav,
             "cat": self.cat,
+            "purpose": self.purpose,
             "draft": self.draft,
             "zone": self.zone,
             "sort": self.sort,
@@ -111,7 +114,11 @@ def visible_ids(user_id: int | None) -> Select:
 
 
 def apply(
-    query: Select, f: Filters, fav_ids: set[int] | None = None, user_id: int | None = None
+    query: Select,
+    f: Filters,
+    fav_ids: set[int] | None = None,
+    user_id: int | None = None,
+    session: Session | None = None,
 ) -> Select:
     # Zone always applies: even with no filters a user sees only their own and shared.
     query = query.where(Artifact.id.in_(visible_ids(user_id)))
@@ -159,11 +166,17 @@ def apply(
         query = query.where(
             Artifact.id.in_(select(UpstreamLink.artifact_id).where(UpstreamLink.status == f.status))
         )
+    if f.purpose and session is not None:
+        # Purpose isn't a stored column — it's derived from each card's tags + name,
+        # the same way the card chip shows it. We resolve the matching ids here so the
+        # filter can never disagree with what's on the card. Needs a session; without
+        # one (a pure query build) the purpose filter is simply skipped.
+        query = query.where(Artifact.id.in_(purpose_matching_ids(session, f.purpose, user_id)))
     return query
 
 
 def count_matching(session: Session, f: Filters) -> int:
-    return session.scalar(apply(select(func.count(Artifact.id)), f)) or 0
+    return session.scalar(apply(select(func.count(Artifact.id)), f, session=session)) or 0
 
 
 def sort_order(sort: str) -> list:
@@ -319,8 +332,61 @@ def status_options(
         .group_by(UpstreamLink.status)
     ).all()
     order = {"update-available": 0, "diverged": 1, "locally-modified": 2, "in-sync": 3}
-    out = [Option(s, i18n.label("status", s, lang), n) for s, n in rows if n]
+    # "unknown" means the source was found but never compared yet — "nothing to
+    # compare with". It's the absence of a status, not a state worth filtering by, so
+    # we never offer it as a facet (it would just read as noise in the filter list).
+    out = [Option(s, i18n.label("status", s, lang), n) for s, n in rows if n and s != "unknown"]
     out.sort(key=lambda o: order.get(o.value, 9))
+    return out
+
+
+def _purpose_map(session: Session, user_id: int | None = None) -> dict[int, str]:
+    """The derived purpose key for every visible, non-draft card, computed from its
+    tags + name exactly as the card chip does. One pass over two batched queries, so
+    the filter and the chip can never disagree. Drafts are excluded — they have their
+    own section and no purpose to speak of."""
+    vis = visible_ids(user_id)
+    names = dict(
+        session.execute(
+            select(Artifact.id, Artifact.name).where(
+                Artifact.id.in_(vis), Artifact.artifact_type != "draft"
+            )
+        ).all()
+    )
+    tags: dict[int, list[str]] = {}
+    for aid, slug in session.execute(
+        select(ArtifactTag.artifact_id, Tag.slug)
+        .join(Tag, Tag.id == ArtifactTag.tag_id)
+        .where(ArtifactTag.artifact_id.in_(vis))
+    ).all():
+        tags.setdefault(aid, []).append(slug)
+    return {
+        aid: purposes.detect(tags.get(aid, []), name or "")[0].key for aid, name in names.items()
+    }
+
+
+def purpose_matching_ids(
+    session: Session, purpose_key: str, user_id: int | None = None
+) -> list[int]:
+    """Ids of visible cards whose derived purpose is `purpose_key`."""
+    return [aid for aid, key in _purpose_map(session, user_id).items() if key == purpose_key]
+
+
+def purpose_options(
+    session: Session, user_id: int | None = None, lang: str = "en"
+) -> list[Option]:
+    """Purposes with a count, ordered as in purposes.PURPOSES. "unknown" (a card we
+    couldn't classify) is never offered — like an empty filter, it's just noise."""
+    from vivatlas import i18n
+
+    counts: dict[str, int] = {}
+    for key in _purpose_map(session, user_id).values():
+        if key == "unknown":
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    order = {p.key: i for i, (p, _) in enumerate(purposes.PURPOSES)}
+    out = [Option(k, i18n.label("purpose", k, lang), n) for k, n in counts.items()]
+    out.sort(key=lambda o: order.get(o.value, 99))
     return out
 
 

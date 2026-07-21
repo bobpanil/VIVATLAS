@@ -1,11 +1,11 @@
-"""Двухэтапная проверка: код из приложения (TOTP) и коды восстановления.
+"""Two-step verification: a code from an app (TOTP) and backup codes.
 
-TOTP — тот же механизм, что в Google Authenticator: приложение и сервер знают
-общий секрет и по часам считают шестизначный код, меняющийся каждые 30 секунд.
-Пароль можно подсмотреть один раз и пользоваться; код живёт полминуты.
+TOTP is the same mechanism as in Google Authenticator: the app and the server
+share a secret and, by the clock, compute a six-digit code that changes every
+30 seconds. A password can be glimpsed once and reused; a code lives half a minute.
 
-Секрет хранится зашифрованным: он равносилен второму паролю, и в открытом виде
-обесценил бы всю затею. Расшифровывается только чтобы сверить код.
+The secret is stored encrypted: it is equivalent to a second password, and in
+plaintext it would defeat the whole point. It is decrypted only to check a code.
 """
 
 import pyotp
@@ -16,38 +16,39 @@ from sqlalchemy.orm import Session
 from vivatlas import security
 from vivatlas.models import BackupCode, User
 
-# Сколько кодов восстановления выдаём. Десяти хватает: это на случай потери
-# телефона, а не ежедневный вход.
+# How many backup codes we issue. Ten is enough: this is for a lost phone,
+# not a daily sign-in.
 BACKUP_CODES_COUNT = 10
 
 _ISSUER = "VivAtlas"
 
 
 def new_secret() -> str:
-    """Случайный секрет для привязки приложения."""
+    """A random secret for linking the app."""
     return pyotp.random_base32()
 
 
 def provisioning_uri(secret: str, email: str) -> str:
-    """Строка otpauth://, которую приложение читает с QR-кода."""
+    """The otpauth:// string that the app reads from the QR code."""
     return pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name=_ISSUER)
 
 
 def qr_svg(uri: str) -> str:
-    """QR как SVG — рисуем без картинок, значит без Pillow."""
+    """QR as SVG — drawn without images, hence without Pillow."""
     img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=2)
     return img.to_string(encoding="unicode")
 
 
 def verify_totp(user: User, code: str, secret: str | None = None) -> bool:
-    """Верен ли код. Один и тот же код принимаем только раз.
+    """Whether the code is valid. We accept one and the same code only once.
 
-    Окно ±1: если часы телефона и сервера чуть разошлись, соседний код тоже
-    подходит. Без этого люди с плывущими часами не войдут никогда.
+    A ±1 window: if the phone's and server's clocks have drifted a little, the
+    neighbouring code also works. Without this, people with drifting clocks
+    would never sign in.
 
-    Защита от повтора: подсмотренный за плечом код живёт 30 секунд, и за это
-    время его можно ввести второй раз. Запоминаем последний принятый и второй
-    раз тот же код не пускаем.
+    Replay protection: a code peeked over the shoulder lives 30 seconds, and in
+    that time it could be entered a second time. We remember the last accepted
+    code and don't let the same code through twice.
     """
     code = code.strip().replace(" ", "")
     if not code.isdigit():
@@ -58,16 +59,16 @@ def verify_totp(user: User, code: str, secret: str | None = None) -> bool:
     if not pyotp.TOTP(enc).verify(code, valid_window=1):
         return False
     if user.totp_last_code == code:
-        return False  # этот код уже использован
+        return False  # this code has already been used
     user.totp_last_code = code
     return True
 
 
 def make_backup_codes(session: Session, user: User) -> list[str]:
-    """Выдать новый набор кодов. Старые стираем: перевыпуск отменяет прежние.
+    """Issue a new set of codes. We wipe the old ones: reissuing cancels the previous.
 
-    Возвращает коды в открытом виде — их показывают человеку ЕДИНСТВЕННЫЙ раз.
-    В базу ложатся только хеши.
+    Returns the codes in plaintext — they are shown to the user ONLY ONCE.
+    Only hashes go into the database.
     """
     for old in list(user.backup_codes):
         user.backup_codes.remove(old)
@@ -76,16 +77,16 @@ def make_backup_codes(session: Session, user: User) -> list[str]:
 
     codes = [security.new_backup_code() for _ in range(BACKUP_CODES_COUNT)]
     for code in codes:
-        # Через relationship, а не session.add: иначе коллекция в памяти
-        # осталась бы пустой до перезагрузки, и погасить свежий код было бы
-        # нечем. Поймано тестом.
+        # Via the relationship, not session.add: otherwise the in-memory
+        # collection would stay empty until a reload, and there would be
+        # nothing to redeem a fresh code against. Caught by a test.
         user.backup_codes.append(BackupCode(code_hash=security.hash_backup_code(code)))
     session.flush()
     return codes
 
 
 def use_backup_code(session: Session, user: User, code: str) -> bool:
-    """Погасить код восстановления. Одноразовый: использованный больше не годен."""
+    """Redeem a backup code. Single-use: a used one is no longer valid."""
     for row in user.backup_codes:
         if row.used_at is None and security.verify_backup_code(code, row.code_hash):
             from datetime import UTC, datetime

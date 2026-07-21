@@ -1,7 +1,7 @@
-"""Общий интерфейс к хостингу репозиториев.
+"""Common interface to a repository host.
 
-Сейчас реализован Gitea. GitHub добавляется отдельным классом с теми же
-методами — остальной код о провайдере не знает и меняться не должен.
+Gitea is implemented for now. GitHub is added as a separate class with the same
+methods — the rest of the code knows nothing about the provider and shouldn't change.
 """
 
 from datetime import datetime
@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 
 class RepoRef(BaseModel):
-    """Репозиторий в том виде, в каком его видит вся остальная программа."""
+    """A repository as the rest of the program sees it."""
 
     external_id: str
     owner: str
@@ -23,7 +23,7 @@ class RepoRef(BaseModel):
     html_url: str
     clone_url: str
     size_kb: int
-    original_url: str = ""  # откуда привезли, если Gitea знает
+    original_url: str = ""  # where it was imported from, if Gitea knows
     description: str = ""
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -35,28 +35,28 @@ class RepoRef(BaseModel):
 
 @runtime_checkable
 class GitProvider(Protocol):
-    """Набор команд, который должен уметь любой хостинг."""
+    """The set of commands every host must support."""
 
     name: str
 
     async def list_repositories(self) -> list[RepoRef]:
-        """Все репозитории, видимые с текущими правами."""
+        """All repositories visible with the current permissions."""
         ...
 
     async def get_head_sha(self, repo: RepoRef) -> str:
-        """Последний коммит ветки по умолчанию."""
+        """The latest commit of the default branch."""
         ...
 
     async def download_archive(self, repo: RepoRef, ref: str) -> bytes:
-        """Репозиторий целиком одним архивом.
+        """The whole repository as a single archive.
 
-        Качаем архивом, а не файлами по одному: на сотнях репозиториев
-        поштучное чтение упирается в лимиты запросов.
+        We download an archive rather than files one by one: across hundreds of
+        repositories, per-file reads run into request limits.
         """
         ...
 
     async def blob_shas(self, repo: RepoRef, ref: str) -> dict[str, str]:
-        """Слепки всех файлов: путь -> sha. Для сравнения с источником."""
+        """Snapshots of all files: path -> sha. For comparing against the source."""
         ...
 
     async def aclose(self) -> None: ...

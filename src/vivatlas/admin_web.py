@@ -1,8 +1,8 @@
-"""Панель администратора: то, что касается всей программы, а не одного человека.
+"""Admin panel: things that concern the whole program, not a single person.
 
-Отдельно от обычных настроек: управление пользователями, общими ключами
-доступа, AI и почтой — дело владельца, а не каждого вошедшего. Всё здесь —
-только для владельца; проверка на каждом маршруте.
+Kept apart from ordinary settings: managing users, shared access keys, AI, and
+email is the owner's job, not every signed-in user's. Everything here is
+owner-only; the check runs on every route.
 """
 
 import logging
@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 templates = Jinja2Templates(
     directory=str(BASE / "templates"), context_processors=[i18n.template_context]
 )
-# Общими папками управляют отсюда — тот же значок папок, что в настройках.
+# Shared folders are managed from here — the same folder icon as in settings.
 templates.env.globals["caticon"] = caticons.caticon_svg
 router = APIRouter()
 
@@ -38,8 +38,8 @@ def _owner_or_403(session, request: Request) -> User:
 
 
 def _config_rows(session, lang: str = "en") -> list[dict]:
-    """Операционная конфигурация (адреса, токены, модели AI) для редактирования
-    из панели. Секреты — только маской. Метки — переводом по ключу настройки."""
+    """Operational configuration (addresses, tokens, AI models) for editing from
+    the panel. Secrets are masked only. Labels come from the setting-key translation."""
     label = {
         runtime_settings.CFG_GITEA_URL: "admin.key.gitea_url",
         runtime_settings.CFG_GITEA_TOKEN: "admin.key.gitea_token",
@@ -55,8 +55,8 @@ def _config_rows(session, lang: str = "en") -> list[dict]:
 
 
 def _smtp_view(session) -> dict:
-    """Настройки почты для страницы. Пароль наружу — только фактом «задан» и
-    маской, никогда целиком."""
+    """Email settings for the page. The password is exposed only as the fact that
+    it is "set" plus a mask, never in full."""
     cfg = runtime_settings.get_smtp(session)
     has_password = bool(runtime_settings.get(session, runtime_settings.SMTP_PASSWORD_ENC, ""))
     return {
@@ -74,9 +74,9 @@ def _smtp_view(session) -> dict:
 
 
 def _admin_page(request: Request, session, me: User, **extra) -> HTMLResponse:
-    """Собрать полную страницу панели. Одна точка сборки контекста, чтобы
-    сообщения (сохранили почту, проверочное письмо ушло/не ушло) показывались
-    в окне, а не роняли его."""
+    """Assemble the full panel page. A single place to build the context, so that
+    messages (email saved, test email sent/failed) show up in the modal rather
+    than crashing it."""
     users = session.scalars(select(User).order_by(User.created_at)).all()
     rows = [
         {
@@ -98,7 +98,7 @@ def _admin_page(request: Request, session, me: User, **extra) -> HTMLResponse:
         "smtp": _smtp_view(session),
         "counts": _counts(session, me.id),
         "registration_open": runtime_settings.registration_open(session),
-        # Общие папки каталога — заводит и ведёт только администратор, отсюда.
+        # Shared catalogue folders — created and maintained only by the admin, here.
         "categories": flt.category_options(session, me.id, lang),
         "cat_icons": caticons.ICON_SLUGS,
         "nav": "admin",
@@ -118,8 +118,8 @@ def admin_page(request: Request) -> HTMLResponse:
 def user_toggle(
     request: Request, user_id: int, next: Annotated[str, Form()] = "/admin"
 ) -> RedirectResponse:
-    """Включить или выключить доступ человеку. Себя не выключаем — иначе можно
-    запереть самого себя; последнего владельца тоже."""
+    """Enable or disable a person's access. We don't disable ourselves — otherwise
+    you could lock yourself out; the last owner either."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
         target = session.get(User, user_id)
@@ -138,17 +138,17 @@ def user_toggle(
             if other_owner is None:
                 raise HTTPException(400, i18n.msg(request, "err.last_owner"))
         target.is_active = not target.is_active
-        # Выключили — обрываем открытые сессии, чтобы отказ был сразу, а не по
-        # истечении куки.
+        # Disabled — tear down open sessions so the refusal is immediate rather than
+        # waiting for the cookie to expire.
         if not target.is_active:
             for sess in list(target.sessions):
                 session.delete(sess)
-    # Только внутренний путь (не "//..." — иначе открытый редирект на чужой сайт).
+    # Internal path only (not "//..." — otherwise an open redirect to someone else's site).
     dest = next if next.startswith("/") and not next.startswith("//") else "/admin"
     return RedirectResponse(dest, status_code=303)
 
 
-# --- конфигурация (поверх .env) --------------------------------------------
+# --- configuration (on top of .env) ----------------------------------------
 
 
 @router.post("/admin/config", response_class=HTMLResponse)
@@ -161,12 +161,12 @@ def config_save(
     llm_model: Annotated[str | None, Form()] = None,
     embedding_model: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
-    """Сохранить правки конфигурации. Секреты с пустым полем не трогаем (как
-    пароль SMTP); правки сразу накладываются на settings — перезапуск не нужен.
+    """Save configuration edits. Secrets with an empty field are left untouched (like
+    the SMTP password); edits apply to settings immediately — no restart needed.
 
-    Форма приходит ЧАСТИЧНОЙ: «Источники» (Gitea/GitHub) и «ИИ» (ключ и модели) —
-    разные вкладки и разные формы. Поля отсутствующей вкладки приходят None и в
-    save_config не попадают, иначе сохранение одной вкладки обнуляло бы другую."""
+    The form arrives PARTIAL: "Sources" (Gitea/GitHub) and "AI" (key and models) are
+    different tabs and different forms. Fields of the absent tab arrive as None and
+    don't reach save_config, otherwise saving one tab would blank out the other."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
         submitted = {
@@ -187,7 +187,7 @@ def config_save(
         )
 
 
-# --- почта (SMTP) ----------------------------------------------------------
+# --- email (SMTP) ----------------------------------------------------------
 
 
 @router.post("/admin/smtp", response_class=HTMLResponse)
@@ -202,7 +202,7 @@ def smtp_save(
     from_name: Annotated[str, Form()] = "VivAtlas",
     site_url: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Сохранить настройки почты и адрес сайта. Пустой пароль оставляет прежний."""
+    """Save email settings and the site address. An empty password keeps the old one."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
         runtime_settings.save_smtp(
@@ -223,10 +223,10 @@ def smtp_save(
 
 @router.post("/admin/smtp/test", response_class=HTMLResponse)
 async def smtp_test(request: Request) -> HTMLResponse:
-    """Отправить проверочное письмо себе. Ошибку показываем в окне — по ней
-    видно, что не так с узлом, портом или логином, ещё до первого настоящего
-    письма о сбросе."""
-    # Данные собираем в закрытой транзакции, отправляем — вне её (долго).
+    """Send a test email to yourself. We show the error in the modal — it reveals
+    what's wrong with the host, port, or login before the first real password-reset
+    email even goes out."""
+    # We gather the data inside a closed transaction and send outside it (slow).
     with session_scope() as session:
         me = _owner_or_403(session, request)
         cfg = runtime_settings.get_smtp(session)
@@ -245,7 +245,7 @@ async def smtp_test(request: Request) -> HTMLResponse:
 
     html, text = mailer.render("test", getattr(request.state, "lang", "en"), site=site)
     try:
-        await mailer.send(cfg, to, "Проверка почты — VivAtlas", html, text)
+        await mailer.send(cfg, to, "Email test — VivAtlas", html, text)
         note = {
             "smtp_msg": i18n.translate(
                 "admin.smtp.test_sent", getattr(request.state, "lang", "en"), to=to
@@ -259,32 +259,34 @@ async def smtp_test(request: Request) -> HTMLResponse:
         return _admin_page(request, session, me, **note)
 
 
-# --- управление людьми: регистрация, приглашения, удаление, сброс -----------
+# --- managing people: registration, invitations, deletion, reset ------------
 
 
 async def _send_quietly(cfg, to: str, subject: str, html: str, text: str) -> None:
-    """Отправить письмо в фоне, проглотив ошибку почты: ответ страницы не должен
-    зависеть от того, дошло ли письмо (ссылку показываем и на странице)."""
+    """Send an email in the background, swallowing mail errors: the page response
+    shouldn't depend on whether the email arrived (we also show the link on the page)."""
     try:
         await mailer.send(cfg, to, subject, html, text)
     except mailer.MailError as exc:
-        log.warning("письмо не ушло на %s: %s", to, exc)
+        log.warning("email did not go out to %s: %s", to, exc)
 
 
 def _purge_user(session, target: User, admin_id: int) -> None:
-    """Удалить человека, не обрушив общий каталог.
+    """Delete a person without breaking the shared catalogue.
 
-    Его ОБЩИЕ карточки передаём администратору — каталог их не теряет. ЛИЧНЫЕ
-    удаляем целиком (с уведомлением тех, кто держал их в избранном). Личные
-    источники передаём администратору с ОЧИЩЕННЫМ токеном: чужой ключ доступа не
-    отдаём, а удалить источник нельзя — у его репозиториев нет каскада. Личные
-    папки, сессии, коды, избранное, свои приглашения уходят каскадом при удалении.
+    Their SHARED cards are handed to the admin — the catalogue doesn't lose them.
+    PRIVATE ones are deleted entirely (notifying those who kept them in favourites).
+    Private sources are handed to the admin with the token CLEARED: we don't give away
+    someone else's access key, and the source can't be deleted — its repositories have
+    no cascade. Private folders, sessions, codes, favourites, and their own invitations
+    go away by cascade on deletion.
     """
-    # Ветхий столбец private_to_user_id — FK с CASCADE на users. У миграционных
-    # строк он ещё указывает на человека (новый код его не пишет, но и не чистил).
-    # Без обнуления session.delete(user) каскадом снёс бы даже переданные админу
-    # ОБЩИЕ карточки — а на их не-каскадных детях (embeddings и пр.) удаление и
-    # вовсе упало бы с ошибкой. Рвём связь у всех карточек, что на него ссылаются.
+    # The legacy column private_to_user_id — an FK with CASCADE on users. On migrated
+    # rows it still points at a person (new code doesn't write it, but never cleaned it
+    # up either). Without nulling it, session.delete(user) would cascade even into the
+    # SHARED cards handed to the admin — and on their non-cascade children (embeddings,
+    # etc.) the delete would flat-out fail with an error. We break the link on every
+    # card that references them.
     session.execute(
         update(Artifact)
         .where(Artifact.private_to_user_id == target.id)
@@ -293,9 +295,9 @@ def _purge_user(session, target: User, admin_id: int) -> None:
     arts = session.scalars(select(Artifact).where(Artifact.owner_user_id == target.id)).all()
     for art in arts:
         if art.shared:
-            art.owner_user_id = admin_id  # общее остаётся в каталоге, теперь за админом
+            art.owner_user_id = admin_id  # shared stays in the catalogue, now under the admin
         else:
-            _delete_artifact(session, art, admin_id)  # личное — совсем, с уведомлениями
+            _delete_artifact(session, art, admin_id)  # private — gone entirely, with notifications
     for src in session.scalars(select(Source).where(Source.owner_user_id == target.id)).all():
         src.owner_user_id = admin_id
         src.token_enc = ""
@@ -307,7 +309,7 @@ def _purge_user(session, target: User, admin_id: int) -> None:
 def registration_toggle(
     request: Request, enabled: Annotated[str, Form()] = ""
 ) -> RedirectResponse:
-    """Открыть или закрыть свободную регистрацию. Флажок прислан — открыта."""
+    """Open or close free registration. Checkbox sent — open."""
     with session_scope() as session:
         _owner_or_403(session, request)
         runtime_settings.set_bool(session, runtime_settings.REGISTRATION_OPEN, bool(enabled))
@@ -320,16 +322,16 @@ def invite_create(
     background: BackgroundTasks,
     email: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Завести приглашение и показать копируемую ссылку /join. Если почта задана
-    и настроена отправка — ещё и письмом (по безопасному адресу от site_url)."""
+    """Create an invitation and show a copyable /join link. If an email is given and
+    sending is configured — also by email (to the safe address from site_url)."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
         email = email.strip().lower()
         lang = getattr(request.state, "lang", "en")
         raw = auth.make_invite(session, email, me.id)
         session.flush()
-        # Ссылка для показа админу — по адресу его же запроса (свой браузер видит
-        # настоящий домен). Ссылка в письме — только по безопасной базе.
+        # The link shown to the admin uses the address of their own request (their own
+        # browser sees the real domain). The link in the email uses only the safe base.
         show_base = runtime_settings.site_url(session) or str(request.base_url).rstrip("/")
         link = f"{show_base}/join?code={raw}"
         note = {"invite_link": link}
@@ -344,7 +346,7 @@ def invite_create(
                 pass
             else:
                 background.add_task(
-                    _send_quietly, cfg, email, "Приглашение — VivAtlas", html, text
+                    _send_quietly, cfg, email, "Invitation — VivAtlas", html, text
                 )
                 note["invite_msg"] = i18n.translate("admin.invite.sent", lang, to=email)
         return _admin_page(request, session, me, **note)
@@ -352,7 +354,7 @@ def invite_create(
 
 @router.post("/admin/users/{user_id}/delete")
 def user_delete(request: Request, user_id: int) -> RedirectResponse:
-    """Удалить человека. Себя и последнего владельца — нельзя."""
+    """Delete a person. Yourself and the last owner — not allowed."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
         target = session.get(User, user_id)
@@ -376,8 +378,8 @@ def user_delete(request: Request, user_id: int) -> RedirectResponse:
 def user_reset(
     request: Request, background: BackgroundTasks, user_id: int
 ) -> HTMLResponse:
-    """Сбросить пароль человеку: показать копируемую ссылку /reset и отправить её
-    письмом, если настроена почта."""
+    """Reset a person's password: show a copyable /reset link and send it by email
+    if email is configured."""
     with session_scope() as session:
         me = _owner_or_403(session, request)
         target = session.get(User, user_id)
@@ -401,7 +403,7 @@ def user_reset(
                 name=target.display_name, minutes=auth.RESET_MAX_AGE // 60,
             )
             background.add_task(
-                _send_quietly, cfg, target.email, "Смена пароля — VivAtlas", html, text
+                _send_quietly, cfg, target.email, "Password reset — VivAtlas", html, text
             )
             note["reset_msg"] = i18n.translate("admin.reset.sent", lang, to=target.email)
         return _admin_page(request, session, me, **note)

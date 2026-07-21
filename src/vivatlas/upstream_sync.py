@@ -1,4 +1,4 @@
-"""Запись источников и проверка обновлений."""
+"""Record sources and check for updates."""
 
 import logging
 from dataclasses import dataclass
@@ -44,7 +44,7 @@ def discover_for_artifact(
     contents: RepoContents,
     original_url: str = "",
 ) -> UpstreamRef | None:
-    """Найти источник. Порядок по надёжности: зеркало важнее строчки в README."""
+    """Find the source. Ordered by reliability: a mirror beats a line in the README."""
     ref = detect_from_mirror(original_url) or detect_from_readme(
         contents, artifact.repository.name, artifact.anchor_path
     )
@@ -71,7 +71,7 @@ async def check_link(
     link: UpstreamLink,
     repo: Repository,
 ) -> str:
-    """Сравнить копию с источником. Возвращает состояние."""
+    """Compare the copy against the source. Returns the state."""
     from vivatlas.providers.base import RepoRef
 
     ref = RepoRef(
@@ -88,14 +88,14 @@ async def check_link(
     )
 
     if link.kind == "gitea-mirror":
-        # У зеркала сравниваем целиком по последнему коммиту: отдельных файлов
-        # тут нет, копия должна повторять источник как есть.
+        # For a mirror we compare wholesale by the last commit: there are no
+        # individual files here, the copy must mirror the source as-is.
         local = await provider.get_head_sha(ref)
         upstream = await checker.head_sha(link.upstream_repo)
     elif link.kind == "github-file":
         if not link.upstream_path:
             link.status = "unknown"
-            link.check_error = "не знаем, где у источника лежит этот файл"
+            link.check_error = "we don't know where this file lives in the source"
             return "unknown"
         head = await provider.get_head_sha(ref)
         ours = await provider.blob_shas(ref, head)
@@ -105,30 +105,30 @@ async def check_link(
         upstream = theirs.get(link.upstream_path, "")
         if not upstream:
             link.status = "unknown"
-            link.check_error = f"у источника нет файла {link.upstream_path}"
+            link.check_error = f"the source has no file {link.upstream_path}"
             link.last_checked_at = datetime.now(UTC)
             return "unknown"
     else:
         link.status = "unknown"
-        link.check_error = f"неизвестный вид источника: {link.kind}"
+        link.check_error = f"unknown source kind: {link.kind}"
         return "unknown"
 
-    # Первая встреча: если сейчас совпадает — это и есть честная отметка.
+    # First encounter: if they match right now, that's an honest baseline.
     if not link.baseline_at:
         if local == upstream:
             link.baseline_local_sha = local
             link.baseline_upstream_sha = upstream
             link.baseline_at = datetime.now(UTC)
         else:
-            # Уже разошлось, а отметки нет — различить причину невозможно.
-            # Врать не будем.
+            # Already diverged with no baseline — we can't tell the cause apart.
+            # We won't lie about it.
             link.last_local_sha = local
             link.last_upstream_sha = upstream
             link.last_checked_at = datetime.now(UTC)
             link.status = "unknown"
             link.check_error = (
-                "копия и источник разошлись до того, как мы начали следить — "
-                "непонятно, новая это версия или ваша правка"
+                "the copy and source diverged before we started tracking — "
+                "unclear whether it's a new version or your edit"
             )
             return "unknown"
 
@@ -169,6 +169,6 @@ async def check_all(
             link.check_error = str(exc)[:300]
             session.commit()
             result.failed += 1
-            log.error("[%d/%d] %s — ОШИБКА: %s", i, len(links), repo.full_name, exc)
+            log.error("[%d/%d] %s — ERROR: %s", i, len(links), repo.full_name, exc)
 
     return result

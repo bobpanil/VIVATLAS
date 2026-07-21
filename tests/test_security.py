@@ -3,38 +3,38 @@ import pytest
 from vivatlas import security
 from vivatlas.config import settings
 
-# --- пароли ---
+# --- passwords ---
 
 
 def test_password_is_never_stored_as_is():
-    h = security.hash_password("правильная лошадь батарейка скрепка")
-    assert "лошадь" not in h
+    h = security.hash_password("correct horse battery staple")
+    assert "horse" not in h
     assert h.startswith("$argon2id$")
 
 
 def test_right_password_passes_wrong_does_not():
-    h = security.hash_password("правильная лошадь батарейка скрепка")
-    assert security.verify_password("правильная лошадь батарейка скрепка", h)
-    assert not security.verify_password("правильная лошадь батарейка скрепк", h)
+    h = security.hash_password("correct horse battery staple")
+    assert security.verify_password("correct horse battery staple", h)
+    assert not security.verify_password("correct horse battery stapl", h)
     assert not security.verify_password("", h)
 
 
 def test_same_password_gives_different_hashes():
-    # Соль своя у каждого. Иначе одинаковые пароли видны в базе как
-    # одинаковые строки, и укравший базу сразу знает, у кого пароль общий.
-    a = security.hash_password("одна и та же строка тут")
-    b = security.hash_password("одна и та же строка тут")
+    # A unique salt for each. Otherwise identical passwords show up in the database as
+    # identical strings, and whoever steals the database instantly knows who shares a password.
+    a = security.hash_password("one and the same string here")
+    b = security.hash_password("one and the same string here")
     assert a != b
-    assert security.verify_password("одна и та же строка тут", a)
-    assert security.verify_password("одна и та же строка тут", b)
+    assert security.verify_password("one and the same string here", a)
+    assert security.verify_password("one and the same string here", b)
 
 
 def test_long_passphrase_is_not_cut_off():
-    # Настоящая причина, по которой тут argon2, а не bcrypt: bcrypt молча
-    # обрезал бы пароль на 72 байте, и эти два пароля стали бы одним.
-    base = "длинная парольная фраза которую человек придумал сам и гордится ею"
-    a = base + " ОДИН"
-    b = base + " ДВА"
+    # The real reason argon2 is here and not bcrypt: bcrypt would silently
+    # truncate the password at 72 bytes, and these two passwords would become one.
+    base = "the long passphrase that a person came up with themselves and is really proud of"
+    a = base + " ONE"
+    b = base + " TWO"
     assert len(a.encode()) > 72
     h = security.hash_password(a)
     assert security.verify_password(a, h)
@@ -42,35 +42,35 @@ def test_long_passphrase_is_not_cut_off():
 
 
 def test_broken_hash_is_a_no_not_a_crash():
-    assert not security.verify_password("что угодно", "это не хеш")
-    assert not security.verify_password("что угодно", "")
+    assert not security.verify_password("anything at all", "this is not a hash")
+    assert not security.verify_password("anything at all", "")
 
 
-# --- проверка пароля на прочность ---
+# --- password strength check ---
 
 
 def test_short_password_refused():
-    # Функция возвращает КЛЮЧ причины (перевод — на месте показа), а не текст.
-    assert security.check_password_strength("коротко") == "err.pw_short"
+    # The function returns the reason KEY (translated at display time), not the text.
+    assert security.check_password_strength("short") == "err.pw_short"
 
 
 def test_common_password_refused():
     assert security.check_password_strength("password123")
     assert security.check_password_strength("qwertyuiop")
-    assert security.check_password_strength("пароль")
+    assert security.check_password_strength("password")
 
 
 def test_long_passphrase_accepted():
-    assert security.check_password_strength("мама мыла раму синей краской") == ""
+    assert security.check_password_strength("mother washed the frame with blue paint") == ""
 
 
 def test_no_silly_rules():
-    # Требование «заглавная, цифра и звёздочка» выгоняет людей в Password1!.
-    # Длинная фраза без единой цифры — хороший пароль, и мы его принимаем.
-    assert security.check_password_strength("сегодня во дворе идёт дождь") == ""
+    # An "uppercase, digit and asterisk" requirement drives people into Password1!.
+    # A long phrase without a single digit is a good password, and we accept it.
+    assert security.check_password_strength("it is raining in the yard today") == ""
 
 
-# --- ключи сессий ---
+# --- session keys ---
 
 
 def test_tokens_are_unique_and_long():
@@ -92,14 +92,14 @@ def test_same_secret_compares_equal_and_not():
     assert not security.same_secret("abc", "abcd")
 
 
-# --- коды восстановления ---
+# --- backup codes ---
 
 
 def test_backup_code_is_readable_by_a_human():
     code = security.new_backup_code()
     assert len(code) == 14
     assert code.count("-") == 2
-    # Шестнадцатеричный алфавит: нет пар O/0 и l/1, неразличимых в рукописи.
+    # Hexadecimal alphabet: no O/0 or l/1 pairs, indistinguishable in handwriting.
     assert all(c in "0123456789abcdef-" for c in code)
 
 
@@ -108,8 +108,8 @@ def test_backup_codes_are_unique():
 
 
 def test_backup_code_accepts_however_it_was_typed():
-    # Человек перепишет с бумаги как получится. Отказать из-за пробела —
-    # заставить его думать, что код не тот.
+    # A person copies it off paper however it comes out. Rejecting over a space
+    # is making them think the code is wrong.
     code = "4f7c-2a91-b3de"
     h = security.hash_backup_code(code)
     for typed in ("4f7c-2a91-b3de", "4F7C2A91B3DE", "4f7c 2a91 b3de", " 4f7c-2a91-b3de "):
@@ -127,12 +127,12 @@ def test_backup_code_is_hashed_not_stored():
     assert h.startswith("$argon2id$")
 
 
-# --- шифрование чужих токенов ---
+# --- encrypting third-party tokens ---
 
 
 @pytest.fixture
 def secret(monkeypatch):
-    monkeypatch.setattr(settings, "secret_key", "ключ-для-тестов-он-длинный-и-случайный")
+    monkeypatch.setattr(settings, "secret_key", "a-key-for-tests-that-is-long-and-random")
 
 
 def test_token_encrypts_and_comes_back(secret):
@@ -143,33 +143,33 @@ def test_token_encrypts_and_comes_back(secret):
 
 
 def test_same_token_encrypts_differently_each_time(secret):
-    # Иначе по одинаковым строкам в базе видно, что токен один и тот же.
-    a = security.encrypt_secret("один и тот же токен")
-    b = security.encrypt_secret("один и тот же токен")
+    # Otherwise identical strings in the database reveal that the token is the same.
+    a = security.encrypt_secret("one and the same token")
+    b = security.encrypt_secret("one and the same token")
     assert a != b
     assert security.decrypt_secret(a) == security.decrypt_secret(b)
 
 
 def test_wrong_key_gives_nothing_not_a_crash(secret, monkeypatch):
-    # Настоящий случай: сменили SECRET_KEY. Старые токены не прочитать
-    # никогда — и правильный ответ «токена нет», а не падение страницы.
-    blob = security.encrypt_secret("токен")
-    monkeypatch.setattr(settings, "secret_key", "совсем другой ключ")
+    # A real case: SECRET_KEY was changed. The old tokens can never be read
+    # again — and the right answer is "no token", not a crashed page.
+    blob = security.encrypt_secret("token")
+    monkeypatch.setattr(settings, "secret_key", "a completely different key")
     assert security.decrypt_secret(blob) == ""
 
 
 def test_garbage_decrypts_to_nothing(secret):
-    assert security.decrypt_secret("не шифртекст") == ""
+    assert security.decrypt_secret("not ciphertext") == ""
     assert security.decrypt_secret("") == ""
 
 
 def test_no_secret_key_is_an_honest_error(monkeypatch):
     monkeypatch.setattr(settings, "secret_key", "")
     with pytest.raises(security.SecretMissing, match="SECRET_KEY"):
-        security.encrypt_secret("токен")
+        security.encrypt_secret("token")
 
 
-# --- показ токена ---
+# --- showing a token ---
 
 
 def test_masked_token_shows_ends_only():
@@ -181,7 +181,7 @@ def test_masked_token_shows_ends_only():
 
 
 def test_short_token_hidden_completely():
-    # У короткого токена «первые четыре и последние четыре» — это весь токен.
+    # For a short token, "the first four and last four" is the whole token.
     assert security.mask_secret("abcd1234") == "•" * 8
 
 

@@ -1,4 +1,4 @@
-"""Команды в терминале."""
+"""Terminal commands."""
 
 import asyncio
 import logging
@@ -34,16 +34,16 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 @app.command("init-db")
 def init_db() -> None:
-    """Создать или обновить таблицы."""
+    """Create or update the tables."""
     Base.metadata.create_all(engine)
     for step in ensure_schema():
         typer.echo(f"  {step}")
-    typer.echo(f"База готова: {settings.database_url}")
+    typer.echo(f"Database ready: {settings.database_url}")
 
 
 @app.command("embed")
-def embed(force: bool = typer.Option(False, help="Пересчитать все")) -> None:
-    """Превратить карточки в числа для поиска по смыслу."""
+def embed(force: bool = typer.Option(False, help="Recompute everything")) -> None:
+    """Turn cards into numbers for meaning-based search."""
 
     async def _run() -> None:
         model = build_embedding_model()
@@ -64,22 +64,22 @@ def embed(force: bool = typer.Option(False, help="Пересчитать все"
                     except Exception as exc:
                         session.rollback()
                         failed += 1
-                        typer.echo(f"  {art.name}: ОШИБКА {exc}")
+                        typer.echo(f"  {art.name}: ERROR {exc}")
                     await asyncio.sleep(settings.llm_delay_seconds)
         finally:
             await model.aclose()
 
         typer.echo("")
-        typer.echo(f"  Посчитано     : {created}")
-        typer.echo(f"  Не изменилось : {unchanged}")
-        typer.echo(f"  Ошибок        : {failed}")
+        typer.echo(f"  Computed      : {created}")
+        typer.echo(f"  Unchanged     : {unchanged}")
+        typer.echo(f"  Errors        : {failed}")
 
     asyncio.run(_run())
 
 
 @app.command("tag")
-def tag(no_ai: bool = typer.Option(False, help="Только теги по правилам")) -> None:
-    """Расставить теги."""
+def tag(no_ai: bool = typer.Option(False, help="Rule-based tags only")) -> None:
+    """Assign tags."""
 
     async def _run() -> None:
         model = None if no_ai else build_text_model()
@@ -99,7 +99,7 @@ def tag(no_ai: bool = typer.Option(False, help="Только теги по пр�
                     except Exception as exc:
                         session.rollback()
                         failed += 1
-                        typer.echo(f"  {art.name}: ОШИБКА {exc}")
+                        typer.echo(f"  {art.name}: ERROR {exc}")
                     if model:
                         await asyncio.sleep(settings.llm_delay_seconds)
         finally:
@@ -107,27 +107,27 @@ def tag(no_ai: bool = typer.Option(False, help="Только теги по пр�
                 await model.aclose()
 
         typer.echo("")
-        typer.echo(f"  По правилам        : {totals['derived']}")
-        typer.echo(f"  От модели          : {totals['ai']}")
-        typer.echo(f"  Отклонено запретом : {totals['rejected']}")
-        typer.echo(f"  Слабых (не ставим) : {totals['weak']}")
-        typer.echo(f"  Ошибок             : {failed}")
+        typer.echo(f"  By rules           : {totals['derived']}")
+        typer.echo(f"  From model         : {totals['ai']}")
+        typer.echo(f"  Rejected (blocked) : {totals['rejected']}")
+        typer.echo(f"  Weak (not applied) : {totals['weak']}")
+        typer.echo(f"  Errors             : {failed}")
 
     asyncio.run(_run())
 
 
 @app.command("find")
 def find_cmd(source: str) -> None:
-    """Найти репозиторий по чему угодно: ссылке, странице, скриншоту, ролику.
+    """Find a repository from anything: a link, page, screenshot, or clip.
 
-    Ничего не тащит и не создаёт — только показывает, что нашлось. Выбираете
-    вы: название на слух и с картинки распознаётся неточно, а ошибка стоит
-    дорого. Дальше — обычный import по готовой строчке.
+    Doesn't pull or create anything — it just shows what turned up. You choose:
+    a name heard aloud or read from an image is recognized imprecisely, and a
+    mistake is costly. From there it's a plain import from the ready-made line.
 
         vivatlas find https://github.com/DeusData/codebase-memory-mcp
         vivatlas find https://voltagent.dev/
-        vivatlas find C:/скриншоты/рилс.png
-        vivatlas find "скил который собирает новости за 30 дней"
+        vivatlas find C:/screenshots/reel.png
+        vivatlas find "a skill that gathers news from the last 30 days"
     """
 
     async def _run() -> None:
@@ -141,40 +141,40 @@ def find_cmd(source: str) -> None:
                 await model.aclose()
 
         kinds = {
-            "github": "ссылка на GitHub",
-            "web": "страница в интернете",
-            "image": "картинка",
-            "video": "ролик",
-            "text": "слова",
+            "github": "a GitHub link",
+            "web": "a web page",
+            "image": "an image",
+            "video": "a clip",
+            "text": "words",
         }
         typer.echo("")
-        typer.echo(f"  Что дали: {kinds.get(result.kind, result.kind)}")
+        typer.echo(f"  You gave: {kinds.get(result.kind, result.kind)}")
         if result.heard:
             lang = f" ({result.language})" if result.language else ""
-            typer.echo(f"  Прочитано{lang}: {result.heard[:150]}")
+            typer.echo(f"  Read{lang}: {result.heard[:150]}")
         if result.gist:
-            typer.echo(f"  Это про: {result.gist[:150]}")
+            typer.echo(f"  About: {result.gist[:150]}")
         if result.tool_name:
-            typer.echo(f"  Название: {result.tool_name}")
+            typer.echo(f"  Name: {result.tool_name}")
         for note in result.notes:
             typer.echo(f"    · {note}")
 
         if not result.candidates:
             typer.echo("")
-            typer.echo("  Ничего не нашлось. Попробуйте дать ссылку прямо.")
+            typer.echo("  Nothing found. Try giving a link directly.")
             return
 
         typer.echo("")
-        typer.echo(f"  НАШЛОСЬ: {len(result.candidates)}")
+        typer.echo(f"  FOUND: {len(result.candidates)}")
         for i, c in enumerate(result.candidates, 1):
-            mark = "точно" if c.exact else "похоже"
-            typer.echo(f"    {i}. [{mark}] {c.repo} — {c.stars:,} зв.".replace(",", " "))
+            mark = "exact" if c.exact else "close"
+            typer.echo(f"    {i}. [{mark}] {c.repo} — {c.stars:,} stars".replace(",", " "))
             if c.description:
                 typer.echo(f"       {c.description}")
             typer.echo(f"       {c.why}")
 
         typer.echo("")
-        typer.echo("  Выбрали — тащите:")
+        typer.echo("  Picked one — pull it:")
         typer.echo(f"    vivatlas import {result.candidates[0].url}")
 
     asyncio.run(_run())
@@ -183,13 +183,13 @@ def find_cmd(source: str) -> None:
 @app.command("import")
 def import_cmd(
     url: str,
-    to: str = typer.Option("", help="Владелец в Gitea. Пусто — как на GitHub."),
-    name: str = typer.Option("", help="Имя у себя (по умолчанию — как у источника)"),
-    yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
+    to: str = typer.Option("", help="Owner in Gitea. Empty — same as on GitHub."),
+    name: str = typer.Option("", help="Local name (defaults to the source's)"),
+    yes: bool = typer.Option(False, "--yes", help="Execute. Without this, only shows the plan."),
 ) -> None:
-    """Притащить инструмент по ссылке с GitHub.
+    """Pull in a tool from a GitHub link.
 
-    Без --yes только показывает, что будет сделано. Ничего не создаётся.
+    Without --yes, only shows what will be done. Nothing is created.
     """
 
     async def _run() -> None:
@@ -203,28 +203,28 @@ def import_cmd(
             await fetcher.aclose()
 
         typer.echo("")
-        typer.echo("  ЧТО БУДЕТ СДЕЛАНО")
+        typer.echo("  WHAT WILL BE DONE")
         typer.echo(
-            f"    откуда    : github.com/{plan.source.full_repo}"
+            f"    from    : github.com/{plan.source.full_repo}"
             + (f"/{plan.source.path}" if plan.source.path else "")
         )
-        typer.echo(f"    создастся : {plan.target_owner}/{plan.target_name}")
-        typer.echo(f"    файлов    : {len(plan.files)}, {plan.total_bytes / 1024:.0f} КБ")
+        typer.echo(f"    creates : {plan.target_owner}/{plan.target_name}")
+        typer.echo(f"    files   : {len(plan.files)}, {plan.total_bytes / 1024:.0f} KB")
         for f in plan.files[:5]:
             typer.echo(f"       {f.path}")
         if len(plan.files) > 5:
-            typer.echo(f"       ... ещё {len(plan.files) - 5}")
+            typer.echo(f"       ... {len(plan.files) - 5} more")
         for w in plan.warnings:
             typer.echo(f"    ! {w}")
 
         if not yes:
             typer.echo("")
-            typer.echo("  Ничего не сделано. Повторите с --yes, чтобы выполнить.")
+            typer.echo("  Nothing done. Repeat with --yes to execute.")
             return
 
         if not settings.gitea_token:
             typer.echo("")
-            typer.echo("  Нет GITEA_TOKEN — писать нечем. Впишите токен в .env")
+            typer.echo("  No GITEA_TOKEN — nothing to write with. Add the token to .env")
             raise typer.Exit(1)
 
         provider = build_provider("gitea")
@@ -235,7 +235,7 @@ def import_cmd(
                 result = await execute(session, provider, plan, settings.gitea_url)
                 session.commit()
                 typer.echo("")
-                typer.echo(f"  Создано: {result.repo_full_name}, файлов {result.files_written}")
+                typer.echo(f"  Created: {result.repo_full_name}, files {result.files_written}")
 
                 row = session.get(Repository, result.repository_id)
                 await index_repository(session, provider, text_model, row, force=True)
@@ -248,9 +248,9 @@ def import_cmd(
                 index_artifact_for_words(session, art)
                 session.commit()
 
-                typer.echo(f"  Карточка: {art.name} [{art.artifact_type}]")
-                typer.echo(f"  Описание: {art.summary_short[:70]}")
-                typer.echo(f"  Источник записан: {plan.source.full_repo}")
+                typer.echo(f"  Card: {art.name} [{art.artifact_type}]")
+                typer.echo(f"  Description: {art.summary_short[:70]}")
+                typer.echo(f"  Source recorded: {plan.source.full_repo}")
         finally:
             await provider.aclose()
             await text_model.aclose()
@@ -261,15 +261,15 @@ def import_cmd(
 
 @app.command("remap")
 def remap_cmd(
-    yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
-    limit: int = typer.Option(0, help="Перенести не больше стольких (0 — все). Для проверки."),
+    yes: bool = typer.Option(False, "--yes", help="Execute. Without this, only shows the plan."),
+    limit: int = typer.Option(0, help="Move at most this many (0 — all). For testing."),
 ) -> None:
-    """Переименовать репозитории по правилу «путь как на GitHub».
+    """Rename repositories by the "path as on GitHub" rule.
 
-    Без --yes только показывает, что переедет и куда. Ничего не трогает.
+    Without --yes, only shows what will move and where. Touches nothing.
 
-    Переносит по одному и останавливается на первой же ошибке: половина
-    переноса — это состояние, из которого видно, где встали.
+    Moves them one at a time and stops at the very first error: a half-done
+    move is a state from which you can see where it got stuck.
     """
 
     async def _run() -> None:
@@ -277,30 +277,30 @@ def remap_cmd(
             plan = remap.compute_plan(session)
 
             typer.echo("")
-            typer.echo(f"  Переименовать : {len(plan.changes)}")
-            typer.echo(f"  Не трогать    : {len(plan.unchanged)} (источник не записан)")
-            typer.echo(f"  Уже по правилу: {len(plan.already)}")
+            typer.echo(f"  To rename      : {len(plan.changes)}")
+            typer.echo(f"  Leave alone    : {len(plan.unchanged)} (source not recorded)")
+            typer.echo(f"  Already correct: {len(plan.already)}")
             if plan.new_orgs:
-                typer.echo(f"  Создать организации: {', '.join(plan.new_orgs)}")
+                typer.echo(f"  Create organizations: {', '.join(plan.new_orgs)}")
 
             typer.echo("")
             shown = plan.changes if yes else plan.changes[:12]
             for item in shown:
                 typer.echo(f"    {item.old_full}  ->  {item.new_full}")
             if not yes and len(plan.changes) > 12:
-                typer.echo(f"    ... ещё {len(plan.changes) - 12}")
+                typer.echo(f"    ... {len(plan.changes) - 12} more")
 
             if not plan.changes:
-                typer.echo("\n  Переносить нечего.")
+                typer.echo("\n  Nothing to move.")
                 return
 
             if not yes:
                 typer.echo("")
-                typer.echo("  Ничего не сделано. Повторите с --yes, чтобы выполнить.")
+                typer.echo("  Nothing done. Repeat with --yes to execute.")
                 return
 
             if not settings.gitea_token:
-                typer.echo("\n  Нет GITEA_TOKEN — писать нечем.")
+                typer.echo("\n  No GITEA_TOKEN — nothing to write with.")
                 raise typer.Exit(1)
 
             provider = build_provider("gitea")
@@ -316,29 +316,29 @@ def remap_cmd(
                     except Exception as exc:
                         session.rollback()
                         typer.echo("")
-                        typer.echo(f"  ОСТАНОВКА на {item.old_full}: {exc}")
-                        typer.echo(f"  Перенесено успешно: {done}. Остальные не тронуты.")
+                        typer.echo(f"  STOPPED at {item.old_full}: {exc}")
+                        typer.echo(f"  Moved successfully: {done}. The rest untouched.")
                         raise typer.Exit(1) from None
             finally:
                 await provider.aclose()
 
             typer.echo("")
-            typer.echo(f"  Готово: перенесено {done}.")
+            typer.echo(f"  Done: moved {done}.")
 
     asyncio.run(_run())
 
 
 @app.command("update")
 def update_cmd(
-    name: str = typer.Argument("", help="Имя карточки. Пусто — все, где вышла новая версия."),
-    yes: bool = typer.Option(False, "--yes", help="Выполнить. Без этого только показывает план."),
+    name: str = typer.Argument("", help="Card name. Empty — all with a new version out."),
+    yes: bool = typer.Option(False, "--yes", help="Execute. Without this, only shows the plan."),
 ) -> None:
-    """Поставить новую версию из источника вместо старой.
+    """Install the new version from the source in place of the old one.
 
-    Обновляет только то, что вы не трогали. Если копию правили — откажется и
-    скажет почему: перезапись затёрла бы вашу правку молча.
+    Updates only what you haven't touched. If the copy was edited, it refuses
+    and says why: an overwrite would silently wipe out your change.
 
-    Без --yes только показывает, что будет сделано.
+    Without --yes, only shows what will be done.
     """
 
     async def _run() -> None:
@@ -358,9 +358,9 @@ def update_cmd(
                 if not links:
                     typer.echo("")
                     if name:
-                        typer.echo(f"  Карточка «{name}» не найдена или у неё не записан источник.")
+                        typer.echo(f"  Card \"{name}\" not found or has no recorded source.")
                     else:
-                        typer.echo("  Обновлять нечего. Сначала: vivatlas upstream")
+                        typer.echo("  Nothing to update. First: vivatlas upstream")
                     return
 
                 plans, refused = [], []
@@ -370,7 +370,7 @@ def update_cmd(
                     except UpdateRefused as exc:
                         refused.append((link.artifact.name, str(exc)))
                     except Exception as exc:
-                        refused.append((link.artifact.name, f"не проверилось: {exc}"))
+                        refused.append((link.artifact.name, f"check failed: {exc}"))
 
                 typer.echo("")
                 for who, why in refused:
@@ -380,20 +380,20 @@ def update_cmd(
                     return
 
                 typer.echo("")
-                typer.echo("  ЧТО БУДЕТ ЗАМЕНЕНО")
+                typer.echo("  WHAT WILL BE REPLACED")
                 for p in plans:
-                    typer.echo(f"    {p.repo_full_name} · {p.path} ({p.size_kb:.0f} КБ)")
-                    typer.echo(f"       откуда: github.com/{p.upstream_repo}/{p.upstream_path}")
-                    typer.echo(f"       было {p.old_sha[:8]} -> станет {p.new_sha[:8]}")
+                    typer.echo(f"    {p.repo_full_name} · {p.path} ({p.size_kb:.0f} KB)")
+                    typer.echo(f"       from: github.com/{p.upstream_repo}/{p.upstream_path}")
+                    typer.echo(f"       was {p.old_sha[:8]} -> becomes {p.new_sha[:8]}")
 
                 if not yes:
                     typer.echo("")
-                    typer.echo("  Ничего не сделано. Повторите с --yes, чтобы выполнить.")
+                    typer.echo("  Nothing done. Repeat with --yes to execute.")
                     return
 
                 if not settings.gitea_token:
                     typer.echo("")
-                    typer.echo("  Нет GITEA_TOKEN — писать нечем. Впишите токен в .env")
+                    typer.echo("  No GITEA_TOKEN — nothing to write with. Add the token to .env")
                     raise typer.Exit(1)
 
                 done = 0
@@ -403,15 +403,15 @@ def update_cmd(
                         await apply_update(session, provider, checker, p)
                         session.commit()
                         done += 1
-                        typer.echo(f"  Готово: {p.repo_full_name} · {p.path}")
+                        typer.echo(f"  Done: {p.repo_full_name} · {p.path}")
                     except Exception as exc:
                         session.rollback()
-                        typer.echo(f"  ОШИБКА: {p.repo_full_name}: {exc}")
+                        typer.echo(f"  ERROR: {p.repo_full_name}: {exc}")
                         continue
 
-                    # Файл сменился — значит описание, теги и поиск устарели.
+                    # The file changed — so the description, tags, and search are stale.
                     if text_model is None or embed_model is None:
-                        typer.echo("     карточку не пересобрал: нет GOOGLE_API_KEY")
+                        typer.echo("     card not rebuilt: no GOOGLE_API_KEY")
                         continue
                     try:
                         repo = link.artifact.repository
@@ -424,13 +424,13 @@ def update_cmd(
                         await tag_artifact(session, art, text_model)
                         index_artifact_for_words(session, art)
                         session.commit()
-                        typer.echo(f"     карточка пересобрана: {art.summary_short[:60]}")
+                        typer.echo(f"     card rebuilt: {art.summary_short[:60]}")
                     except Exception as exc:
                         session.rollback()
-                        typer.echo(f"     файл обновлён, но карточка не пересобралась: {exc}")
+                        typer.echo(f"     file updated, but the card wasn't rebuilt: {exc}")
 
                 typer.echo("")
-                typer.echo(f"  Обновлено: {done} из {len(plans)}")
+                typer.echo(f"  Updated: {done} of {len(plans)}")
         finally:
             await provider.aclose()
             await checker.aclose()
@@ -444,17 +444,17 @@ def update_cmd(
 
 @app.command("changes")
 def changes_cmd(
-    days: int = typer.Option(30, help="За сколько дней"),
-    stale: bool = typer.Option(False, help="Показать протухшее"),
+    days: int = typer.Option(30, help="Over how many days"),
+    stale: bool = typer.Option(False, help="Show stale items"),
 ) -> None:
-    """Что появилось, изменилось, пропало и что залежалось."""
+    """What appeared, changed, vanished, and what's gone stale."""
     with session_scope() as session:
         if stale:
             items = ch.stale(session)
             oldest, newest = ch.oldest_and_newest(session)
             if not items:
-                typer.echo(f"Ничего не залежалось дольше {ch.STALE_DAYS} дней.")
-                typer.echo(f"Самому старому: {oldest} дн., самому свежему: {newest} дн.")
+                typer.echo(f"Nothing has been stale longer than {ch.STALE_DAYS} days.")
+                typer.echo(f"Oldest: {oldest} days, newest: {newest} days.")
                 return
             for it in items:
                 typer.echo(f"  !  {it.artifact.repository.full_name:44s} {it.reason}")
@@ -462,7 +462,7 @@ def changes_cmd(
 
         events = ch.since(session, days=days)
         if not events:
-            typer.echo(f"За {days} дней ничего не происходило.")
+            typer.echo(f"Nothing happened over {days} days.")
             return
         for c in events:
             mark = ch.KIND_MARKS.get(c.kind, "·")
@@ -475,7 +475,7 @@ def changes_cmd(
 
 @app.command("upstream")
 def upstream_cmd() -> None:
-    """Проверить, не вышли ли новые версии у источников."""
+    """Check whether sources have new versions out."""
 
     async def _run() -> None:
         provider = build_provider("gitea")
@@ -488,41 +488,41 @@ def upstream_cmd() -> None:
             await checker.aclose()
 
         typer.echo("")
-        typer.echo(f"  Проверено              : {result.checked}")
-        typer.echo(f"  Совпадает с источником : {result.in_sync}")
-        typer.echo(f"  ВЫШЛА НОВАЯ ВЕРСИЯ     : {result.update_available}")
-        typer.echo(f"  Вы правили             : {result.locally_modified}")
-        typer.echo(f"  Разошлось с обеих      : {result.diverged}")
-        typer.echo(f"  Ошибок                 : {result.failed}")
+        typer.echo(f"  Checked              : {result.checked}")
+        typer.echo(f"  In sync with source  : {result.in_sync}")
+        typer.echo(f"  NEW VERSION OUT      : {result.update_available}")
+        typer.echo(f"  You edited           : {result.locally_modified}")
+        typer.echo(f"  Diverged both ways   : {result.diverged}")
+        typer.echo(f"  Errors               : {result.failed}")
 
     asyncio.run(_run())
 
 
 @app.command("secret")
 def secret_cmd() -> None:
-    """Сгенерировать главный ключ для .env.
+    """Generate the secret key for .env.
 
-    Из него держится вся дверь: подписи и шифрование чужих токенов. Сменить
-    его потом — разлогинить всех и потерять сохранённые токены.
+    The whole lock rests on it: signatures and encryption of others' tokens.
+    Changing it later signs everyone out and loses saved tokens.
     """
     typer.echo("")
-    typer.echo("  Впишите в .env одной строкой:")
+    typer.echo("  Add to .env as a single line:")
     typer.echo("")
     typer.echo(f"  SECRET_KEY={security.new_token(48)}")
     typer.echo("")
-    typer.echo("  Никому не показывайте и в Git не коммитьте (.env и так игнорируется).")
+    typer.echo("  Don't show it to anyone and don't commit it to Git (.env is ignored anyway).")
 
 
 @app.command("serve")
 def serve(
     port: int = typer.Option(8000),
-    host: str = typer.Option("127.0.0.1", help="0.0.0.0 — чтобы открыть с телефона"),
+    host: str = typer.Option("127.0.0.1", help="0.0.0.0 — to open it from a phone"),
 ) -> None:
-    """Запустить веб-интерфейс."""
+    """Start the web interface."""
     import uvicorn
 
-    # Без главного ключа дверь не запереть. Проверяем здесь, а не когда человек
-    # жмёт «Войти»: узнать о беде надо при запуске.
+    # Without the secret key the lock won't close. We check here, not when the
+    # user hits "Sign in": trouble should surface at startup.
     try:
         security.require_secret()
     except security.SecretMissing as exc:
@@ -530,20 +530,20 @@ def serve(
         typer.echo(f"  {exc}")
         raise typer.Exit(1) from None
 
-    # Адреса печатаем здесь, а не в пусковом файле: это окно остаётся открытым,
-    # пока сервер работает, а окно пускателя закрывается сразу. Человеку, который
-    # запустил двойным щелчком, адрес для телефона виден только тут.
+    # We print the addresses here, not in the launcher file: this window stays
+    # open while the server runs, whereas the launcher window closes right away.
+    # For someone who started it with a double-click, the phone address shows only here.
     typer.echo("")
-    typer.echo(f"  VivAtlas, порт {port}")
-    typer.echo(f"    на этом компьютере : http://127.0.0.1:{port}")
+    typer.echo(f"  VivAtlas, port {port}")
+    typer.echo(f"    on this computer : http://127.0.0.1:{port}")
     if host == "0.0.0.0":
         for ip in lan_addresses():
-            typer.echo(f"    с телефона         : http://{ip}:{port}")
+            typer.echo(f"    from a phone     : http://{ip}:{port}")
         typer.echo("")
-        typer.echo("  Телефон должен быть в той же сети.")
+        typer.echo("  The phone must be on the same network.")
 
-    # Журнал самой программы (не уборщик запросов uvicorn) — в файл. По нему
-    # видно, что происходит внутри: включилась ли 2FA, откатилась ли запись.
+    # The program's own log (not uvicorn's request handler) goes to a file. It
+    # shows what's going on inside: whether 2FA kicked in, whether a write rolled back.
     import pathlib
 
     logdir = pathlib.Path("logs")
@@ -553,7 +553,7 @@ def serve(
     app_log = logging.getLogger("vivatlas")
     app_log.addHandler(handler)
     app_log.setLevel(logging.INFO)
-    typer.echo(f"  Журнал: logs/serve-{port}.log")
+    typer.echo(f"  Log: logs/serve-{port}.log")
 
     typer.echo("")
     uvicorn.run("vivatlas.api:app", host=host, port=port, log_level="warning")
@@ -561,9 +561,9 @@ def serve(
 
 @app.command("mcp")
 def mcp_stdio() -> None:
-    """Запустить MCP-сервер для Claude Code (stdio)."""
-    # Логи глушим: в stdio-режиме stdout это канал протокола, любая строчка
-    # в нём ломает связь.
+    """Start the MCP server for Claude Code (stdio)."""
+    # We silence the logs: in stdio mode stdout is the protocol channel, any line
+    # in it breaks the connection.
     logging.getLogger().handlers.clear()
     logging.getLogger().addHandler(logging.NullHandler())
     from vivatlas.mcp_server import run_stdio
@@ -573,9 +573,9 @@ def mcp_stdio() -> None:
 
 @app.command("reindex-words")
 def reindex_words() -> None:
-    """Пересобрать таблицу поиска по словам."""
+    """Rebuild the word-search table."""
     count = rebuild_fts()
-    typer.echo(f"В поиске по словам: {count} карточек")
+    typer.echo(f"In word search: {count} cards")
 
 
 @app.command("search")
@@ -584,7 +584,7 @@ def search_cmd(
     mode: str = typer.Option("both", help="words | meaning | both"),
     limit: int = typer.Option(5),
 ) -> None:
-    """Найти инструмент."""
+    """Find a tool."""
 
     async def _run() -> None:
         model = build_embedding_model() if mode in ("meaning", "both") else None
@@ -592,13 +592,13 @@ def search_cmd(
             with session_scope() as session:
                 hits = await do_search(session, query, model, mode=Mode(mode), limit=limit)
                 if not hits:
-                    typer.echo("Ничего не нашлось")
+                    typer.echo("Nothing found")
                     return
                 for i, h in enumerate(hits, 1):
                     a = h.artifact
                     typer.echo(f"\n{i}. {a.repository.full_name}  [{a.artifact_type}]")
                     typer.echo(f"   {a.summary_short}")
-                    typer.echo(f"   почему: {', '.join(h.reasons)}   оценка: {h.score:.4f}")
+                    typer.echo(f"   why: {', '.join(h.reasons)}   score: {h.score:.4f}")
         finally:
             if model:
                 await model.aclose()
@@ -608,7 +608,7 @@ def search_cmd(
 
 @app.command("scan")
 def scan() -> None:
-    """Забрать список репозиториев из Gitea."""
+    """Fetch the list of repositories from Gitea."""
 
     async def _run() -> None:
         provider = build_provider("gitea")
@@ -620,23 +620,23 @@ def scan() -> None:
             await provider.aclose()
 
         typer.echo("")
-        typer.echo(f"  Найдено на хостинге : {result.seen}")
-        typer.echo(f"  Пропущено приватных : {result.skipped_private}")
-        typer.echo(f"  Добавлено новых     : {result.added}")
-        typer.echo(f"  Обновлено           : {result.updated}")
-        typer.echo(f"  Пропало             : {result.gone}")
-        typer.echo(f"  Всего в базе        : {result.stored}")
+        typer.echo(f"  Found on host     : {result.seen}")
+        typer.echo(f"  Skipped private   : {result.skipped_private}")
+        typer.echo(f"  New added         : {result.added}")
+        typer.echo(f"  Updated           : {result.updated}")
+        typer.echo(f"  Vanished          : {result.gone}")
+        typer.echo(f"  Total in database : {result.stored}")
 
     asyncio.run(_run())
 
 
 @app.command("index")
 def index(
-    limit: int = typer.Option(None, help="Обработать только первые N репозиториев"),
-    force: bool = typer.Option(False, help="Пересобрать, даже если коммит не менялся"),
-    no_ai: bool = typer.Option(False, help="Без описаний — только распознать тип"),
+    limit: int = typer.Option(None, help="Process only the first N repositories"),
+    force: bool = typer.Option(False, help="Rebuild even if the commit hasn't changed"),
+    no_ai: bool = typer.Option(False, help="No descriptions — only detect the type"),
 ) -> None:
-    """Собрать карточки: скачать репозитории, распознать, описать."""
+    """Build cards: download repositories, detect, describe."""
 
     async def _run() -> None:
         provider = build_provider("gitea")
@@ -657,13 +657,13 @@ def index(
                 await text_model.aclose()
 
         typer.echo("")
-        typer.echo(f"  Обработано        : {result.processed}")
-        typer.echo(f"  Новых карточек    : {result.created}")
-        typer.echo(f"  Обновлено         : {result.updated}")
-        typer.echo(f"  Без изменений     : {result.unchanged}")
-        typer.echo(f"  С описанием       : {result.summarized}")
-        typer.echo(f"  Описание не вышло : {result.summary_failed}")
-        typer.echo(f"  Ошибок            : {result.failed}")
+        typer.echo(f"  Processed         : {result.processed}")
+        typer.echo(f"  New cards         : {result.created}")
+        typer.echo(f"  Updated           : {result.updated}")
+        typer.echo(f"  Unchanged         : {result.unchanged}")
+        typer.echo(f"  With description  : {result.summarized}")
+        typer.echo(f"  Description failed: {result.summary_failed}")
+        typer.echo(f"  Errors            : {result.failed}")
 
     asyncio.run(_run())
 

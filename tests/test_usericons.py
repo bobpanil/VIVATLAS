@@ -1,4 +1,4 @@
-"""Набор аватаров по умолчанию: модуль-набор и backfill миграции."""
+"""Default avatar set: the preset module and the backfill migration."""
 
 from sqlalchemy import create_engine, text
 
@@ -8,10 +8,10 @@ from vivatlas.models import Base, User
 
 
 def test_presets_present_and_named():
-    # Набор выложен и назван по схеме avatar-NN.
-    assert usericons.PRESETS, "нет ни одного аватара в static/usericons"
+    # The set is present and named following the avatar-NN scheme.
+    assert usericons.PRESETS, "no avatars found in static/usericons"
     assert all(k.startswith("avatar-") for k in usericons.PRESETS)
-    # Порядок стабильный (влияет на показ в настройках).
+    # Stable ordering (affects how they appear in settings).
     assert usericons.PRESETS == sorted(usericons.PRESETS)
 
 
@@ -23,7 +23,7 @@ def test_is_valid():
 
 
 def test_random_preset_is_valid():
-    # Много раз — всегда из набора (защита от выхода за диапазон).
+    # Many times over — always from the set (guards against going out of range).
     for _ in range(50):
         assert usericons.is_valid(usericons.random_preset())
 
@@ -31,7 +31,7 @@ def test_random_preset_is_valid():
 def test_read_bytes_is_webp_for_valid():
     data = usericons.read_bytes(usericons.PRESETS[0])
     assert data is not None
-    # сигнатура webp: RIFF....WEBP
+    # webp signature: RIFF....WEBP
     assert data[:4] == b"RIFF" and data[8:12] == b"WEBP"
 
 
@@ -53,15 +53,15 @@ def test_backfill_assigns_and_is_idempotent():
                 "('b@x','b','h',0,1,'',' ','',0,CURRENT_TIMESTAMP)"
             )
         )
-        # первый прогон — проставит обоим
+        # first run — assigns one to both
         assert backfill_avatar_presets(conn) == 2
         presets = [r[0] for r in conn.execute(text("SELECT avatar_preset FROM users")).fetchall()]
         assert all(usericons.is_valid(p) for p in presets)
-        # повтор — уже ничего не трогает
+        # rerun — leaves everything untouched
         assert backfill_avatar_presets(conn) == 0
 
 
 def test_new_user_gets_preset_via_default_only_if_set():
-    # Модель по умолчанию ''; случайный ставит код создания (auth_web), не модель.
+    # Model default is ''; the creation code (auth_web) sets the random one, not the model.
     u = User(email="c@x", display_name="c", password_hash="h")
     assert u.avatar_preset == "" or u.avatar_preset is None

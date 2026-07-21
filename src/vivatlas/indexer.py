@@ -1,4 +1,4 @@
-"""Сборка карточек: скачать репозиторий, распознать, описать, сохранить."""
+"""Building cards: download the repository, detect, summarize, save."""
 
 import asyncio
 import hashlib
@@ -39,7 +39,7 @@ def _to_ref(row: Repository) -> RepoRef:
         owner=row.owner,
         name=row.name,
         default_branch=row.default_branch,
-        is_private=False,  # в базу приватные не попадают, см. scanner.is_scannable
+        is_private=False,  # private ones never reach the database, see scanner.is_scannable
         is_archived=row.is_archived,
         is_empty=row.is_empty,
         html_url=row.html_url,
@@ -57,13 +57,13 @@ async def index_repository(
     row: Repository,
     force: bool = False,
 ) -> str:
-    """Собрать карточку для одного репозитория. Возвращает что произошло."""
+    """Build the card for a single repository. Returns what happened."""
     ref = _to_ref(row)
     head = await provider.get_head_sha(ref)
 
     artifact = session.scalar(select(Artifact).where(Artifact.repository_id == row.id))
 
-    # Коммит тот же и описания на месте — качать архив незачем.
+    # Same commit and the summary is in place — no point downloading the archive.
     if artifact and artifact.source_commit == head and not force:
         if artifact.summary_short:
             return "unchanged"
@@ -74,12 +74,12 @@ async def index_repository(
     content_hash = hashlib.sha256(blob).hexdigest()
 
     if artifact is None:
-        # Владение и «общий» — по владельцу источника: у ОБЩЕГО источника (без
-        # владельца) карточки общие, у ЛИЧНОГО — личные, за владельцем. Так ни
-        # один путь создания (в т.ч. массовый index_all) не оставит карточку
-        # публичной по умолчанию. Владельца читаем ДО создания карточки:
-        # обращение к row.source — запрос, а он вызвал бы autoflush ещё пустой
-        # (name=NULL) карточки и уронил бы вставку.
+        # Ownership and "shared" follow the source owner: a SHARED source (with no
+        # owner) yields shared cards, a PERSONAL one yields private cards tied to the
+        # owner. That way no creation path (including the bulk index_all) leaves a card
+        # public by default. We read the owner BEFORE creating the card:
+        # touching row.source is a query, and it would trigger an autoflush of the still-empty
+        # (name=NULL) card and break the insert.
         src_owner = row.source.owner_user_id
         artifact = Artifact(
             repository_id=row.id, owner_user_id=src_owner, shared=src_owner is None
@@ -88,8 +88,8 @@ async def index_repository(
         outcome = "created"
     else:
         outcome = "updated"
-    # Содержимое правда поменялось, или мы просто пересобираем? Событие пишем
-    # только в первом случае, иначе каждый прогон с --force плодил бы враньё.
+    # Did the content really change, or are we just rebuilding? We record the event
+    # only in the first case, otherwise every --force run would spawn lies.
     content_changed = artifact.content_hash not in (None, content_hash)
     previous_type = artifact.artifact_type
 
@@ -109,10 +109,10 @@ async def index_repository(
     row.last_scanned_commit = head
     row.last_scanned_at = datetime.now(UTC)
 
-    # Источник ищем здесь, а не потом: сейчас README целиком в руках, а в
-    # doc_text он обрезан на 24 тысячах знаков — строчка Source стоит в самом
-    # конце и в обрезку не попадает.
-    session.flush()  # нужен artifact.id
+    # We look for the source here, not later: right now we have the full README, whereas in
+    # doc_text it is truncated at 24 thousand characters — the Source line sits at the very
+    # end and doesn't survive the truncation.
+    session.flush()  # artifact.id is needed
     discover_for_artifact(session, artifact, contents, original_url=row.original_url or "")
 
     if outcome == "created":
@@ -122,12 +122,12 @@ async def index_repository(
             repository_id=row.id,
             artifact_id=artifact.id,
             title=row.full_name,
-            details=f"тип: {detection.artifact_type}",
+            details=f"type: {detection.artifact_type}",
         )
     elif content_changed:
-        what = "содержимое обновилось"
+        what = "content updated"
         if previous_type and previous_type != detection.artifact_type:
-            what += f"; тип сменился: {previous_type} -> {detection.artifact_type}"
+            what += f"; type changed: {previous_type} -> {detection.artifact_type}"
         changes.record(
             session,
             "updated",
@@ -152,10 +152,10 @@ async def index_repository(
             artifact.summary_model = getattr(text_model, "model", None)
             artifact.summary_error = None
         except Exception as exc:
-            # Карточка остаётся — без описания, но с пометкой почему.
-            # Молча притворяться, что описание есть, нельзя.
+            # The card stays — without a summary, but with a note explaining why.
+            # We must not silently pretend a summary exists.
             artifact.summary_error = str(exc)[:500]
-            log.warning("%s: описание не вышло: %s", row.full_name, exc)
+            log.warning("%s: summary failed: %s", row.full_name, exc)
             return outcome + "+no-summary"
 
     return outcome
@@ -181,18 +181,18 @@ async def index_all(
     for i, row in enumerate(rows, 1):
         try:
             outcome = await index_repository(session, provider, text_model, row, force=force)
-            # Сохраняем каждую карточку сразу. Одной транзакцией на весь прогон
-            # нельзя: обрыв на середине унёс бы всю проделанную работу.
+            # Save each card right away. A single transaction for the whole run
+            # won't do: a break in the middle would wipe out all the work done.
             session.commit()
         except Exception as exc:
             session.rollback()
             result.failed += 1
-            log.error("[%d/%d] %s — ОШИБКА: %s", i, len(rows), row.full_name, exc)
+            log.error("[%d/%d] %s — ERROR: %s", i, len(rows), row.full_name, exc)
             if delay and i < len(rows):
                 await asyncio.sleep(delay)
             continue
 
-        # Считаем только то, что действительно легло в базу.
+        # Count only what actually landed in the database.
         result.processed += 1
         if outcome.startswith("created"):
             result.created += 1

@@ -1,13 +1,13 @@
-"""Адреса этой машины в домашней сети."""
+"""This machine's addresses on the home network."""
 
 import socket
 
 
 def lan_addresses() -> list[str]:
-    """По этим адресам страница откроется с телефона.
+    """The page opens from a phone at these addresses.
 
-    Берём только домашние диапазоны: 127.0.0.1 телефону бесполезен, а всякие
-    служебные адреса виртуальных машин только путают.
+    We take only home ranges: 127.0.0.1 is useless to a phone, and all the
+    various virtual-machine service addresses only cause confusion.
     """
     found: list[str] = []
     try:

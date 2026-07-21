@@ -1,9 +1,9 @@
-"""Автоперевод названий категорий-папок на три языка.
+"""Auto-translation of category-folder names into three languages.
 
-Завели папку на любом языке — остальные два заполняем через ИИ (тот же, что
-описывает карточки). Нет ключа Google AI — просто повторяем введённое имя во
-всех языках; каталог работает, а переводы появятся, как только ключ впишут
-(как с почтой). Перевод — необязательная роскошь, ронять из-за него нельзя.
+Create a folder in any language — the other two are filled in via AI (the same one
+that describes cards). No Google AI key — we just repeat the entered name in
+all languages; the catalogue works, and translations appear as soon as the key is
+entered (like with email). Translation is an optional luxury, we mustn't crash over it.
 """
 
 import asyncio
@@ -24,8 +24,8 @@ _SCHEMA = {
 
 
 def translate_category_name(name: str) -> str:
-    """JSON-строка {en,ru,he} для названия. Нет ключа или ошибка — исходное имя
-    во всех трёх языках: каталог не должен ломаться из-за перевода."""
+    """JSON string {en,ru,he} for the name. No key or an error — the original name
+    in all three languages: the catalogue must not break because of translation."""
     name = (name or "").strip()
     fallback = json.dumps({c: name for c in _LANGS}, ensure_ascii=False)
     if not name or not settings.google_api_key:
@@ -47,12 +47,12 @@ def translate_category_name(name: str) -> str:
     try:
         return json.dumps(asyncio.run(_run()), ensure_ascii=False)
     except Exception as exc:
-        log.warning("название категории %r не перевелось: %s", name, exc)
+        log.warning("category name %r failed to translate: %s", name, exc)
         return fallback
 
 
 def label(names_json: str | None, name: str, lang: str) -> str:
-    """Название папки на нужном языке. Нет перевода — исходное name."""
+    """Folder name in the requested language. No translation — the original name."""
     if names_json:
         try:
             got = json.loads(names_json).get(lang)

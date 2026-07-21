@@ -1,4 +1,4 @@
-"""Таблицы базы."""
+"""Database tables."""
 
 from datetime import UTC, datetime
 
@@ -25,7 +25,7 @@ class Base(DeclarativeBase):
 
 
 class Source(Base):
-    """Подключение к хостингу: Gitea, позже GitHub."""
+    """Connection to a host: Gitea, later GitHub."""
 
     __tablename__ = "sources"
 
@@ -35,21 +35,21 @@ class Source(Base):
     base_url: Mapped[str] = mapped_column(String(512))
     enabled: Mapped[bool] = mapped_column(default=True)
 
-    # Зона. Пусто — общая: инструменты видят все. Задан пользователь — частная:
-    # источник и его инструменты видны только ему. Так у каждого свои
-    # репозитории, не смешиваясь с общими.
+    # Zone. Empty — shared: every tool is visible to everyone. User set — private:
+    # the source and its tools are visible only to that user. This way everyone has
+    # their own repositories, without mixing with the shared ones.
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
-    # Токен доступа к частному источнику — зашифрован (как секрет 2FA). У общих
-    # источников пусто: они ходят под общими ключами из .env. В открытом виде не
-    # хранится нигде: украдут базу — украдут шифртекст, а не токен.
+    # Access token for a private source — encrypted (like the 2FA secret). Shared
+    # sources have it empty: they run under the shared keys from .env. Never stored
+    # in plaintext anywhere: steal the database and you steal ciphertext, not the token.
     token_enc: Mapped[str] = mapped_column(String(512), default="")
 
-    # Когда источник в последний раз обходили автоматически (ежедневный фоновый
-    # скан). Пусто — ещё ни разу. Служит и «замком»: сервер, который первым
-    # проставит свежую метку, и делает обход; второй увидит свежую и пропустит.
+    # When the source was last crawled automatically (the daily background
+    # scan). Empty — never yet. It also serves as a "lock": the server that first
+    # stamps a fresh mark is the one that does the crawl; the second sees it fresh and skips.
     last_auto_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -60,7 +60,7 @@ class Source(Base):
 
 
 class Repository(Base):
-    """Репозиторий. Приватные сюда не попадают — см. scanner.py."""
+    """Repository. Private ones don't end up here — see scanner.py."""
 
     __tablename__ = "repositories"
 
@@ -76,7 +76,7 @@ class Repository(Base):
     size_kb: Mapped[int] = mapped_column(Integer, default=0)
     is_archived: Mapped[bool] = mapped_column(default=False)
     is_empty: Mapped[bool] = mapped_column(default=False)
-    # Gitea заполняет, если репозиторий привезён откуда-то.
+    # Gitea fills this in if the repository was brought in from somewhere.
     original_url: Mapped[str] = mapped_column(String(512), default="")
 
     remote_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -85,13 +85,13 @@ class Repository(Base):
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    # Проставляется, когда репозиторий пропал из выдачи хостинга.
+    # Set when the repository disappears from the host's listing.
     gone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    # Человек удалил карточку насовсем. Держим на репозитории, а не только на
-    # карточке (карточки уже нет): без этого следующий скан увидел бы репозиторий
-    # живым и собрал бы карточку заново — «удалить навсегда» превратилось бы в
-    # «удалить до завтра». Скан такой репозиторий пропускает, не воскрешая.
+    # The user deleted the card for good. Kept on the repository, not just on the
+    # card (the card is already gone): without this the next scan would see the
+    # repository alive and build the card again — "delete forever" would turn into
+    # "delete until tomorrow". The scan skips such a repository, not reviving it.
     user_removed: Mapped[bool] = mapped_column(default=False, index=True)
 
     source: Mapped[Source] = relationship(back_populates="repositories")
@@ -104,7 +104,7 @@ class Repository(Base):
 
 
 class Artifact(Base):
-    """Карточка инструмента. Пока один репозиторий = одна карточка."""
+    """Tool card. For now one repository = one card."""
 
     __tablename__ = "artifacts"
 
@@ -116,63 +116,65 @@ class Artifact(Base):
     confidence: Mapped[float] = mapped_column(default=0.0)
     detect_reasons: Mapped[str] = mapped_column(Text, default="")
 
-    # ВЕТХОЕ ПОЛЕ. Раньше карточка лежала ровно в одной папке — этот FK. Теперь
-    # членство в папках хранит таблица ArtifactCategory (многие-ко-многим): и в
-    # общей, и в личных папках сразу. Миграция переносит старое значение в
-    # ArtifactCategory; новый код это поле НЕ читает и НЕ пишет.
+    # STALE FIELD. The card used to live in exactly one folder — this FK. Now
+    # folder membership is stored by the ArtifactCategory table (many-to-many): in
+    # both the shared and the private folders at once. The migration moves the old
+    # value into ArtifactCategory; new code does NOT read or write this field.
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL")
     )
 
-    # Личная карточка: если задан пользователь, её видит только он (частная
-    # зона). Пусто — общая, видят все. Ставится при создании (личная/расшаренная)
-    # поверх зоны источника: импорт идёт из общего Gitea, а личной карточку
-    # делает именно эта отметка.
+    # Private card: if a user is set, only they see it (private zone). Empty —
+    # shared, everyone sees it. Set at creation (private/shared) on top of the
+    # source's zone: the import comes from the shared Gitea, and it's exactly this
+    # mark that makes a card private.
     #
-    # ВЕТХОЕ ПОЛЕ. Раньше одна эта отметка решала и «кто владеет», и «кто видит».
-    # Теперь это разделено на owner_user_id (владелец, навсегда) и shared (видят
-    # ли все). Поле оставлено, чтобы не ломать схему и чтобы миграция вывела из
-    # него новые. Новый код его НЕ читает и НЕ пишет — см. filters.visible_ids.
+    # STALE FIELD. This one mark used to decide both "who owns" and "who sees".
+    # Now this is split into owner_user_id (owner, forever) and shared (whether
+    # everyone sees it). The field is kept so as not to break the schema and so the
+    # migration can derive the new ones from it. New code does NOT read or write it
+    # — see filters.visible_ids.
     private_to_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
-    # Кто завёл карточку. Навсегда: даже когда её расшарили, владелец остаётся —
-    # только он (или администратор) может её удалить, и только он видит её у себя
-    # среди «моих». Пусто — общая затравка/скан без владельца (её трогает лишь
-    # администратор). Отдельно от «видят ли все» (shared): владение и видимость —
-    # два разных факта, и раньше их путали в одном поле.
+    # Who created the card. Forever: even once it's shared, the owner remains —
+    # only they (or an administrator) can delete it, and only they see it among
+    # "mine". Empty — a shared seed/scan without an owner (only an administrator
+    # touches it). Separate from "whether everyone sees it" (shared): ownership and
+    # visibility are two different facts, and they used to be conflated in one field.
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
 
-    # Видят ли карточку все. True — в общем каталоге, видна всем. False — только
-    # владельцу (личная). Переключает владелец; администратор может лишь снять
-    # (уншарить) уже общую. Владение при этом не теряется — в отличие от старого
-    # «опубликовать», которое обнуляло private_to_user_id.
+    # Whether everyone sees the card. True — in the shared catalogue, visible to
+    # all. False — only to the owner (private). The owner toggles it; an
+    # administrator can only take one that's already shared out (unshare). Ownership
+    # isn't lost in the process — unlike the old "publish", which nulled out
+    # private_to_user_id.
     #
-    # По умолчанию False — безопасно: карточку, забытую без явного shared, лучше
-    # никому не показать, чем показать всем. «Общий» назначается явно там, где
-    # это к месту: сборка карточки из ОБЩЕГО источника (indexer), кнопка «в
-    # общее» у владельца. Личные источники и добавления остаются частными.
+    # False by default — safe: a card left without an explicit shared is better
+    # shown to no one than to everyone. "Shared" is assigned explicitly where it
+    # fits: building a card from a SHARED source (indexer), the owner's "make
+    # shared" button. Private sources and additions stay private.
     shared: Mapped[bool] = mapped_column(default=False, index=True)
 
-    # Спрятана из каталога, но НЕ удалена (данные и связь с источником целы).
-    # Так помечен первичный «затравочный» массив: показываем только то, что
-    # человек добавил сам (импортом, черновиком, своим источником с токеном).
+    # Hidden from the catalogue, but NOT deleted (the data and the link to the
+    # source are intact). This is how the initial "seed" batch is marked: we show
+    # only what the user added themselves (by import, draft, or their own source with a token).
     hidden: Mapped[bool] = mapped_column(default=False, index=True)
 
-    # «Новинка»: карточка добавлена недавним сканом (ручным или ежедневным
-    # фоновым) и человек её ещё не открывал. Показываем бейдж «новое», чтобы в
-    # первый момент было видно, что подтянулись новые репозитории. Гаснет, когда
-    # карточку открыли.
+    # "New arrival": the card was added by a recent scan (manual or daily
+    # background) and the user hasn't opened it yet. We show a "new" badge so that
+    # at first glance it's clear new repositories were pulled in. Goes out when
+    # the card is opened.
     is_new: Mapped[bool] = mapped_column(default=False, index=True)
 
     anchor_path: Mapped[str | None] = mapped_column(String(512))
     preview_path: Mapped[str | None] = mapped_column(String(512))
     doc_text: Mapped[str] = mapped_column(Text, default="")
     file_count: Mapped[int] = mapped_column(Integer, default=0)
-    file_paths: Mapped[str] = mapped_column(Text, default="")  # JSON-список путей
+    file_paths: Mapped[str] = mapped_column(Text, default="")  # JSON list of paths
 
     summary_short: Mapped[str] = mapped_column(Text, default="")
     summary_normal: Mapped[str] = mapped_column(Text, default="")
@@ -180,7 +182,7 @@ class Artifact(Base):
     summary_model: Mapped[str | None] = mapped_column(String(64))
     summary_error: Mapped[str | None] = mapped_column(Text)
 
-    # По какому коммиту собрана карточка. Совпал — пересобирать не надо.
+    # Which commit the card was built from. Matches — no need to rebuild.
     source_commit: Mapped[str | None] = mapped_column(String(64))
     content_hash: Mapped[str | None] = mapped_column(String(64))
 
@@ -193,11 +195,11 @@ class Artifact(Base):
 
 
 class Embedding(Base):
-    """Карточка в виде чисел — для поиска по смыслу.
+    """The card as numbers — for search by meaning.
 
-    Модель и размерность хранятся в каждой строке: числа от разных моделей
-    сравнивать нельзя, поэтому при смене модели строки не переписываются, а
-    добавляются новые.
+    The model and dimension are stored in each row: numbers from different models
+    can't be compared, so when the model changes rows aren't rewritten, but new
+    ones are added.
     """
 
     __tablename__ = "embeddings"
@@ -207,18 +209,18 @@ class Embedding(Base):
     model: Mapped[str] = mapped_column(String(64))
     dim: Mapped[int] = mapped_column(Integer)
     vector: Mapped[bytes] = mapped_column(LargeBinary)
-    source_hash: Mapped[str] = mapped_column(String(64))  # текст не менялся — не пересчитываем
+    source_hash: Mapped[str] = mapped_column(String(64))  # text unchanged — don't recompute
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (UniqueConstraint("artifact_id", "model", name="uq_embedding"),)
 
 
 class UpstreamLink(Base):
-    """Откуда взят инструмент и как он соотносится с источником.
+    """Where the tool came from and how it relates to its source.
 
-    Ключевое здесь — baseline_*: слепки на момент, когда мы впервые увидели
-    копию и источник. Без них "файлы разные" ничего не значит — непонятно, то
-    ли вышла новая версия, то ли пользователь сам поправил.
+    The key thing here is baseline_*: snapshots at the moment we first saw the
+    copy and the source. Without them "the files differ" means nothing — it's
+    unclear whether a new version came out or the user edited it themselves.
     """
 
     __tablename__ = "upstream_links"
@@ -232,7 +234,7 @@ class UpstreamLink(Base):
     upstream_url: Mapped[str] = mapped_column(String(512), default="")
     discovered_by: Mapped[str] = mapped_column(String(64), default="")
 
-    # Отметка: как всё выглядело, когда копия и источник совпадали.
+    # A mark: how everything looked when the copy and the source matched.
     baseline_local_sha: Mapped[str] = mapped_column(String(64), default="")
     baseline_upstream_sha: Mapped[str] = mapped_column(String(64), default="")
     baseline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -249,7 +251,7 @@ class UpstreamLink(Base):
 
 
 class Tag(Base):
-    """Словарь тегов."""
+    """Tag dictionary."""
 
     __tablename__ = "tags"
 
@@ -261,12 +263,12 @@ class Tag(Base):
 
 
 class ArtifactTag(Base):
-    """Тег на карточке.
+    """A tag on a card.
 
-    source говорит, откуда он взялся:
-      derived — вывели из пути, имени, файлов. Правило, всегда одинаково.
-      ai      — предложила модель.
-      manual  — поставил человек. Такие никогда не перезаписываются.
+    source says where it came from:
+      derived — derived from the path, name, files. A rule, always the same.
+      ai      — suggested by the model.
+      manual  — set by a user. These are never overwritten.
     """
 
     __tablename__ = "artifact_tags"
@@ -277,7 +279,7 @@ class ArtifactTag(Base):
 
     source: Mapped[str] = mapped_column(String(16))
     confidence: Mapped[float] = mapped_column(default=1.0)
-    origin: Mapped[str] = mapped_column(String(64), default="")  # правило или модель
+    origin: Mapped[str] = mapped_column(String(64), default="")  # rule or model
     manually_confirmed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -287,11 +289,11 @@ class ArtifactTag(Base):
 
 
 class TagSuppression(Base):
-    """Запрет тега на карточке.
+    """A ban on a tag for a card.
 
-    Пользователь удалил автотег — сюда пишется запись, и тег больше никогда не
-    вернётся при пересканировании. Без этой таблицы удаление было бы
-    бессмысленным: следующий прогон поставил бы тег обратно.
+    The user removed an auto-tag — a record is written here, and the tag will
+    never come back on rescanning. Without this table the removal would be
+    pointless: the next run would put the tag back.
     """
 
     __tablename__ = "tag_suppressions"
@@ -308,10 +310,10 @@ class TagSuppression(Base):
 
 
 class Change(Base):
-    """Одно событие: что-то появилось, изменилось или пропало.
+    """A single event: something appeared, changed, or vanished.
 
-    Пишется в момент, когда замечено, а не вычисляется задним числом. После
-    удаления репозитория узнать, что он был, будет уже неоткуда.
+    Written the moment it's noticed, not computed after the fact. Once a
+    repository is deleted, there'll be nowhere left to learn that it existed.
     """
 
     __tablename__ = "changes"
@@ -331,7 +333,7 @@ class Change(Base):
 
 
 class ScanRun(Base):
-    """Одно сканирование: когда, сколько нашли, что пропустили."""
+    """A single scan: when, how many were found, what was skipped."""
 
     __tablename__ = "scan_runs"
 
@@ -350,58 +352,58 @@ class ScanRun(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
 
-# --- дверь -----------------------------------------------------------------
+# --- the door --------------------------------------------------------------
 #
-# Всё, что ниже, появилось ради одного: программу собираются выставить наружу
-# через туннель. До этого она стояла дома и замка ей не требовалось. Теперь
-# требуется, и здесь нет ничего "на вырост" — только то, без чего дверь не
-# дверь.
+# Everything below appeared for one reason: the program is going to be exposed
+# to the outside through a tunnel. Until now it stood at home and needed no lock.
+# Now it does, and there's nothing here "for growth" — only what a door can't be
+# a door without.
 
 
 class User(Base):
-    """Человек, который может войти.
+    """A person who can sign in.
 
-    Пароль не хранится нигде и никогда — только его хеш. Даже мы не можем
-    узнать пароль пользователя, и это не удобство, а требование: базу могут
-    украсть, и тогда украдут хеши, а не пароли.
+    The password is never stored anywhere — only its hash. Even we can't learn a
+    user's password, and this isn't a convenience but a requirement: the database
+    can be stolen, and then hashes are stolen, not passwords.
     """
 
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    # Почта хранится в нижнем регистре: Boris@ и boris@ — один человек, и
-    # иначе на один ящик заведут два аккаунта.
+    # The email is stored in lowercase: Boris@ and boris@ are one person, and
+    # otherwise one mailbox would get two accounts.
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(128), default="")
 
     password_hash: Mapped[str] = mapped_column(String(255))
 
-    # Первый вошедший становится хозяином. Хозяин решает, пускать ли других:
-    # программу ставят себе сами, и открытая регистрация по умолчанию означала
-    # бы, что любой прохожий заводит аккаунт в чужом каталоге.
+    # The first to sign in becomes the owner. The owner decides whether to let
+    # others in: people install the program for themselves, and open registration
+    # by default would mean any passerby could create an account in someone else's catalogue.
     is_owner: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
 
-    # Аватар по умолчанию из набора «бюсты» (static/usericons/<key>.webp).
-    # Показывается, если человек не загрузил своё фото. При создании достаётся
-    # случайный; в настройках можно сменить. Пусто — только у совсем старых
-    # строк до миграции (migrate проставит им случайный).
+    # Default avatar from the "busts" set (static/usericons/<key>.webp). Shown if
+    # the user hasn't uploaded their own photo. On creation a random one is
+    # assigned; it can be changed in settings. Empty — only on very old rows from
+    # before the migration (migrate will assign them a random one).
     avatar_preset: Mapped[str] = mapped_column(String(32), default="")
 
-    # Двухэтапная проверка. Секрет здесь лежит зашифрованным: он равносилен
-    # второму паролю, и в открытом виде обесценивает всю затею.
+    # Two-step verification. The secret is stored encrypted here: it's equivalent
+    # to a second password, and in plaintext it defeats the whole point.
     totp_secret_enc: Mapped[str] = mapped_column(String(512), default="")
     totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    # Последний принятый код. Один и тот же код живёт 30 секунд, и без этой
-    # отметки подсмотренный код можно ввести второй раз в то же окно.
+    # The last accepted code. The same code lives for 30 seconds, and without this
+    # mark a glimpsed code could be entered a second time within the same window.
     totp_last_code: Mapped[str] = mapped_column(String(16), default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    # Защита от перебора. Считаем неудачи и запираем на время.
+    # Protection against brute force. We count failures and lock for a while.
     failed_logins: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -414,13 +416,13 @@ class User(Base):
 
 
 class UserSession(Base):
-    """Открытая сессия — то, что делает вход входом.
+    """An open session — what makes a sign-in a sign-in.
 
-    Держим в базе, а не только в подписанной куке: иначе «выйти на всех
-    устройствах» невозможно в принципе — подписанную куку не отозвать.
+    Kept in the database, not just in a signed cookie: otherwise "sign out on all
+    devices" is fundamentally impossible — a signed cookie can't be revoked.
 
-    В базе лежит хеш ключа, а не сам ключ. Кто украдёт базу, не получит
-    готовых пропусков.
+    The database holds the hash of the key, not the key itself. Whoever steals the
+    database won't get ready-made passes.
     """
 
     __tablename__ = "user_sessions"
@@ -430,7 +432,7 @@ class UserSession(Base):
 
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
 
-    # Для страницы «где я вошёл»: человек должен видеть чужой вход.
+    # For the "where am I signed in" page: a user must see someone else's sign-in.
     user_agent: Mapped[str] = mapped_column(String(256), default="")
     ip: Mapped[str] = mapped_column(String(64), default="")
 
@@ -443,12 +445,12 @@ class UserSession(Base):
 
 
 class BackupCode(Base):
-    """Код восстановления — на случай потери телефона.
+    """A backup code — in case the phone is lost.
 
-    Хранится хешем. Показывается человеку ровно один раз, при выдаче: если
-    код можно подсмотреть в базе или на странице позже, он не защита.
+    Stored as a hash. Shown to the user exactly once, when issued: if the code can
+    be glimpsed in the database or on the page later, it's no protection.
 
-    Одноразовый: использованный помечается и больше не подходит.
+    Single-use: a used one is marked and no longer works.
     """
 
     __tablename__ = "backup_codes"
@@ -463,9 +465,9 @@ class BackupCode(Base):
 
 
 class Avatar(Base):
-    """Фото профиля — уже в webp. Отдельной таблицей, а не столбцом в users:
-    строку пользователя читают на каждый запрос, и таскать за ней десятки
-    килобайт картинки впустую незачем. Здесь её берут только при показе."""
+    """Profile photo — already in webp. A separate table rather than a column in
+    users: the user row is read on every request, and there's no point dragging
+    tens of kilobytes of image along with it for nothing. Here it's fetched only when displayed."""
 
     __tablename__ = "avatars"
 
@@ -479,13 +481,13 @@ class Avatar(Base):
 
 
 class Invite(Base):
-    """Приглашение. Хозяин зовёт, а не всякий заходит сам."""
+    """An invitation. The owner invites; not just anyone walks in on their own."""
 
     __tablename__ = "invites"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    email: Mapped[str] = mapped_column(String(320), default="")  # пусто — для кого угодно
+    email: Mapped[str] = mapped_column(String(320), default="")  # empty — for anyone
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -494,10 +496,10 @@ class Invite(Base):
 
 
 class Setting(Base):
-    """Настройки программы, которые меняет хозяин из интерфейса.
+    """Program settings that the owner changes from the interface.
 
-    Не в .env: .env читается при запуске, а эти вещи меняются на ходу и
-    переживают перезапуск.
+    Not in .env: .env is read at startup, while these things change on the fly and
+    survive a restart.
     """
 
     __tablename__ = "settings"
@@ -510,35 +512,35 @@ class Setting(Base):
 
 
 class Category(Base):
-    """Категория-папка для каталога.
+    """A category-folder for the catalogue.
 
-    Общая (owner_user_id пуст): её ведёт администратор, видят все, один порядок —
-    это тот самый общий каталог. Частная (owner_user_id задан): личная папка
-    одного человека, видит и раскладывает только он; администратор её не видит
-    (приватность). Автокатегории (типы) сюда не пишутся — они и так есть у каждой
-    карточки; здесь только свои, заведённые руками."""
+    Shared (owner_user_id empty): maintained by an administrator, seen by all, one
+    order — it's that shared catalogue. Private (owner_user_id set): one person's
+    personal folder, seen and arranged only by them; the administrator doesn't see
+    it (privacy). Auto-categories (types) aren't written here — every card has them
+    anyway; here only one's own, created by hand."""
 
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(128))  # как ввели (источник)
-    # Переводы названия на три языка (JSON {"en","ru","he"}) — заполняются
-    # автоматически при создании/переименовании. Пусто/нет языка — показываем
-    # исходное name. Так папка «Дизайн» видна как Design/עיצוב.
+    name: Mapped[str] = mapped_column(String(128))  # as entered (source)
+    # Translations of the name into three languages (JSON {"en","ru","he"}) —
+    # filled automatically on creation/rename. Empty/no language — we show the
+    # original name. This way a folder is shown translated: Design/עיצוב.
     names_json: Mapped[str] = mapped_column(Text, default="")
-    icon: Mapped[str] = mapped_column(String(32), default="")  # ключ из caticons
+    icon: Mapped[str] = mapped_column(String(32), default="")  # key from caticons
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    # Владелец частной папки. Пусто — общая (админская). CASCADE: удалили
-    # человека — его личные папки уходят вместе с ним.
+    # Owner of a private folder. Empty — shared (admin's). CASCADE: delete a user
+    # and their private folders go along with them.
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
     __table_args__ = (
-        # Имя уникально в пределах владельца: два человека могут завести каждый
-        # свою папку «Дизайн». SQLite считает NULL разными, так что уникальность
-        # ОБЩИХ имён (owner пуст) держит отдельный частичный индекс ниже.
+        # The name is unique within an owner: two people can each create their own
+        # "Design" folder. SQLite treats NULLs as distinct, so uniqueness of SHARED
+        # names (owner empty) is held by the separate partial index below.
         UniqueConstraint("owner_user_id", "name", name="uq_category_owner_name"),
         Index(
             "uq_shared_category_name",
@@ -550,10 +552,11 @@ class Category(Base):
 
 
 class ArtifactCategory(Base):
-    """Карточка в папке (многие-ко-многим). Пришла на смену одиночному
-    Artifact.category_id: одна карточка может лежать и в общей папке, и в личных
-    папках у разных людей — у каждого своя строка. Членство в чужой личной папке
-    другим не видно (приватность держится на owner_user_id самой Category)."""
+    """A card in a folder (many-to-many). It replaced the single
+    Artifact.category_id: one card can live both in a shared folder and in
+    different people's private folders — each has its own row. Membership in
+    someone else's private folder isn't visible to others (privacy rests on the
+    owner_user_id of the Category itself)."""
 
     __tablename__ = "artifact_categories"
 
@@ -561,8 +564,8 @@ class ArtifactCategory(Base):
     artifact_id: Mapped[int] = mapped_column(
         ForeignKey("artifacts.id", ondelete="CASCADE"), index=True
     )
-    # CASCADE (не SET NULL, как было у ветхого category_id): удалили папку —
-    # членства уходят с ней, карточки остаются.
+    # CASCADE (not SET NULL, as it was for the stale category_id): delete a folder
+    # and the memberships go with it, the cards remain.
     category_id: Mapped[int] = mapped_column(
         ForeignKey("categories.id", ondelete="CASCADE"), index=True
     )
@@ -574,8 +577,8 @@ class ArtifactCategory(Base):
 
 
 class Favorite(Base):
-    """Избранная карточка. У каждого своя: избранное — личное дело, а не общее
-    свойство инструмента, поэтому привязано к пользователю."""
+    """A favourited card. Everyone has their own: favourites are a personal matter,
+    not a shared property of the tool, so it's tied to a user."""
 
     __tablename__ = "favorites"
 
@@ -590,12 +593,12 @@ class Favorite(Base):
 
 
 class RemovedNotice(Base):
-    """«У вас пропало вот это». Когда владелец удаляет карточку, а её кто-то
-    держал в избранном, тому нельзя дать ей молча исчезнуть: избранное — это
-    ссылка, не копия, и человек имел право знать, что она удалена.
+    """A "this went away" notice. When the owner deletes a card that someone kept
+    in their favourites, it can't be allowed to vanish silently on them: a
+    favourite is a link, not a copy, and the person had a right to know it was deleted.
 
-    Пишется в момент удаления — самой карточки уже не будет, поэтому храним имя
-    отдельной строкой, а не ссылкой на неё. Гаснет, когда человек её закрыл."""
+    Written at the moment of deletion — the card itself will be gone, so we store
+    the name as a separate string, not a reference to it. Goes out when the person has closed it."""
 
     __tablename__ = "removed_notices"
 

@@ -14,26 +14,26 @@
             var t = localStorage.getItem('vivatlas-theme') || 'light';
             if (t === 'auto') { t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
             if (t === 'dark' || t === 'oled') { document.documentElement.setAttribute('data-theme', t); }
-        } catch (e) { /* приватный режим */ }
+        } catch (e) { /* private mode */ }
     })();
     </script>
 </head>
-{# Модалка-страница: тёмный фон, по центру карточка 880px — шапка, тело, футер.
-   Формы внутри работают как обычно (переход), поэтому 2FA и загрузка файла
-   ничего не ломают. Клик по тёмному фону или крестик — закрыть. #}
+{# Modal page: dark backdrop, an 880px card centred on screen — header, body, footer.
+   Forms inside work as usual (navigation), so 2FA and file upload
+   don't break anything. Click the dark backdrop or the close cross to dismiss. #}
 <body class="modalpage {% block body_class %}{% endblock %}">
-    {# Тёмный фон. Кликом не закрывает (скрипт гасит переход) — только кнопкой
-       «Закрыть». href — запасной путь без скриптов. #}
+    {# Dark backdrop. Clicking it doesn't close (the script suppresses navigation) — only the
+       "Close" button does. href is the fallback path when scripts are off. #}
     <a class="modal-scrim" href="{{ close_href|default('/') }}" aria-hidden="true" tabindex="-1"></a>
 
     <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header class="modal-head">
-            {# h1, а не h2: эти окна открываются и как отдельные страницы
-               (/admin, /settings, /a/…), и как самостоятельный документ должны
-               иметь заголовок первого уровня. #}
+            {# h1, not h2: these modals also open as standalone pages
+               (/admin, /settings, /a/…), and as a standalone document they should
+               have a top-level heading. #}
             <h1 id="modal-title">{% block modal_title %}{% endblock %}</h1>
-            {# Справа от заголовка: содержимое окна (напр. плашки карточки) и/или
-               подсказка по окну. Закрывают снизу, из футера. #}
+            {# To the right of the title: modal contents (e.g. card chips) and/or
+               the modal's help tip. Closing happens from below, in the footer. #}
             <div class="modal-head-side">
                 {% block modal_head_extra %}{% endblock %}
                 {% set help %}{% block modal_help %}{% endblock %}{% endset %}
@@ -56,9 +56,9 @@
 
     <script>
     (function () {
-        // Внутри наложения (рамки) окно принадлежит родителю: крестик, тёмный
-        // фон, «Закрыть/Выйти» и Esc закрывают наложение, а не переходят на
-        // отдельную страницу. Иначе (прямой заход по адресу) — как прежде.
+        // Inside the overlay (frame) the modal belongs to the parent: the close cross, dark
+        // backdrop, "Close/Sign out" and Esc close the overlay rather than navigating to
+        // a standalone page. Otherwise (a direct visit by URL) — as before.
         var host = null;
         try {
             if (window.self !== window.top && window.parent && window.parent.closeModalHost) {
@@ -71,19 +71,19 @@
             var close = function (e) { if (e) e.preventDefault(); host(); };
             document.addEventListener('click', function (e) {
                 if (!e.target.closest) return;
-                // Ссылки на «/» внутри карточки (кнопка «Закрыть») закрывают —
-                // кроме помеченных data-confirm: у них своё подтверждение.
+                // Links to "/" inside the card (the "Close" button) close it —
+                // except those marked data-confirm: they have their own confirmation.
                 var link = e.target.closest('.modalcard a[href="/"]');
                 if (link && !link.hasAttribute('data-confirm')) { close(e); return; }
-                // Клик по тёмному фону НЕ закрывает окно — только кнопкой
-                // «Закрыть». Гасим переход по ссылке-фону, ничего больше.
+                // Clicking the dark backdrop does NOT close the modal — only the
+                // "Close" button does. We suppress navigation on the backdrop link, nothing more.
                 if (e.target.closest('.modal-scrim')) e.preventDefault();
             });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') close(e);
             });
         } else {
-            // Прямой заход (не в наложении): тёмный фон тоже не закрывает.
+            // Direct visit (not in an overlay): the dark backdrop doesn't close it either.
             document.addEventListener('click', function (e) {
                 if (e.target.closest && e.target.closest('.modal-scrim')) e.preventDefault();
             });
@@ -95,18 +95,18 @@
     </script>
 
     <script>
-    // Вкладки настроек/админки как положено: role=tab/tabpanel, aria-selected,
-    // «бегущий» tabindex и стрелки/Home/End. Один код на все модалки — работает
-    // там, где есть .settabs (ключ памяти — в data-tabkey).
+    // Settings/admin tabs done right: role=tab/tabpanel, aria-selected,
+    // roving tabindex and arrows/Home/End. One block of code for all modals — works
+    // wherever there's .settabs (the storage key is in data-tabkey).
     (function () {
         document.querySelectorAll('.settabs').forEach(function (list) {
             var tabs = [].slice.call(list.querySelectorAll('.settab'));
             if (!tabs.length) return;
             var key = 'vivatlas-' + (list.getAttribute('data-tabkey') || 'tab');
             var panels = [].slice.call(document.querySelectorAll('.setpanel'));
-            // Кнопки в футере, привязанные к вкладке (напр. «Сохранить»): видна
-            // только та, что относится к открытой вкладке. Так действие сохранения
-            // всегда внизу справа, напротив «Закрыть», а не посреди панели.
+            // Footer buttons tied to a tab (e.g. "Save"): only the one that
+            // belongs to the open tab is shown. This keeps the save action
+            // always at the bottom right, opposite "Close", rather than mid-panel.
             var footActions = [].slice.call(document.querySelectorAll('.modal-foot [data-panel]'));
             var rtl = document.documentElement.dir === 'rtl';
 

@@ -17,7 +17,7 @@
     })();
     </script>
     <style>
-        /* Каркас справочника — только раскладка. Компоненты ниже настоящие. */
+        /* Reference-page scaffold — layout only. The components below are the real ones. */
         .dev { max-width: 1000px; margin: 0 auto; padding: var(--s-xl) var(--s-lg) 80px; }
         .dev-head { display: flex; align-items: center; gap: var(--s-lg); margin-bottom: var(--s-xl); }
         .dev-lede { color: var(--mute); font-size: 14px; margin: 4px 0 0; }
@@ -48,17 +48,17 @@
 <body class="dev-body" style="background: var(--canvas); min-height: 100vh; margin: 0;">
 {% import "_icons.html" as icons %}
 {% set colors = [
-  ['--primary','primary — единственная «громкая» жёлтая'],
+  ['--primary','primary — the one "loud" yellow'],
   ['--primary-pressed','primary-pressed'], ['--on-primary','on-primary'],
   ['--ink','ink'], ['--body-ink','body-ink'], ['--charcoal','charcoal'],
   ['--mute','mute'], ['--ash','ash'], ['--stone','stone'],
-  ['--zone-common','zone-common — общая зона'], ['--zone-private','zone-private — частная'],
-  ['--canvas','canvas — холст (кремовый)'], ['--surface-soft','surface-soft'],
+  ['--zone-common','zone-common — shared zone'], ['--zone-private','zone-private — private'],
+  ['--canvas','canvas — the canvas (cream)'], ['--surface-soft','surface-soft'],
   ['--surface-card','surface-card'], ['--surface-doc','surface-doc'], ['--surface-dark','surface-dark'],
   ['--hairline','hairline'], ['--hairline-soft','hairline-soft'],
   ['--link-teal','link-teal'], ['--accent-blue','accent-blue'], ['--accent-red','accent-red'],
   ['--accent-green','accent-green'], ['--accent-purple','accent-purple'],
-  ['--panel','panel — тёмная панель'], ['--panel-text','panel-text'], ['--panel-bright','panel-bright'],
+  ['--panel','panel — dark panel'], ['--panel-text','panel-text'], ['--panel-bright','panel-bright'],
 ] %}
 {% set ics = ['catalog','all','recommend','changes','filter','type','source','updated','settings','admin','logout','help','drafts','search',
               'catalogue','review','fork','merge','star','watch','deploy','automate','insight','protect','link','image',
@@ -72,13 +72,13 @@
              style="background: var(--panel); padding: 12px 16px; border-radius: var(--r-lg);">
         <div>
             <h1 style="margin:0; font-size:22px; color:var(--ink);">Design language</h1>
-            <p class="dev-lede">Живой справочник: токены, шрифты, компоненты. Один источник правды для всего приложения.</p>
+            <p class="dev-lede">A living reference: tokens, fonts, components. One source of truth for the whole app.</p>
         </div>
     </header>
 
     <section class="dev-sec">
         <h2>Colours</h2>
-        <p>Холст кремовый, не белый. Жёлтая кнопка — одна на экран. Иерархия — весом и размером, а не цветом.</p>
+        <p>The canvas is cream, not white. One yellow button per screen. Hierarchy comes from weight and size, not colour.</p>
         <div class="dev-grid">
             {% for c in colors %}
             <div class="dev-sw"><span class="dev-chip" style="background: var({{ c[0] }});"></span><code>{{ c[1] }}</code></div>
@@ -88,18 +88,18 @@
 
     <section class="dev-sec">
         <h2>Typography</h2>
-        <p>IBM Plex Sans для всего живого текста; моноширинный — только даты, коды, идентификаторы.</p>
-        <div class="dev-type-row"><small>h1 / 22 / 700</small><span style="font-size:22px;font-weight:700;color:var(--ink);">Каталог инструментов</span></div>
-        <div class="dev-type-row"><small>section h2 / 18 / 700</small><span style="font-size:18px;font-weight:700;color:var(--ink);">Заголовок раздела</span></div>
-        <div class="dev-type-row"><small>box h3 / 15 / 600</small><h3 style="margin:0;">Подраздел настроек</h3></div>
-        <div class="dev-type-row"><small>body / 14 / 400</small><span style="font-size:14px;color:var(--body-ink);">Обычный текст карточки и форм — спокойный, читаемый.</span></div>
-        <div class="dev-type-row"><small>legend / 12.5 / mute</small><p class="legend" style="margin:0;">Пояснение под заголовком раздела — сансом, не моноширинным.</p></div>
+        <p>IBM Plex Sans for all living text; monospace only for dates, codes, identifiers.</p>
+        <div class="dev-type-row"><small>h1 / 22 / 700</small><span style="font-size:22px;font-weight:700;color:var(--ink);">Tool catalogue</span></div>
+        <div class="dev-type-row"><small>section h2 / 18 / 700</small><span style="font-size:18px;font-weight:700;color:var(--ink);">Section heading</span></div>
+        <div class="dev-type-row"><small>box h3 / 15 / 600</small><h3 style="margin:0;">Settings subsection</h3></div>
+        <div class="dev-type-row"><small>body / 14 / 400</small><span style="font-size:14px;color:var(--body-ink);">Regular card and form text — calm, readable.</span></div>
+        <div class="dev-type-row"><small>legend / 12.5 / mute</small><p class="legend" style="margin:0;">Caption under a section heading — sans, not monospace.</p></div>
         <div class="dev-type-row"><small>mono / 13</small><span style="font-family:var(--mono);font-size:13px;color:var(--charcoal);">08.07.26 · a1b2c3d</span></div>
     </section>
 
     <section class="dev-sec">
         <h2>Radii &amp; spacing</h2>
-        <p>Скругления мягкие (3 / 6 / 9 / 13). Шаг отступов 4 / 8 / 12 / 16 / 24 / 32.</p>
+        <p>Corners are soft (3 / 6 / 9 / 13). Spacing steps of 4 / 8 / 12 / 16 / 24 / 32.</p>
         <div class="dev-radii" style="margin-bottom: var(--s-xl);">
             <div style="border-radius:var(--r-xs);">xs 3</div>
             <div style="border-radius:var(--r-sm);">sm 6</div>
@@ -119,7 +119,7 @@
 
     <section class="dev-sec">
         <h2>Buttons</h2>
-        <p>Одна жёлтая (cta) — главное действие. Остальное — вторичные; опасное — красным на наведении.</p>
+        <p>One yellow (cta) — the main action. Everything else is secondary; dangerous actions turn red on hover.</p>
         <div class="dev-row">
             <button class="cta" type="button">Add tool</button>
             <button class="btn-secondary" type="button">Secondary</button>
@@ -130,7 +130,7 @@
 
     <section class="dev-sec">
         <h2>Filters &amp; pills</h2>
-        <p>Пилюли-фильтры: выбранная — тёмная заливка. Зоны — цветной значок.</p>
+        <p>Filter pills: the selected one has a dark fill. Zones get a coloured icon.</p>
         <nav class="filters dev-row" aria-label="demo">
             <span class="filter on">all <b>12</b></span>
             <span class="filter">favourites <b>3</b></span>
@@ -141,7 +141,7 @@
 
     <section class="dev-sec">
         <h2>Inputs</h2>
-        <p>Поля во всю ширину, метка над полем (не placeholder-ом). Фокус — синяя рамка.</p>
+        <p>Full-width fields, label above the field (not in the placeholder). Focus — a blue border.</p>
         <div style="max-width: 420px;">
             <label class="fld"><span>Field label</span>
                 <input type="text" placeholder="Placeholder hint"></label>
@@ -152,7 +152,7 @@
 
     <section class="dev-sec">
         <h2>Selection list &amp; theme</h2>
-        <p>Список выбора (язык) — строки с галочкой у выбранной, растёт вниз. Тема — пилюли.</p>
+        <p>Selection list (language) — rows with a check on the selected one, grows downward. Theme — pills.</p>
         <div class="dev-row" style="align-items: flex-start;">
             <ul class="opt-list" role="list" style="flex:1 1 260px;">
                 <li><a class="opt-row on" href="#"><span class="opt-row-name">English</span><svg class="opt-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg></a></li>
@@ -170,9 +170,9 @@
 
     <section class="dev-sec">
         <h2>Card</h2>
-        <p>Плоская, рамка в волос. Владение — слева сверху, избранное — справа
-           сверху, папка (значок + имя) — слева снизу, «копировать» — справа снизу.
-           Все кнопки в рамке. Удаление — только со страницы карточки.</p>
+        <p>Flat, hairline border. Ownership — top left, favourite — top
+           right, folder (icon + name) — bottom left, "copy" — bottom right.
+           All buttons framed. Deletion — only from the card page.</p>
         <div class="dev-card-wrap">
             <div class="card" data-zone="common">
                 <div class="card-corners">
@@ -195,8 +195,8 @@
 
     <section class="dev-sec">
         <h2>Sidebar &amp; folders</h2>
-        <p>Тёмная панель. Виды (каталог/черновики/изменения) сверху, затем папки
-           отдельной секцией — общие с меткой «shared», личные без метки.</p>
+        <p>Dark panel. Views (catalogue/drafts/changes) at the top, then folders
+           as a separate section — shared ones with a "shared" tag, personal ones without.</p>
         <div class="dev-panel">
             <button class="side-cta" type="button" style="width:100%;">Add tool</button>
             <nav class="side-nav" style="margin-top:12px;">
@@ -214,8 +214,8 @@
 
     <section class="dev-sec">
         <h2>Menus &amp; dropdowns</h2>
-        <p>Меню аккаунта — тёмная всплывашка; тема — переключатель по кругу с
-           жёлтой плашкой режима; выбор источника — свой выпадающий список.</p>
+        <p>Account menu — a dark popover; theme — a cycle toggle with
+           a yellow mode chip; source picker — its own dropdown list.</p>
         <div class="dev-row" style="align-items: flex-start;">
             <div class="side-acct-menu" style="position:static; display:block;" role="menu">
                 <a class="usermenu-item" href="#">{{ icons.ic('settings') }}<span>Settings</span></a>
@@ -228,7 +228,7 @@
 
     <section class="dev-sec">
         <h2>Status</h2>
-        <p>Плашки-статусы фиксированной семантики. Зона — замок / глобус.</p>
+        <p>Status chips with fixed semantics. Zone — lock / globe.</p>
         <div class="dev-row">
             <span class="admin-tag admin-tag-owner">owner</span>
             <span class="admin-tag admin-tag-on">active</span>
@@ -241,7 +241,7 @@
 
     <section class="dev-sec">
         <h2>Section icons</h2>
-        <p>Один набор, 16×16, обводка currentColor — красятся цветом текста рядом.</p>
+        <p>One set, 16×16, currentColor stroke — coloured to match the adjacent text.</p>
         <div class="dev-icons">
             {% for name in ics %}
             <div class="dev-tile">{{ icons.ic(name) }}<code>{{ name }}</code></div>
@@ -251,7 +251,7 @@
 
     <section class="dev-sec">
         <h2>Category icons</h2>
-        <p>Значки для папок — выбираются при создании категории.</p>
+        <p>Folder icons — chosen when creating a category.</p>
         <div class="dev-icons">
             {% for slug in cats %}
             <div class="dev-tile">{{ caticon(slug) }}<code>{{ slug }}</code></div>

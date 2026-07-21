@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 _BASE = "https://generativelanguage.googleapis.com/v1beta"
 
-# Сколько раз повторить при 429/503. Бесплатный уровень отвечает так регулярно.
+# How many times to retry on 429/503. The free tier responds like this regularly.
 _MAX_RETRIES = 4
 
 
@@ -21,11 +21,11 @@ class GoogleAIError(RuntimeError):
 class _GoogleClient:
     def __init__(self, api_key: str, timeout: float) -> None:
         if not api_key:
-            raise GoogleAIError("Не задан GOOGLE_API_KEY — впишите ключ в .env")
+            raise GoogleAIError("GOOGLE_API_KEY is not set — add the key to .env")
         self._api_key = api_key
-        # Ключ идёт заголовком, а не параметром в адресе (?key=...). Google
-        # принимает оба способа, но httpx пишет адреса в лог целиком — и ключ
-        # утекал бы в каждую строчку лога. Заголовки в лог не попадают.
+        # The key goes in a header, not as a URL parameter (?key=...). Google
+        # accepts both, but httpx logs full URLs — so the key would leak into
+        # every log line. Headers don't get logged.
         self._client = httpx.AsyncClient(
             base_url=_BASE,
             timeout=timeout,
@@ -39,17 +39,17 @@ class _GoogleClient:
             if response.status_code in (429, 503):
                 if attempt == _MAX_RETRIES - 1:
                     raise GoogleAIError(
-                        f"{model}: не отвечает после {_MAX_RETRIES} попыток "
-                        f"(HTTP {response.status_code}). Возможно, кончилась дневная квота."
+                        f"{model}: not responding after {_MAX_RETRIES} attempts "
+                        f"(HTTP {response.status_code}). The daily quota may have run out."
                     )
-                log.warning("%s: HTTP %s, жду %.0fс", model, response.status_code, delay)
+                log.warning("%s: HTTP %s, waiting %.0fs", model, response.status_code, delay)
                 await asyncio.sleep(delay)
                 delay *= 2
                 continue
             if response.status_code >= 400:
                 raise GoogleAIError(f"{model}: HTTP {response.status_code} {response.text[:200]}")
             return response.json()
-        raise GoogleAIError("недостижимо")
+        raise GoogleAIError("unreachable")
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -61,17 +61,16 @@ class GoogleTextModel(_GoogleClient):
         self.model = model
 
     async def generate_json(self, prompt: str, schema: dict) -> dict:
-        """Ответ приходит заполненной анкетой, а не свободным текстом."""
+        """The response comes as a filled-in form, not free text."""
         return await self._generate([{"text": prompt}], schema)
 
     async def generate_json_with_media(
         self, prompt: str, schema: dict, mime_type: str, data_base64: str
     ) -> dict:
-        """С картинкой, видео или звуком.
+        """With an image, video, or audio.
 
-        Проверено на живых данных: gemini-3.1-flash-lite принимает и звук, и
-        видео, и картинки — на бесплатном уровне. Ролик на 1.5 МБ обошёлся в
-        4600 токенов.
+        Verified on live data: gemini-3.1-flash-lite accepts audio, video, and
+        images — on the free tier. A 1.5 MB clip cost 4600 tokens.
         """
         return await self._generate(
             [{"text": prompt}, {"inline_data": {"mime_type": mime_type, "data": data_base64}}],
@@ -95,11 +94,11 @@ class GoogleTextModel(_GoogleClient):
         parts = candidate.get("content", {}).get("parts") or []
         text = "".join(p.get("text", "") for p in parts).strip()
         if not text:
-            raise GoogleAIError(f"пустой ответ, finishReason={candidate.get('finishReason')}")
+            raise GoogleAIError(f"empty response, finishReason={candidate.get('finishReason')}")
         try:
             return json.loads(text)
         except json.JSONDecodeError as exc:
-            raise GoogleAIError(f"ответ не разобрался как JSON: {text[:200]}") from exc
+            raise GoogleAIError(f"response didn't parse as JSON: {text[:200]}") from exc
 
 
 class GoogleEmbeddingModel(_GoogleClient):
@@ -119,5 +118,5 @@ class GoogleEmbeddingModel(_GoogleClient):
         )
         values = data["embedding"]["values"]
         if len(values) != self.dim:
-            raise GoogleAIError(f"ожидали {self.dim} чисел, пришло {len(values)}")
+            raise GoogleAIError(f"expected {self.dim} numbers, got {len(values)}")
         return values

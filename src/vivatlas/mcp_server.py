@@ -1,14 +1,14 @@
-"""Доступ из ChatGPT и Claude Code.
+"""Access from ChatGPT and Claude Code.
 
-Один набор инструментов, два способа подключения:
-  stdio           — Claude Code запускает нас как программу
-  streamable-http — ChatGPT ходит по адресу /mcp
+One set of tools, two ways to connect:
+  stdio           — Claude Code launches us as a program
+  streamable-http — ChatGPT hits the /mcp address
 
-Ответы намеренно короткие. На той стороне их читает модель с ограниченной
-памятью: лишний текст вытесняет полезный. Поэтому отдаём поля, а не прозу, и
-не льём документацию целиком.
+Responses are deliberately short. On the other end a model with limited
+memory reads them: extra text crowds out the useful. So we return fields, not
+prose, and don't dump the whole documentation.
 
-Инструменты только читают. Ничего не пишется ни в Git, ни в базу.
+The tools only read. Nothing is written to Git or the database.
 """
 
 import logging
@@ -31,9 +31,9 @@ log = logging.getLogger(__name__)
 mcp = FastMCP(
     "vivatlas",
     instructions=(
-        "Каталог скиллов, дизайн-наборов и инструментов из личных "
-        "Git-репозиториев. Отвечает, что есть в наличии, что каждая вещь "
-        "делает и что взять под конкретную задачу. Только чтение."
+        "A catalogue of skills, design kits, and tools from personal "
+        "Git repositories. Tells you what's available, what each thing "
+        "does, and what to pick for a specific task. Read-only."
     ),
 )
 
@@ -64,12 +64,12 @@ def _brief(session, a: Artifact) -> dict:
 
 @mcp.tool()
 async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
-    """Найти инструменты по запросу. Понимает русский и английский, ищет по
-    смыслу — можно спрашивать своими словами.
+    """Find tools by query. Understands Russian and English, searches by
+    meaning — you can ask in your own words.
 
-    query: что ищем, например "фирменные цвета и шрифты"
-    limit: сколько вернуть, максимум 20
-    type: необязательный фильтр — design-kit, claude-skill, skill, project
+    query: what you're looking for, e.g. "brand colours and fonts"
+    limit: how many to return, max 20
+    type: optional filter — design-kit, claude-skill, skill, project
     """
     limit = max(1, min(limit, MAX_LIMIT))
     model = build_embedding_model()
@@ -78,8 +78,8 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
             hits = await do_search(
                 session, query, model, mode=Mode.BOTH, limit=limit, artifact_type=type or None
             )
-            # MCP ходит без входа, значит как аноним — отдаём только общие
-            # карточки. Иначе через него утекало бы чужое личное.
+            # MCP connects without sign-in, so it's anonymous — we return only
+            # shared cards. Otherwise other people's private stuff would leak through it.
             visible = set(session.scalars(flt.visible_ids(None)))
             hits = [h for h in hits if h.artifact_id in visible]
             return {
@@ -95,13 +95,13 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
 
 @mcp.tool()
 async def recommend_artifact(task: str) -> dict:
-    """Подобрать инструмент под задачу, описанную словами.
+    """Pick a tool for a task described in words.
 
-    Возвращает лучший вариант, запасные, чего каждый не умеет, и почему
-    отброшено похожее. Если подходящего нет — так и скажет: это решает порог
-    близости, а не модель, поэтому ответу можно верить.
+    Returns the best option, fallbacks, what each one can't do, and why
+    similar ones were rejected. If nothing fits — it says so: the proximity
+    threshold decides that, not the model, so the answer can be trusted.
 
-    task: задача словами, например "оформить лендинг в стиле Airbnb"
+    task: the task in words, e.g. "style a landing page like Airbnb"
     """
     em = build_embedding_model()
     tm = build_text_model()
@@ -114,15 +114,15 @@ async def recommend_artifact(task: str) -> dict:
                     "task": task,
                     "no_suitable_tool": True,
                     "explanation": (
-                        f"Подходящего инструмента в каталоге нет. Ближайшее совпадение "
-                        f"{r.top_similarity:.2f} при пороге {NO_MATCH_THRESHOLD}. "
-                        f"Не выдумывай инструмент — его правда нет."
+                        f"There's no suitable tool in the catalogue. Closest match "
+                        f"{r.top_similarity:.2f} against a threshold of {NO_MATCH_THRESHOLD}. "
+                        f"Don't invent a tool — it really isn't there."
                     ),
                     "suggestions": r.suggestions,
                 }
 
-            # MCP без входа — аноним: из рекомендаций вычищаем всё, что не общее,
-            # иначе через них утекали бы имена чужих личных карточек.
+            # MCP without sign-in is anonymous: strip everything non-shared from the
+            # recommendations, or the names of others' private cards would leak through them.
             visible = set(session.scalars(flt.visible_ids(None)))
 
             def vis(o) -> bool:
@@ -158,16 +158,16 @@ async def recommend_artifact(task: str) -> dict:
 
 @mcp.tool()
 def get_artifact(artifact_id: int) -> dict:
-    """Полная карточка инструмента: три уровня описания, теги, откуда взят.
+    """Full card for a tool: three levels of description, tags, where it came from.
 
-    artifact_id: номер из search_artifacts или recommend_artifact
+    artifact_id: number from search_artifacts or recommend_artifact
     """
     with session_scope() as session:
         a = session.get(Artifact, artifact_id)
-        # Аноним (MCP без входа) видит только общие карточки. Чужое личное — как
-        # будто его нет: тот же ответ, что и для несуществующего номера.
+        # An anonymous user (MCP without sign-in) sees only shared cards. Others' private
+        # stuff is as if it didn't exist: the same response as for a nonexistent number.
         if a is None or a.hidden or not a.shared:
-            return {"error": f"карточки {artifact_id} нет"}
+            return {"error": f"card {artifact_id} not found"}
 
         links = session.scalars(
             select(ArtifactTag).where(ArtifactTag.artifact_id == artifact_id)
@@ -188,7 +188,7 @@ def get_artifact(artifact_id: int) -> dict:
             "anchor_file": a.anchor_path,
             "url": a.repository.html_url,
             "commit": (a.source_commit or "")[:8],
-            # Честно про качество данных: пусть та сторона знает, чему верить.
+            # Honest about data quality: let the other side know what to trust.
             "notes": _quality_notes(a),
         }
 
@@ -196,24 +196,24 @@ def get_artifact(artifact_id: int) -> dict:
 def _quality_notes(a: Artifact) -> list[str]:
     notes = []
     if a.confidence < 0.5:
-        notes.append("тип определён неуверенно, проверь сам")
+        notes.append("type determined with low confidence, check it yourself")
     if not a.summary_short:
-        notes.append("описания нет")
+        notes.append("no description")
     if a.summary_error:
-        notes.append(f"описание не сгенерировалось: {a.summary_error[:80]}")
+        notes.append(f"description didn't generate: {a.summary_error[:80]}")
     return notes
 
 
 @mcp.tool()
 def list_artifacts(type: str = "", limit: int = 20) -> dict:
-    """Список инструментов в каталоге, при желании одного типа.
+    """List of tools in the catalogue, optionally of a single type.
 
-    type: design-kit, claude-skill, skill, project, unknown — или пусто
-    limit: максимум 20
+    type: design-kit, claude-skill, skill, project, unknown — or empty
+    limit: max 20
     """
     limit = max(1, min(limit, MAX_LIMIT))
     with session_scope() as session:
-        # Только общие карточки: MCP без входа — это аноним.
+        # Shared cards only: MCP without sign-in is anonymous.
         vis = flt.visible_ids(None)
         query = select(Artifact).where(Artifact.id.in_(vis)).order_by(Artifact.name)
         count_q = select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
@@ -231,7 +231,7 @@ def list_artifacts(type: str = "", limit: int = 20) -> dict:
 
 @mcp.tool()
 def list_tags(limit: int = 30) -> dict:
-    """Все теги каталога с числом инструментов у каждого."""
+    """All catalogue tags with the number of tools for each."""
     with session_scope() as session:
         rows = session.execute(
             select(Tag.slug, func.count(ArtifactTag.id))
@@ -245,9 +245,9 @@ def list_tags(limit: int = 30) -> dict:
 
 @mcp.tool()
 def catalog_overview() -> dict:
-    """Что вообще есть в каталоге: сколько чего, из каких репозиториев."""
+    """What's in the catalogue at all: how much of what, from which repositories."""
     with session_scope() as session:
-        # Аноним (MCP без входа) — только общие карточки во всех счётчиках.
+        # Anonymous (MCP without sign-in) — only shared cards in all counters.
         vis = flt.visible_ids(None)
         by_type = session.execute(
             select(Artifact.artifact_type, func.count())
@@ -273,16 +273,16 @@ def catalog_overview() -> dict:
             ),
             "by_type": {t: c for t, c in by_type},
             "by_owner": {o: c for o, c in by_owner},
-            "note": "Только открытые репозитории. Приватные не сканируются.",
+            "note": "Public repositories only. Private ones aren't scanned.",
         }
 
 
 @mcp.tool()
 def list_recent_changes(days: int = 30, kind: str = "") -> dict:
-    """Что появилось, изменилось или пропало за последнее время.
+    """What appeared, changed, or disappeared recently.
 
-    days: за сколько дней
-    kind: added | updated | removed | renamed — или пусто
+    days: over how many days
+    kind: added | updated | removed | renamed — or empty
     """
     with session_scope() as session:
         events = ch.since(session, days=days)
@@ -307,9 +307,9 @@ def list_recent_changes(days: int = 30, kind: str = "") -> dict:
 
 @mcp.tool()
 def find_stale_artifacts(days: int = 365) -> dict:
-    """Что давно не трогали — кандидаты на удаление.
+    """What hasn't been touched in a long time — candidates for removal.
 
-    days: сколько дней считать долгим сроком
+    days: how many days counts as a long stretch
     """
     with session_scope() as session:
         items = ch.stale(session, days=days)
@@ -317,9 +317,9 @@ def find_stale_artifacts(days: int = 365) -> dict:
         return {
             "threshold_days": days,
             "total": len(items),
-            # Пустой список надо объяснять, иначе он читается как поломка.
+            # An empty list needs explaining, otherwise it reads as a breakage.
             "note": (
-                f"Самому старому в каталоге {oldest} дн., самому свежему {newest} дн."
+                f"The oldest in the catalogue is {oldest} days, the newest {newest} days."
                 if not items
                 else ""
             ),
@@ -336,10 +336,10 @@ def find_stale_artifacts(days: int = 365) -> dict:
 
 
 def run_stdio() -> None:
-    """Для Claude Code."""
+    """For Claude Code."""
     mcp.run(transport="stdio")
 
 
 def http_app():
-    """Для ChatGPT — монтируется в основное приложение."""
+    """For ChatGPT — mounted into the main application."""
     return mcp.streamable_http_app()

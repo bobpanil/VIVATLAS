@@ -1,4 +1,4 @@
-"""Разделение владения и видимости: shared/owner_user_id вместо одной зоны."""
+"""Splitting ownership and visibility: shared/owner_user_id instead of a single zone."""
 import sqlite3
 import types
 from datetime import UTC, datetime
@@ -19,7 +19,7 @@ def session(make_session):
 
 @pytest.fixture(autouse=True)
 def _secret(monkeypatch):
-    monkeypatch.setattr(settings, "secret_key", "ключ-для-тестов-двери-длинный")
+    monkeypatch.setattr(settings, "secret_key", "a-nice-long-secret-key-for-tests")
 
 
 def _art(session, name, *, owner_user_id=None, shared=True, hidden=False) -> Artifact:
@@ -52,20 +52,20 @@ def _visible(session, user_id):
     )
 
 
-# --- видимость ---
+# --- visibility ---
 
 
 def test_shared_is_visible_to_everyone(session):
     _art(session, "pub", owner_user_id=1, shared=True)
-    assert _visible(session, 1) == ["pub"]  # владельцу
-    assert _visible(session, 2) == ["pub"]  # другому
-    assert _visible(session, None) == ["pub"]  # анониму
+    assert _visible(session, 1) == ["pub"]  # owner
+    assert _visible(session, 2) == ["pub"]  # another user
+    assert _visible(session, None) == ["pub"]  # anonymous
 
 
 def test_unshared_is_visible_only_to_owner(session):
     _art(session, "mine", owner_user_id=1, shared=False)
     assert _visible(session, 1) == ["mine"]
-    assert _visible(session, 2) == []  # чужое личное — никогда
+    assert _visible(session, 2) == []  # someone else's private — never
     assert _visible(session, None) == []
 
 
@@ -76,8 +76,8 @@ def test_hidden_is_never_visible(session):
 
 
 def test_ownerless_unshared_is_invisible_to_all(session):
-    # Ключевой угол: бесхозная неразделённая не должна утечь анониму из-за
-    # того, что owner == None совпало бы с отсутствующим пользователем.
+    # Key corner case: an ownerless, unshared card must not leak to an anonymous
+    # user just because owner == None would match a missing user.
     _art(session, "orphan", owner_user_id=None, shared=False)
     assert _visible(session, None) == []
     assert _visible(session, 1) == []
@@ -90,7 +90,7 @@ def test_owner_sees_own_private_and_others_shared(session):
     assert _visible(session, 1) == ["mine", "theirs"]
 
 
-# --- фильтр по зоне ---
+# --- filter by zone ---
 
 
 def test_zone_filter_private_vs_common(session):
@@ -119,13 +119,13 @@ def test_zone_counts(session):
     assert counts == {"common": 1, "private": 1}
 
 
-# --- удаление и отметки об удалении ---
+# --- deletion and removal notices ---
 
 
 def test_owner_delete_notifies_favouriters_not_actor(session):
     art = _art(session, "shared-tool", owner_user_id=1, shared=True)
-    session.add(Favorite(user_id=2, artifact_id=art.id))  # другой держит в избранном
-    session.add(Favorite(user_id=1, artifact_id=art.id))  # владелец тоже
+    session.add(Favorite(user_id=2, artifact_id=art.id))  # another user has it in favourites
+    session.add(Favorite(user_id=1, artifact_id=art.id))  # the owner too
     session.flush()
 
     web._delete_artifact(session, art, actor_user_id=1)
@@ -133,24 +133,24 @@ def test_owner_delete_notifies_favouriters_not_actor(session):
 
     assert session.scalar(select(Artifact).where(Artifact.name == "shared-tool")) is None
     notices = session.scalars(select(RemovedNotice)).all()
-    # Уведомлён другой (был в избранном), но не сам удаливший владелец.
+    # The other user is notified (was in favourites), but not the owner who did the deletion.
     assert {n.user_id for n in notices} == {2}
     assert notices[0].artifact_name == "shared-tool"
-    # Избранное подчищено.
+    # Favourites cleaned up.
     assert session.scalars(select(Favorite)).all() == []
 
 
 def test_admin_delete_notifies_owner(session):
     art = _art(session, "x", owner_user_id=5, shared=True)
-    web._delete_artifact(session, art, actor_user_id=1)  # удаляет администратор, не владелец
+    web._delete_artifact(session, art, actor_user_id=1)  # an admin deletes it, not the owner
     session.flush()
     notices = session.scalars(select(RemovedNotice)).all()
-    assert {n.user_id for n in notices} == {5}  # владельцу — отметка
+    assert {n.user_id for n in notices} == {5}  # the owner gets a notice
 
 
 def test_delete_tombstones_repository(session):
-    # «Навсегда»: репозиторий помечается удалённым и хоронится, чтобы скан не
-    # собрал карточку заново.
+    # "For good": the repository is marked removed and buried so the scan doesn't
+    # pick the card up again.
     art = _art(session, "t", owner_user_id=1, shared=True)
     rid = art.repository_id
     web._delete_artifact(session, art, actor_user_id=1)
@@ -160,11 +160,11 @@ def test_delete_tombstones_repository(session):
     assert repo.gone_at is not None
 
 
-# --- безопасный дефолт ---
+# --- safe default ---
 
 
 def test_default_shared_is_false(session):
-    # Карточка без явного shared — приватная, а не публичная (безопасный дефолт).
+    # A card without an explicit shared flag is private, not public (safe default).
     src = session.scalar(select(Source)) or Source(kind="f", base_url="https://x", display_name="F")
     if src.id is None:
         session.add(src)
@@ -178,7 +178,7 @@ def test_default_shared_is_false(session):
     assert a.shared is False
 
 
-# --- скан не воскрешает удалённое ---
+# --- scan does not resurrect deleted items ---
 
 
 def _repo_ref(name="t"):
@@ -195,19 +195,19 @@ def test_scanner_does_not_resurrect_user_removed(session):
     repo.user_removed = True
     repo.gone_at = datetime.now(UTC)
     scanner._update_row(repo, _repo_ref(), datetime.now(UTC))
-    assert repo.gone_at is not None  # остался похоронен
+    assert repo.gone_at is not None  # stays buried
 
 
 def test_scanner_resurrects_normal_gone_repo(session):
-    # Контроль: обычный пропавший (не удалённый человеком) репозиторий вернётся.
+    # Control: a normal missing repository (not removed by a user) comes back.
     art = _art(session, "t2", owner_user_id=1, shared=True)
     repo = session.get(Repository, art.repository_id)
-    repo.gone_at = datetime.now(UTC)  # пропал, но человек не удалял
+    repo.gone_at = datetime.now(UTC)  # went missing, but no user deleted it
     scanner._update_row(repo, _repo_ref("t2"), datetime.now(UTC))
-    assert repo.gone_at is None  # вернулся
+    assert repo.gone_at is None  # came back
 
 
-# --- миграция старой зоны ---
+# --- migration of the old zone ---
 
 
 def test_migration_derives_owner_and_shared():
@@ -219,20 +219,20 @@ def test_migration_derives_owner_and_shared():
     con.executemany(
         "INSERT INTO artifacts (id, private_to_user_id, owner_user_id, shared) VALUES (?,?,?,?)",
         [
-            (1, 5, None, None),  # личная у 5 -> owner 5, shared 0
-            (2, None, None, None),  # общая затравка -> owner NULL, shared 1
-            (3, 7, 7, 0),  # уже переведена (shared не NULL) -> не трогаем
+            (1, 5, None, None),  # private to 5 -> owner 5, shared 0
+            (2, None, None, None),  # shared seed -> owner NULL, shared 1
+            (3, 7, 7, 0),  # already migrated (shared not NULL) -> leave alone
         ],
     )
 
-    # Оборачиваем sqlite3-соединение так, чтобы derive_ownership (ждущий
-    # SQLAlchemy-подобный conn) отработал прямо на нём.
+    # Wrap the sqlite3 connection so derive_ownership (which expects a
+    # SQLAlchemy-like conn) runs directly on it.
     class _Conn:
         def execute(self, stmt, params=None):
             return con.execute(str(stmt.text if hasattr(stmt, "text") else stmt), params or {})
 
     derived = migrate.derive_ownership(_Conn())
-    assert derived == 2  # тронули только две неперёведённые
+    assert derived == 2  # only the two unmigrated ones were touched
 
     rows = {
         r[0]: (r[1], r[2], r[3])
@@ -240,7 +240,7 @@ def test_migration_derives_owner_and_shared():
     }
     assert rows[1] == (5, 5, 0)
     assert rows[2] == (None, None, 1)
-    assert rows[3] == (7, 7, 0)  # идемпотентность: уже переведённую не трогаем
+    assert rows[3] == (7, 7, 0)  # idempotent: an already-migrated row is left untouched
 
-    # Второй прогон — уже нечего переводить.
+    # Second run — nothing left to migrate.
     assert migrate.derive_ownership(_Conn()) == 0

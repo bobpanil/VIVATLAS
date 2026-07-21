@@ -1,4 +1,4 @@
-"""Аватары: конвертация в webp и защита от «картинок-бомб»."""
+"""Avatars: conversion to webp and protection against "image bombs"."""
 import io
 
 import pytest
@@ -15,10 +15,10 @@ def _png(w: int, h: int) -> bytes:
 
 def test_png_to_webp_square():
     out = avatars.to_webp(_png(40, 30), "image/png")
-    # сигнатура webp: RIFF....WEBP
+    # webp signature: RIFF....WEBP
     assert out[:4] == b"RIFF" and out[8:12] == b"WEBP"
     im = Image.open(io.BytesIO(out))
-    assert im.size == (avatars.SIZE, avatars.SIZE)  # обрезано в квадрат
+    assert im.size == (avatars.SIZE, avatars.SIZE)  # cropped to a square
 
 
 def test_empty_rejected():
@@ -32,8 +32,8 @@ def test_not_an_image_rejected():
 
 
 def test_oversized_dimension_rejected():
-    # 13000×1 — крошечный файл, но сторона больше потолка: должно отсечься ДО
-    # раскодировки, не разворачиваясь в память.
+    # 13000×1 — a tiny file, but a side larger than the ceiling: must be rejected BEFORE
+    # decoding, without expanding into memory.
     data = _png(avatars.MAX_SIDE + 1000, 1)
     with pytest.raises(avatars.AvatarError):
         avatars.to_webp(data, "image/png")

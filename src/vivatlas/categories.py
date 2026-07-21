@@ -1,15 +1,15 @@
-"""Права и видимость папок-категорий: общие (админские) и личные (пер-user).
+"""Rights and visibility of category folders: shared (admin) and personal (per-user).
 
-Одна точка правды, чтобы приватность нельзя было забыть на каком-то экране:
+A single source of truth, so privacy can't be forgotten on some screen:
 
-- ОБЩАЯ папка (``owner_user_id`` пуст) — часть общего каталога: видят все,
-  ведёт (заводит/переименовывает/удаляет) только администратор.
-- ЛИЧНАЯ папка (``owner_user_id`` задан) — личное дело одного человека: видит,
-  ведёт и раскладывает в неё только он. Даже администратор её НЕ видит.
+- SHARED folder (``owner_user_id`` empty) — part of the shared catalogue: everyone
+  sees it, only the administrator manages it (creates/renames/deletes).
+- PERSONAL folder (``owner_user_id`` set) — one user's private matter: only they
+  see it, manage it, and file cards into it. Even the administrator does NOT see it.
 
-Членство карточки в папке живёт в ``ArtifactCategory`` (многие-ко-многим): одна
-карточка может лежать и в общей папке, и в личных папках у разных людей — у
-каждого своя строка. Чужое личное членство другим не показываем.
+A card's membership in a folder lives in ``ArtifactCategory`` (many-to-many): one
+card can sit in a shared folder and in personal folders of different users — each
+gets their own row. We never show one user's personal membership to others.
 """
 
 from sqlalchemy import Select, select
@@ -18,8 +18,8 @@ from vivatlas.models import Artifact, Category
 
 
 def visible_category_ids(user_id: int | None) -> Select:
-    """id папок, которые вправе видеть этот человек: все общие + свои личные.
-    Аноним — только общие."""
+    """ids of folders this user is entitled to see: all shared + their own personal.
+    Anonymous — shared only."""
     cond = Category.owner_user_id.is_(None)
     if user_id is not None:
         cond = cond | (Category.owner_user_id == user_id)
@@ -27,15 +27,15 @@ def visible_category_ids(user_id: int | None) -> Select:
 
 
 def can_view(cat: Category, user_id: int | None) -> bool:
-    """Видит ли человек эту папку: общую — да; личную — только её владелец."""
+    """Whether the user sees this folder: shared — yes; personal — only its owner."""
     return cat.owner_user_id is None or (
         user_id is not None and cat.owner_user_id == user_id
     )
 
 
 def can_manage(cat: Category, user_id: int | None, is_admin: bool) -> bool:
-    """Кто вправе править/удалять/переставлять папку: общую — администратор;
-    личную — её владелец. Чужую личную — никто (её и не видно)."""
+    """Who may edit/delete/reorder a folder: shared — the administrator;
+    personal — its owner. Someone else's personal — nobody (it isn't even visible)."""
     if user_id is None:
         return False
     if cat.owner_user_id is None:
@@ -44,19 +44,19 @@ def can_manage(cat: Category, user_id: int | None, is_admin: bool) -> bool:
 
 
 def can_file(art: Artifact, cat: Category, user_id: int | None, is_admin: bool) -> bool:
-    """Можно ли положить карточку ``art`` в папку ``cat`` (или вынуть).
+    """Whether card ``art`` may be filed into folder ``cat`` (or removed).
 
-    - в ОБЩУЮ папку: раскладывает ТОЛЬКО администратор, и только общую (shared)
-      карточку. Люди не «настраивают» общие папки — они делятся карточкой
-      (делают её общей), и она появляется у всех в каталоге; как разложить общий
-      каталог по папкам — решает администратор;
-    - в СВОЮ ЛИЧНУЮ папку: любую карточку, которую человек вправе ВИДЕТЬ (личная
-      папка — это личная полка поверх каталога, как избранное);
-    - в чужую личную папку: никогда.
+    - into a SHARED folder: ONLY the administrator files cards, and only a shared
+      card. Users don't "configure" shared folders — they share a card
+      (make it shared) and it appears for everyone in the catalogue; how to arrange
+      the shared catalogue into folders is the administrator's call;
+    - into their OWN PERSONAL folder: any card the user is entitled to SEE (a personal
+      folder is a private shelf on top of the catalogue, like favourites);
+    - into someone else's personal folder: never.
 
-    Видимость самой ``art`` проверяется у вызывающего (до этого вызова)."""
+    Visibility of ``art`` itself is checked by the caller (before this call)."""
     if user_id is None:
         return False
-    if cat.owner_user_id is None:  # общая папка — только администратор
+    if cat.owner_user_id is None:  # shared folder — administrator only
         return is_admin and art.shared
-    return cat.owner_user_id == user_id  # своя личная
+    return cat.owner_user_id == user_id  # their own personal

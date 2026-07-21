@@ -1,7 +1,7 @@
-/* Управление папками-категориями: выбор иконки, порядок перетаскиванием и
- * создание БЕЗ перезагрузки. Один код на настройки (личные папки) и админ-панель
- * (общие) — везде, где есть .cat-manage / .catrow-add. Всё на делегировании от
- * document, поэтому строки, добавленные скриптом на лету, работают сразу.
+/* Category-folder management: icon selection, drag-to-reorder, and creation
+ * WITHOUT a reload. One code path for settings (personal folders) and the admin
+ * panel (shared) — everywhere there is a .cat-manage / .catrow-add. Everything is
+ * delegated from document, so rows added by the script on the fly work at once.
  */
 (function () {
     'use strict';
@@ -12,10 +12,10 @@
         });
     }
 
-    // --- выбор иконки (делегирование) --------------------------------------
-    // Кнопка-иконка открывает сетку; клик по значку ставит его в скрытое поле и
-    // на кнопку. У существующей папки сразу сохраняем (форма update), у новой —
-    // только ставим значок до нажатия «Завести».
+    // --- icon selection (delegation) --------------------------------------
+    // The icon button opens the grid; clicking an icon sets it in the hidden field
+    // and on the button. For an existing folder we save immediately (update form);
+    // for a new one — just set the icon until "Create" is pressed.
     document.addEventListener('click', function (e) {
         var pick = e.target.closest ? e.target.closest('.cat-pick') : null;
         if (pick) {
@@ -45,7 +45,7 @@
         closeGrids(null);
     });
 
-    // --- порядок перетаскиванием (делегирование) ---------------------------
+    // --- drag-to-reorder (delegation) ---------------------------
     var dragEl = null, dragList = null;
     document.addEventListener('dragstart', function (e) {
         var grip = e.target.closest ? e.target.closest('.catrow-grip') : null;
@@ -62,7 +62,7 @@
     document.addEventListener('dragover', function (e) {
         if (!dragEl || !dragList) return;
         var list = e.target.closest ? e.target.closest('.cat-manage') : null;
-        if (list !== dragList) return;             // тянем только внутри своего списка
+        if (list !== dragList) return;             // only drag within its own list
         e.preventDefault();
         var over = e.target.closest ? e.target.closest('.catrow') : null;
         if (!over || over === dragEl) return;
@@ -81,14 +81,14 @@
         if (order && form) { order.value = ids.join(','); form.submit(); }
     });
 
-    // --- создание папки без перезагрузки ------------------------------------
-    // Отправляем форму fetch'ем; сервер отдаёт HTML новой строки, вставляем её в
-    // список сразу. Без скрипта/сети — обычная отправка (сервер редиректит).
+    // --- create a folder without reloading ------------------------------------
+    // We submit the form via fetch; the server returns the new row's HTML, and we
+    // insert it into the list at once. Without script/network — a plain submit (server redirects).
     document.addEventListener('submit', function (e) {
         var form = e.target.closest ? e.target.closest('.catrow-add') : null;
         if (!form) return;
         var nameInput = form.querySelector('input[name="name"]');
-        if (nameInput && !nameInput.value.trim()) return;   // пусто — required не пустит
+        if (nameInput && !nameInput.value.trim()) return;   // empty — required won't allow it
         e.preventDefault();
         fetch(form.action, {
             method: 'POST',
@@ -97,18 +97,18 @@
         }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d || !d.ok) { if (d && d.error) alert(d.error); return; }
             var list = form.parentNode.querySelector('.cat-manage');
-            if (!list) { form.submit(); return; }           // подстраховка (список рисуется всегда)
+            if (!list) { form.submit(); return; }           // safety net (the list is always rendered)
             var tmp = document.createElement('div');
             tmp.innerHTML = (d.html || '').trim();
             var row = tmp.firstElementChild;
             if (row) list.appendChild(row);
-            // Сбросить форму добавления к исходному виду.
+            // Reset the add form to its initial state.
             if (nameInput) nameInput.value = '';
             var iconInput = form.querySelector('input[name="icon"]');
             if (iconInput) iconInput.value = '';
             var pick = form.querySelector('.cat-pick');
             if (pick) pick.innerHTML = '<span class="cat-pick-empty">+</span>';
             if (nameInput) nameInput.focus();
-        }).catch(function () { form.submit(); });           // не вышло — обычная отправка
+        }).catch(function () { form.submit(); });           // failed — plain submit
     });
 })();

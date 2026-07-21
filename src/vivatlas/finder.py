@@ -1,19 +1,19 @@
-"""Найти репозиторий по чему угодно: ссылке, странице, скриншоту, тексту.
+"""Find a repository from anything: a link, a page, a screenshot, text.
 
-Одна дверь для всего. Что дали — то и разбираем:
+One door for everything. Whatever we're given, that's what we parse:
 
-    ссылка на GitHub  -> берём как есть, гадать не надо
-    ссылка на сайт    -> читаем страницу, ищем в ней ссылки на GitHub
-    картинка          -> модель читает, что на ней написано
-    видео             -> модель слушает звук
-    просто текст      -> модель вытаскивает название
+    GitHub link  -> take as is, no guessing needed
+    website link -> read the page, look for GitHub links in it
+    image        -> the model reads what's written on it
+    video        -> the model listens to the audio
+    plain text   -> the model pulls out the name
 
-Дальше всегда одинаково: собираем кандидатов, показываем их со звёздами и
-описанием, человек выбирает. Автоматически не тащим никогда: название на слух
-или с картинки распознаётся неточно, а ошибка стоит дорого.
+After that it's always the same: gather candidates, show them with stars and a
+description, the user picks. We never pull anything automatically: a name heard
+aloud or read off an image is recognised imprecisely, and a mistake is costly.
 
-Модели прямо запрещено выдумывать адрес репозитория. Пустой ответ лучше
-правдоподобного вранья: по выдуманному адресу мы бы притащили не то.
+The model is explicitly forbidden from inventing a repository address. An empty
+answer beats a plausible lie: a made-up address would drag in the wrong thing.
 """
 
 import base64
@@ -31,9 +31,9 @@ from vivatlas.ai.base import TextModel
 log = logging.getLogger(__name__)
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120"
-# Facebook и другие отдают внятную страницу только мобильному виду. Проверено
-# на реальном рилсе: обычный запрос получает 400, мобильный — заголовок,
-# описание и ссылку на видео.
+# Facebook and others serve a usable page only to the mobile view. Verified on a
+# real reel: a normal request gets a 400, the mobile one gets a title, a
+# description and a link to the video.
 _UA_MOBILE = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1"
 )
@@ -44,8 +44,8 @@ _GITHUB_REPO = re.compile(r"github\.com/([\w.\-]+)/([\w.\-]+?)(?:\.git)?(?:[/#?)
 _OG = re.compile(r'<meta[^>]+property="og:(\w+)"[^>]+content="([^"]*)"', re.I)
 _OG_ALT = re.compile(r'<meta[^>]+content="([^"]*)"[^>]+property="og:(\w+)"', re.I)
 
-# Чужие репозитории, которые попадаются в тексте у всех подряд — это не то,
-# что ищут.
+# Other people's repositories that turn up in everyone's text — that's not what
+# is being searched for.
 _NOISE = {
     "actions",
     "features",
@@ -63,12 +63,12 @@ _NOISE = {
 
 @dataclass
 class Candidate:
-    repo: str  # владелец/имя
+    repo: str  # owner/name
     url: str
     stars: int = 0
     description: str = ""
-    why: str = ""  # почему предложен — человеку это важнее, чем нам
-    exact: bool = False  # адрес был прямо назван, а не найден поиском
+    why: str = ""  # why it's suggested — this matters more to the user than to us
+    exact: bool = False  # the address was named directly, not found by search
 
 
 @dataclass
@@ -76,9 +76,9 @@ class FindResult:
     kind: str  # github | web | image | video | text
     source: str
     candidates: list[Candidate] = field(default_factory=list)
-    heard: str = ""  # что распознали: текст со страницы, речь, надпись
-    language: str = ""  # язык оригинала — рилсы бывают на иврите и на чём угодно
-    gist: str = ""  # о чём это по-русски, если оригинал не русский
+    heard: str = ""  # what we recognised: page text, speech, a caption
+    language: str = ""  # language of the original — reels come in Hebrew and anything else
+    gist: str = ""  # what it's about in English, if the original isn't English
     tool_name: str = ""
     notes: list[str] = field(default_factory=list)
 
@@ -89,10 +89,10 @@ def classify(source: str) -> str:
         return "github"
     if s.lower().startswith(("http://", "https://")):
         return "web"
-    # Сюда попадает и то, что человек просто набрал в поиске. Проверка пути
-    # трогает диск, и на строке с двоеточием или нулевым байтом Windows
-    # ругается вместо ответа "нет такого файла". Любая беда тут значит одно:
-    # это не файл, а слова.
+    # This also catches whatever the user just typed into search. Checking the
+    # path touches the disk, and on a string with a colon or a null byte Windows
+    # complains instead of answering "no such file". Any trouble here means one
+    # thing: it's not a file, it's words.
     try:
         if Path(s).is_file():
             mime = mimetypes.guess_type(s)[0] or ""
@@ -106,21 +106,21 @@ def classify(source: str) -> str:
 
 
 def looks_like_link(text: str) -> bool:
-    """Похоже ли на ссылку — так, чтобы поиск не искал её среди названий.
+    """Whether it looks like a link — so search doesn't hunt for it among names.
 
-    Гадаем только по однозначному: ссылка есть ссылка. Строку "last30days"
-    толковать не беремся — непонятно, ищут это у себя или хотят притащить.
+    We only judge by the unambiguous: a link is a link. We won't try to read the
+    string "last30days" — unclear whether it's being searched locally or pulled in.
     """
     return classify(text) in ("github", "web")
 
 
 def extract_repos(text: str) -> list[str]:
-    """Все упомянутые репозитории, без шума и без повторов.
+    """Every repository mentioned, without noise and without duplicates.
 
-    Повторы считаем без оглядки на регистр: на сайте VoltAgent ссылки написаны
-    и как VoltAgent/voltagent, и как voltagent/voltagent — для GitHub это один
-    и тот же репозиторий, и человеку незачем видеть его дважды. Показываем то
-    написание, которое встретилось первым.
+    Duplicates are matched case-insensitively: on the VoltAgent site the links
+    are written both as VoltAgent/voltagent and as voltagent/voltagent — to
+    GitHub that's one and the same repository, and there's no reason for the user
+    to see it twice. We show the spelling that appeared first.
     """
     found: list[str] = []
     seen: set[str] = set()
@@ -135,10 +135,10 @@ def extract_repos(text: str) -> list[str]:
     return found
 
 
-# Голое "владелец/репозиторий" без github.com. Так адрес выглядит на
-# скриншотах и в речи. Ловим осторожно и обязательно проверяем у GitHub, что
-# такое вообще есть: правило само по себе поймает и "design/system" из обычной
-# фразы.
+# A bare "owner/repository" without github.com. That's how the address looks on
+# screenshots and in speech. We catch it cautiously and always check with GitHub
+# that it exists at all: the rule on its own would also catch "design/system"
+# from an ordinary phrase.
 _BARE_REPO = re.compile(r"\b([A-Za-z][\w.\-]{1,38})/([A-Za-z][\w.\-]{1,38})\b")
 
 _BARE_STOP = {
@@ -165,8 +165,8 @@ _BARE_STOP = {
 
 
 def extract_bare_repos(text: str, limit: int = 3) -> list[str]:
-    """Похожее на адрес репозитория, но без github.com. Только кандидаты —
-    существование проверяется отдельно."""
+    """Something that looks like a repository address, but without github.com. Only
+    candidates — existence is checked separately."""
     out: list[str] = []
     seen: set[str] = set()
     for owner, repo in _BARE_REPO.findall(text or ""):
@@ -174,7 +174,7 @@ def extract_bare_repos(text: str, limit: int = 3) -> list[str]:
             continue
         if owner.lower() in _NOISE or repo.lower() in _NOISE:
             continue
-        if "." in owner and "/" not in owner:  # похоже на домен, а не на владельца
+        if "." in owner and "/" not in owner:  # looks like a domain, not an owner
             continue
         full = f"{owner}/{repo}"
         if full.lower() in seen:
@@ -185,13 +185,13 @@ def extract_bare_repos(text: str, limit: int = 3) -> list[str]:
 
 
 def parse_og(page: str) -> dict[str, str]:
-    """Теги og: со страницы, уже расшифрованные.
+    """The og: tags from the page, already unescaped.
 
-    Расшифровка обязательна, и это не косметика. В теге ссылка на видео
-    записана как ...&amp;oe=6A5D9DE9&amp;... — в разметке & пишется так всегда.
-    Если оставить как есть, в ссылке ломается подпись, и Facebook отвечает 403
-    на совершенно правильную ссылку. Проверено на живом рилсе: без расшифровки
-    403, с ней — 1.47 МБ mp4.
+    Unescaping is mandatory, and it's not cosmetic. In the tag the video link is
+    written as ...&amp;oe=6A5D9DE9&amp;... — in markup & is always written that
+    way. Leave it as is and the link's signature breaks, and Facebook answers 403
+    to a perfectly valid link. Verified on a live reel: without unescaping 403,
+    with it — 1.47 MB mp4.
     """
     tags = {k.lower(): unescape(v) for k, v in _OG.findall(page)}
     for v, k in _OG_ALT.findall(page):
@@ -221,30 +221,30 @@ SCHEMA = {
     ],
 }
 
-_PROMPT = """Определи, о каком инструменте для разработчика тут речь.
+_PROMPT = """Work out which developer tool is being talked about here.
 
 {what}
 
-Речь и надписи могут быть на ЛЮБОМ языке: английском, иврите, русском,
-испанском, китайском — на каком угодно. Разбирай как есть, не удивляйся и не
-отказывайся. Текст может идти справа налево — это нормально.
+Speech and captions may be in ANY language: English, Hebrew, Russian, Spanish,
+Chinese — anything at all. Parse it as is, don't be surprised and don't refuse.
+The text may run right to left — that's normal.
 
-Верни:
-- heard: что тут сказано или написано, дословно и кратко, НА ЯЗЫКЕ ОРИГИНАЛА
-- language: язык оригинала по-русски, одним словом: английский, иврит, русский…
-- gist: о чём это, ОДНОЙ СТРОКОЙ ПО-РУССКИ. Если оригинал и так русский —
-  пустая строка.
-- tool_name: название инструмента, если прозвучало или видно. Пиши его так,
-  как оно пишется в Git — латиницей. Не переводи название и не записывай его
-  буквами другого алфавита. Не поняли названия — пустая строка.
-- github_repo: адрес вида владелец/репозиторий — ТОЛЬКО если он прямо назван
-  или виден. Если не назван — ПУСТАЯ СТРОКА.
-- keywords: 3-6 слов ПО-АНГЛИЙСКИ для поиска на GitHub, через пробел. Всегда
-  по-английски, даже если оригинал на другом языке: на GitHub ищут так.
-- stars_mentioned: если названо число звёзд — это число, иначе 0
+Return:
+- heard: what's said or written here, verbatim and brief, IN THE ORIGINAL LANGUAGE
+- language: the language of the original, in English, one word: English, Hebrew, Russian…
+- gist: what it's about, IN ONE LINE IN ENGLISH. If the original is already English —
+  an empty string.
+- tool_name: the tool's name, if it was said or is visible. Write it the way it's
+  spelled on Git — in Latin letters. Don't translate the name and don't write it
+  in the letters of another alphabet. Didn't catch the name — an empty string.
+- github_repo: an address of the form owner/repository — ONLY if it's named
+  directly or visible. If it's not named — AN EMPTY STRING.
+- keywords: 3-6 words IN ENGLISH for searching on GitHub, space-separated. Always
+  in English, even if the original is in another language: that's how you search on GitHub.
+- stars_mentioned: if a star count is named — that number, otherwise 0
 
-Главное правило: НЕ ВЫДУМЫВАЙ адрес репозитория. Пустая строка лучше
-правдоподобного вранья — по выдуманному адресу притащат не тот инструмент."""
+The main rule: DON'T INVENT a repository address. An empty string beats a
+plausible lie — a made-up address will drag in the wrong tool."""
 
 
 class Finder:
@@ -262,7 +262,9 @@ class Finder:
         if kind == "github":
             repos = extract_repos(source)
             if repos:
-                result.candidates = [await self._describe(repos[0], "адрес дали прямо", exact=True)]
+                result.candidates = [
+                    await self._describe(repos[0], "address given directly", exact=True)
+                ]
             return result
 
         if kind == "web":
@@ -277,7 +279,7 @@ class Finder:
         result.candidates.sort(key=lambda c: (not c.exact, -c.stars))
         return result
 
-    # --- источники ---
+    # --- sources ---
 
     async def _from_web(self, url: str, result: FindResult, model: TextModel | None) -> None:
         html = ""
@@ -288,9 +290,9 @@ class Finder:
                     html = r.text
                     break
             except Exception as exc:
-                result.notes.append(f"страница не открылась ({ua.split('(')[0].strip()}): {exc}")
+                result.notes.append(f"page didn't open ({ua.split('(')[0].strip()}): {exc}")
         if not html:
-            result.notes.append("страницу прочитать не удалось")
+            result.notes.append("couldn't read the page")
             return
 
         og = parse_og(html)
@@ -298,69 +300,71 @@ class Finder:
 
         repos = extract_repos(html)
         if repos:
-            result.notes.append(f"на странице найдено ссылок на GitHub: {len(repos)}")
+            result.notes.append(f"GitHub links found on the page: {len(repos)}")
             for repo in repos[:3]:
                 result.candidates.append(
-                    await self._describe(repo, "ссылка есть на странице", True)
+                    await self._describe(repo, "link is on the page", True)
                 )
             return
 
-        result.notes.append("на странице нет ссылок на GitHub — придётся искать по смыслу")
+        result.notes.append("no GitHub links on the page — we'll have to search by meaning")
 
-        # Рилс: ссылок на странице нет, весь смысл — в звуке. Название на слух
-        # распознаётся неточно, поэтому дальше всё равно поиск и выбор руками.
+        # Reel: no links on the page, the whole meaning is in the audio. A name
+        # heard aloud is recognised imprecisely, so search and manual choice follow anyway.
         video = og.get("video") or og.get("video:url") or og.get("video:secure_url")
         if video and model is not None:
             data = await self._download(video, result)
             if data:
-                result.notes.append(f"слушаю ролик, {len(data) / 1024 / 1024:.1f} МБ")
+                result.notes.append(f"listening to the clip, {len(data) / 1024 / 1024:.1f} MB")
                 await self._ask(
                     model,
-                    "Послушай звук этого ролика. Текст на экране тоже прочитай, если он есть.",
+                    "Listen to the audio of this clip. Read the on-screen text too, "
+                    "if there is any.",
                     result,
                     media=("video/mp4", data),
                 )
                 return
 
         if result.heard and model is not None:
-            await self._ask(model, f"Текст со страницы:\n\n{result.heard[:1500]}", result)
+            await self._ask(model, f"Text from the page:\n\n{result.heard[:1500]}", result)
 
     async def _download(self, url: str, result: FindResult) -> bytes | None:
-        """Скачать ролик. Великоватые не берём: модель их всё равно не примет."""
+        """Download the clip. We skip oversized ones: the model won't accept them anyway."""
         try:
             async with self._web.stream("GET", url, headers={"User-Agent": _UA_MOBILE}) as response:
                 if response.status_code != 200:
-                    result.notes.append(f"ролик не отдался: HTTP {response.status_code}")
+                    result.notes.append(f"clip wasn't served: HTTP {response.status_code}")
                     return None
                 chunks, size = [], 0
                 async for chunk in response.aiter_bytes():
                     size += len(chunk)
                     if size > MAX_MEDIA_BYTES:
                         result.notes.append(
-                            f"ролик больше {MAX_MEDIA_BYTES // 1_000_000} МБ — не тяну"
+                            f"clip is bigger than {MAX_MEDIA_BYTES // 1_000_000} MB"
+                            " — can't handle it"
                         )
                         return None
                     chunks.append(chunk)
                 return b"".join(chunks)
         except Exception as exc:
-            result.notes.append(f"ролик не скачался: {exc}")
+            result.notes.append(f"clip didn't download: {exc}")
             return None
 
     async def _from_media(
         self, path: str, kind: str, result: FindResult, model: TextModel | None
     ) -> None:
         if model is None:
-            result.notes.append("без модели картинку и видео не разобрать")
+            result.notes.append("without a model an image or video can't be parsed")
             return
         data = Path(path).read_bytes()
         if len(data) > MAX_MEDIA_BYTES:
-            result.notes.append(f"файл великоват: {len(data) / 1024 / 1024:.0f} МБ")
+            result.notes.append(f"file is oversized: {len(data) / 1024 / 1024:.0f} MB")
             return
         mime = mimetypes.guess_type(path)[0] or "application/octet-stream"
         what = (
-            "Прочитай, что написано на этой картинке."
+            "Read what's written on this image."
             if kind == "image"
-            else "Послушай звук этого ролика."
+            else "Listen to the audio of this clip."
         )
         await self._ask(model, what, result, media=(mime, data))
 
@@ -368,14 +372,14 @@ class Finder:
         repos = extract_repos(text)
         if repos:
             for repo in repos[:3]:
-                result.candidates.append(await self._describe(repo, "адрес есть в тексте", True))
+                result.candidates.append(await self._describe(repo, "address is in the text", True))
             return
         if model is None:
-            result.notes.append("без модели из текста ничего не вытащить")
+            result.notes.append("without a model nothing can be pulled from the text")
             return
-        await self._ask(model, f"Текст:\n\n{text[:2000]}", result)
+        await self._ask(model, f"Text:\n\n{text[:2000]}", result)
 
-    # --- модель ---
+    # --- model ---
 
     async def _ask(
         self,
@@ -393,7 +397,7 @@ class Finder:
             else:
                 data = await model.generate_json(prompt, SCHEMA)
         except Exception as exc:
-            result.notes.append(f"модель не справилась: {exc}")
+            result.notes.append(f"the model couldn't cope: {exc}")
             return
 
         result.heard = (data.get("heard") or result.heard).strip()
@@ -402,61 +406,65 @@ class Finder:
         result.tool_name = (data.get("tool_name") or "").strip()
         stars = int(data.get("stars_mentioned") or 0)
         if stars:
-            result.notes.append(f"названо звёзд: около {stars:,}".replace(",", " "))
+            result.notes.append(f"stars named: about {stars:,}".replace(",", " "))
 
-        # Смотрим и в поле адреса, и в распознанный текст. Модель осторожничает:
-        # на карточке GitHub было написано "VoltAgent/awesome-design-md", она
-        # это прочитала в heard, но в поле адреса положила пусто. Адрес был
-        # прямо перед глазами — грех его терять.
+        # We look both at the address field and at the recognised text. The model
+        # plays it safe: a GitHub card said "VoltAgent/awesome-design-md", it read
+        # that into heard, but left the address field empty. The address was right
+        # there in plain sight — a shame to lose it.
         sure: list[tuple[str, str]] = []
         for repo in extract_repos(data.get("github_repo") or "") or extract_bare_repos(
             data.get("github_repo") or "", limit=1
         ):
-            sure.append((repo, "адрес прозвучал"))
-        # Полную ссылку в надписи берём как есть: это уже адрес, гадать не о чем.
-        # Так подписывают репозиторий в рилсах — "Ссылка: https://github.com/...".
+            sure.append((repo, "the address was named"))
+        # A full link in a caption we take as is: it's already an address, nothing to guess.
+        # That's how a repository is captioned in reels — "Link: https://github.com/...".
         for repo in extract_repos(result.heard):
-            sure.append((repo, "ссылка видна целиком"))
+            sure.append((repo, "the full link is visible"))
 
-        # Проверяем у GitHub всё, что назвала модель. Запрет "не выдумывай
-        # адрес" она соблюдает не всегда: на живом рилсе выдала skills/last-30-day
-        # — такого репозитория нет, а мы бы предложили его тащить. Просить
-        # модель не врать можно, полагаться на это — нельзя.
+        # We check with GitHub everything the model named. It doesn't always obey
+        # the "don't invent an address" ban: on a live reel it produced skills/last-30-day
+        # — no such repository exists, and we'd have suggested pulling it in. You can
+        # ask the model not to lie; you can't rely on it.
         known = {c.repo.lower() for c in result.candidates}
         for repo, why in sure[:3]:
             if repo.lower() in known:
                 continue
             if not await self._exists(repo):
-                result.notes.append(f"модель назвала {repo}, но такого нет — не верим")
+                result.notes.append(
+                    f"the model named {repo}, but it doesn't exist — we don't trust it"
+                )
                 continue
             result.candidates.append(await self._describe(repo, why, True))
             known.add(repo.lower())
 
-        # Голое "владелец/репозиторий" без github.com — так адрес пишут на
-        # картинках и произносят вслух. Спрашиваем у GitHub, есть ли такое:
-        # правило само по себе поймает и "design/system" из обычной фразы.
+        # A bare "owner/repository" without github.com — that's how the address is
+        # written on images and spoken aloud. We ask GitHub whether it exists:
+        # the rule on its own would also catch "design/system" from an ordinary phrase.
         for repo in extract_bare_repos(result.heard):
             if repo.lower() in known:
                 continue
             if not await self._exists(repo):
                 continue
-            result.candidates.append(await self._describe(repo, "адрес виден в надписи", True))
+            result.candidates.append(
+                await self._describe(repo, "address is visible in the caption", True)
+            )
             known.add(repo.lower())
 
         if not result.candidates:
-            result.notes.append("адрес репозитория не назван — будем искать по названию")
+            result.notes.append("repository address not named — we'll search by name")
 
-        result.notes.append(f"ключевые слова для поиска: {data.get('keywords', '')}")
+        result.notes.append(f"keywords for the search: {data.get('keywords', '')}")
         result._keywords = data.get("keywords", "")  # type: ignore[attr-defined]
         result._stars = stars  # type: ignore[attr-defined]
 
-    # --- поиск ---
+    # --- search ---
 
     async def _search(self, result: FindResult) -> None:
-        """Ищем несколькими способами: название на слух распознаётся неточно.
+        """We search several ways: a name heard aloud is recognised imprecisely.
 
-        Проверено вживую: модель услышала "last30dayskill", по нему не находится
-        ничего. Нашлось только по "last 30 days skill" — с пробелами.
+        Verified live: the model heard "last30dayskill", which finds nothing.
+        It was only found by "last 30 days skill" — with spaces.
         """
         queries: list[str] = []
         name = result.tool_name
@@ -478,12 +486,12 @@ class Finder:
                 if repo.lower() in seen:
                     continue
                 seen.add(repo.lower())
-                why = f"нашлось по запросу «{q}»"
+                why = f"found by the query «{q}»"
                 said_stars = getattr(result, "_stars", 0)
                 if said_stars and stars:
                     ratio = stars / said_stars
                     if 0.5 <= ratio <= 3:
-                        why += f"; звёзды сходятся ({stars:,})".replace(",", " ")
+                        why += f"; stars match ({stars:,})".replace(",", " ")
                 result.candidates.append(
                     Candidate(
                         repo=repo,
@@ -528,7 +536,7 @@ class Finder:
                 c.stars = d.get("stargazers_count", 0)
                 c.description = (d.get("description") or "")[:90]
             elif r.status_code == 404:
-                c.why += " — но такого репозитория нет"
+                c.why += " — but there's no such repository"
         except Exception:
             pass
         return c

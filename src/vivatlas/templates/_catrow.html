@@ -1,6 +1,6 @@
-{# Одна строка папки в управлялке. Используется и в списке (cat_manage), и при
-   мгновенной вставке после создания (эндпоинт categories отдаёт её HTML). Ждёт
-   в контексте: c (папка), cat_icons, back. #}
+{# A single folder row in the manager. Used both in the list (cat_manage) and for
+   instant insertion after creation (the categories endpoint returns its HTML). Expects
+   in context: c (folder), cat_icons, back. #}
 <li class="catrow" data-id="{{ c.value }}">
     <span class="catrow-grip" draggable="true" title="{{ t('settings.drag') }}" aria-label="{{ t('settings.drag_reorder_aria') }}">⠿</span>
     <form method="post" action="/settings/categories/{{ c.value }}/update" class="catrow-form">

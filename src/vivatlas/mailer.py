@@ -1,11 +1,11 @@
-"""Отправка почты и сборка писем.
+"""Sending mail and assembling messages.
 
-Одно место на всю программу, где мы говорим с почтовым сервером. Настройки
-берутся из панели (runtime_settings), не из .env: хозяин правит их на ходу.
+The single place in the whole program where we talk to the mail server. Settings
+come from the panel (runtime_settings), not from .env: the owner edits them on the fly.
 
-Асинхронно (aiosmtplib), чтобы отправка не держала сервер: почтовый узел бывает
-медленным, а ронять из-за него страницу нельзя. Ошибку заворачиваем в MailError
-с понятным текстом — наружу человеку показываем причину, а не стектрейс SMTP.
+Asynchronous (aiosmtplib) so that sending doesn't tie up the server: a mail host is
+sometimes slow, and we mustn't drop the page because of it. We wrap the error in MailError
+with clear text — we show the user the reason, not an SMTP stack trace.
 """
 
 import logging
@@ -21,15 +21,15 @@ from vivatlas.runtime_settings import SmtpConfig
 
 log = logging.getLogger(__name__)
 
-# Ждём ответа почтового узла не дольше этого. Медленный узел — обычное дело;
-# висеть на нём минутами нельзя, лучше честно сказать «не отправилось».
+# We wait no longer than this for the mail host to reply. A slow host is common;
+# hanging on it for minutes is not an option — better to honestly say "not sent".
 _TIMEOUT_SECONDS = 30
 
 _EMAIL_DIR = Path(__file__).parent / "templates" / "email"
 
-# Свой маленький движок шаблонов для писем: у писем свой каталог и своё
-# экранирование. Автоэкранируем HTML (чужое имя в письме не должно ломать
-# вёрстку), но не .txt — там разметки нет.
+# A small dedicated template engine for emails: emails have their own directory and
+# their own escaping. We auto-escape HTML (someone else's name in an email must not
+# break the layout), but not .txt — there's no markup there.
 _env = Environment(
     loader=FileSystemLoader(str(_EMAIL_DIR)),
     autoescape=select_autoescape(enabled_extensions=("html",), default_for_string=False),
@@ -37,15 +37,15 @@ _env = Environment(
 
 
 class MailError(RuntimeError):
-    """Письмо не ушло. Текст — человеку, причину — в журнал."""
+    """The email didn't go out. Text for the user, reason for the log."""
 
 
 def render(name: str, lang: str = "en", /, **ctx) -> tuple[str, str]:
-    """Собрать письмо: (html, plaintext) из пары шаблонов name.html и name.txt.
+    """Assemble an email: (html, plaintext) from the pair of templates name.html and name.txt.
 
-    У писем свой движок Jinja (отдельный каталог), поэтому t/lang/dir, которые в
-    веб-шаблоны кладёт context_processor, здесь передаём руками — на язык
-    получателя (кто запросил письмо)."""
+    Emails have their own Jinja engine (a separate directory), so t/lang/dir, which the
+    context_processor puts into web templates, are passed here by hand — in the language
+    of the recipient (whoever requested the email)."""
     base = {
         "t": lambda key, **kw: i18n.translate(key, lang, **kw),
         "lang": lang,
@@ -62,29 +62,31 @@ def _build_message(cfg: SmtpConfig, to: str, subject: str, html: str, text: str)
     msg["From"] = formataddr((cfg.from_name, cfg.effective_from))
     msg["To"] = to
     msg["Subject"] = subject
-    # Сначала текст, потом html: получатель без html-почты увидит первый,
-    # с html — второй. Порядок для multipart/alternative значим.
+    # Text first, then html: a recipient without html mail sees the first,
+    # with html — the second. The order matters for multipart/alternative.
     msg.set_content(text)
     msg.add_alternative(html, subtype="html")
     return msg
 
 
 async def send(cfg: SmtpConfig, to: str, subject: str, html: str, text: str) -> None:
-    """Отправить письмо. Не настроено или сорвалось — MailError с причиной."""
+    """Send an email. Not configured or it failed — MailError with the reason."""
     if not cfg.is_configured:
-        raise MailError("Почта не настроена: впишите узел SMTP и обратный адрес в панели.")
+        raise MailError(
+            "Mail is not configured: enter the SMTP host and return address in the panel."
+        )
 
-    # none — без шифрования; starttls — обычный порт с переходом на TLS;
-    # ssl — TLS с первого байта (обычно порт 465). Явные True/False, а не
-    # «как получится»: молчаливый откат на незашифрованное — это утечка пароля.
+    # none — no encryption; starttls — a regular port that upgrades to TLS;
+    # ssl — TLS from the first byte (usually port 465). Explicit True/False, not
+    # "however it turns out": a silent fallback to unencrypted is a password leak.
     start_tls = cfg.security == "starttls"
     use_tls = cfg.security == "ssl"
 
     try:
-        # Сборка письма — тоже внутри try: EmailMessage бросает ValueError, если
-        # в адресе или теме затесался перевод строки (сам по себе это заслон от
-        # инъекции заголовков). Такой отказ должен стать MailError, а не улететь
-        # необработанным исключением из фоновой задачи.
+        # Assembling the message is inside try too: EmailMessage raises ValueError if
+        # a line break slipped into the address or subject (which is itself a guard against
+        # header injection). Such a failure should become a MailError, not fly out as
+        # an unhandled exception from a background task.
         msg = _build_message(cfg, to, subject, html, text)
         await aiosmtplib.send(
             msg,
@@ -97,8 +99,8 @@ async def send(cfg: SmtpConfig, to: str, subject: str, html: str, text: str) -> 
             timeout=_TIMEOUT_SECONDS,
         )
     except (aiosmtplib.SMTPException, OSError, ValueError) as exc:
-        # OSError — узел недоступен/таймаут; SMTPException — отказ сервера
-        # (логин, адрес); ValueError — перевод строки в адресе/теме или кривой
-        # порт. Причину в журнал, человеку — короткую строку.
-        log.warning("почта не отправлена на %s: %s", to, exc)
-        raise MailError(f"Не удалось отправить письмо: {exc}") from exc
+        # OSError — host unreachable/timeout; SMTPException — server rejection
+        # (login, address); ValueError — a line break in the address/subject or a bad
+        # port. Reason to the log, a short string to the user.
+        log.warning("mail not sent to %s: %s", to, exc)
+        raise MailError(f"Failed to send email: {exc}") from exc

@@ -1,7 +1,8 @@
-"""Страницы двери: настройка, вход, второй код, выход.
+"""Door pages: setup, sign-in, second code, sign-out.
 
-Отдельно от web.py: те страницы за замком, эти — сам замок. И шаблон у них
-свой, без боковой панели с каталогом: пока не вошёл, каталога видеть нельзя.
+Separate from web.py: those pages live behind the lock, these are the lock
+itself. They also have their own template, without the catalogue sidebar:
+until you sign in, the catalogue must not be visible.
 """
 
 import ipaddress
@@ -35,7 +36,7 @@ def _secure(request: Request) -> bool:
     return request.url.scheme == "https"
 
 
-# --- первый запуск: завести хозяина ---------------------------------------
+# --- first run: create the owner ------------------------------------------
 
 
 @router.get("/setup", response_class=HTMLResponse)
@@ -56,8 +57,8 @@ def setup_do(
 ) -> HTMLResponse:
     email = email.strip().lower()
     with session_scope() as session:
-        # Хозяин заводится один раз. Кто успел первым — тот и хозяин; повторный
-        # заход сюда уже ничего не создаёт.
+        # The owner is created only once. Whoever gets here first becomes the
+        # owner; coming back here again creates nothing.
         if auth.has_any_user(session):
             return RedirectResponse("/login", status_code=303)
 
@@ -84,7 +85,7 @@ def setup_do(
         return response
 
 
-# --- вход ------------------------------------------------------------------
+# --- sign-in ---------------------------------------------------------------
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -134,7 +135,7 @@ def login_do(
         return response
 
 
-# --- второй код ------------------------------------------------------------
+# --- second code -----------------------------------------------------------
 
 
 @router.post("/login/2fa")
@@ -147,11 +148,11 @@ def login_2fa(
     dest = _safe_next(next)
     user_id = auth.read_totp_ticket(request)
     if user_id is None:
-        # Билет протух или его нет — начинаем вход заново.
+        # The ticket is stale or missing — start sign-in over.
         return RedirectResponse("/login", status_code=303)
 
-    # Пустой код — это не попытка, а переключение вида «код из приложения» /
-    # «код восстановления». Показываем нужную форму без ложной ошибки.
+    # An empty code is not an attempt but a switch between the "code from app" /
+    # "backup code" views. Show the right form without a false error.
     if not code.strip():
         return _page(request, "totp", next=dest, backup=bool(use_backup))
 
@@ -180,7 +181,7 @@ def login_2fa(
         return response
 
 
-# --- выход -----------------------------------------------------------------
+# --- sign-out --------------------------------------------------------------
 
 
 @router.post("/logout")
@@ -191,7 +192,7 @@ def logout(request: Request) -> RedirectResponse:
     return response
 
 
-# --- забыли пароль ---------------------------------------------------------
+# --- forgot password -------------------------------------------------------
 
 
 @router.get("/forgot", response_class=HTMLResponse)
@@ -203,18 +204,19 @@ def forgot_page(request: Request) -> HTMLResponse:
 
 
 async def _send_reset_quietly(cfg, to: str, subject: str, html: str, text: str) -> None:
-    """Отправить письмо о сбросе в фоне, проглотив ошибку. В фоне — чтобы ответ
-    страницы не зависел от того, есть ли такая почта и удалась ли отправка:
-    иначе по времени ответа было бы видно, заведён ли аккаунт."""
+    """Send the reset email in the background, swallowing any error. In the
+    background so the page response doesn't depend on whether such an email
+    exists and whether sending succeeded: otherwise the response time would
+    reveal whether the account exists."""
     try:
         await mailer.send(cfg, to, subject, html, text)
     except mailer.MailError as exc:
-        log.warning("письмо о сбросе не ушло на %s: %s", to, exc)
+        log.warning("reset email failed to reach %s: %s", to, exc)
 
 
 def _is_local_host(host: str) -> bool:
-    """Свой ли это адрес — loopback или домашняя сеть. Только таким доверяем
-    подставлять себя в ссылку, когда site_url не задан."""
+    """Is this our own address — loopback or home network. Only such hosts do we
+    trust to put themselves into the link when site_url is not set."""
     if host == "localhost":
         return True
     try:
@@ -225,13 +227,14 @@ def _is_local_host(host: str) -> bool:
 
 
 def _reset_link_base(session, request: Request) -> str | None:
-    """Откуда брать домен для ссылки в письме. None — брать неоткуда безопасно.
+    """Where to get the domain for the link in the email. None — nowhere safe to take it from.
 
-    Если хозяин задал site_url — берём его. Если нет — можно подставить адрес
-    запроса, НО только когда это свой хост (loopback/LAN): за туннелем и вообще
-    на публичном адресе Host в запросе задаёт клиент, и доверять ему нельзя —
-    иначе ссылку в письме уводят на чужой домен, а по ней меняют пароль
-    (reset poisoning). На публичном адресе без site_url ссылку просто не шлём.
+    If the owner set site_url — we use it. If not, the request address can be
+    substituted, BUT only when it is our own host (loopback/LAN): behind a
+    tunnel, and on a public address in general, the request Host is set by the
+    client and cannot be trusted — otherwise the link in the email is led off
+    to a foreign domain and used to change the password (reset poisoning). On a
+    public address without site_url we simply don't send the link.
     """
     configured = runtime_settings.site_url(session)
     if configured:
@@ -248,11 +251,12 @@ def forgot_do(
     background: BackgroundTasks,
     email: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Отправить ссылку на смену пароля.
+    """Send a link to change the password.
 
-    Ответ всегда один и тот же — «если такая почта есть, письмо ушло». Не
-    подтверждаем и не отрицаем, что аккаунт заведён: иначе страница сброса
-    становится проверялкой чужих почт. Само письмо уходит фоном.
+    The response is always the same — "if such an email exists, a message was
+    sent". We neither confirm nor deny that the account exists: otherwise the
+    reset page becomes a checker for other people's emails. The email itself
+    goes out in the background.
     """
     email = email.strip().lower()
     with session_scope() as session:
@@ -263,17 +267,17 @@ def forgot_do(
             cfg = runtime_settings.get_smtp(session)
             base = _reset_link_base(session, request)
             if not cfg.is_configured:
-                log.warning("сброс пароля запрошен, но почта не настроена: %s", email)
+                log.warning("password reset requested, but email is not configured: %s", email)
             elif base is None:
                 log.warning(
-                    "сброс пароля: site_url не задан, а адрес запроса (%s) не локальный "
-                    "— ссылку не шлём",
+                    "password reset: site_url is not set and the request address (%s) is not local "
+                    "— not sending the link",
                     request.url.hostname,
                 )
             else:
-                # SecretMissing здесь не роняем: без ключа подписать нельзя, но
-                # ответ должен остаться таким же, как для несуществующей почты —
-                # иначе 500 против 200 выдаёт, что аккаунт заведён.
+                # We don't let SecretMissing crash here: without the key we
+                # can't sign, but the response must stay the same as for a
+                # nonexistent email — otherwise 500 vs 200 reveals the account exists.
                 try:
                     token = auth.make_reset_token(user)
                     link = f"{base}/reset?token={token}"
@@ -285,15 +289,16 @@ def forgot_do(
                         minutes=auth.RESET_MAX_AGE // 60,
                     )
                 except security.SecretMissing:
-                    log.error("сброс пароля: нет SECRET_KEY — ссылку не подписать")
+                    log.error("password reset: no SECRET_KEY — can't sign the link")
                 else:
                     background.add_task(
-                        _send_reset_quietly, cfg, user.email, "Смена пароля — VivAtlas", html, text
+                        _send_reset_quietly, cfg, user.email,
+                        "Change your password — VivAtlas", html, text
                     )
     return _page(request, "forgot_sent")
 
 
-# --- смена пароля по ссылке ------------------------------------------------
+# --- change password via link ----------------------------------------------
 
 
 @router.get("/reset", response_class=HTMLResponse)
@@ -328,15 +333,15 @@ def reset_do(
         if weak:
             return _page(request, "reset", token=token, error=i18n.translate(weak, lang))
 
-        # Новый пароль делает старую ссылку мёртвой (в ней отпечаток прежнего
-        # хеша) и рвёт все открытые сессии: если в аккаунт кто-то влез, смена
-        # пароля должна его выкинуть, а не оставить сидеть.
+        # A new password makes the old link dead (it carries a fingerprint of
+        # the previous hash) and tears down all open sessions: if someone got
+        # into the account, changing the password should kick them out, not leave them sitting.
         user.password_hash = security.hash_password(password)
         auth.revoke_all(session, user)
     return _page(request, "reset_done")
 
 
-# --- открытая регистрация (если хозяин её включил) -------------------------
+# --- open registration (if the owner enabled it) ---------------------------
 
 
 @router.get("/register", response_class=HTMLResponse)
@@ -357,9 +362,10 @@ def register_do(
     password: Annotated[str, Form()] = "",
     password2: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Самому завести аккаунт — только когда хозяин открыл регистрацию. Новый
-    человек всегда обычный (не владелец) и сразу активен: подтверждения почты
-    нет, доступ к регистрации и так решает хозяин переключателем."""
+    """Create your own account — only when the owner has opened registration. A
+    new user is always a regular one (not the owner) and active right away:
+    there's no email confirmation, and access to registration is decided by
+    the owner's toggle anyway."""
     email = email.strip().lower()
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
@@ -392,7 +398,7 @@ def register_do(
         return response
 
 
-# --- приглашение: принять и завести аккаунт --------------------------------
+# --- invitation: accept and create an account ------------------------------
 
 
 @router.get("/join", response_class=HTMLResponse)
@@ -414,8 +420,8 @@ def join_do(
     password: Annotated[str, Form()] = "",
     password2: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Принять приглашение: задать имя и пароль, завести аккаунт и войти. Почту
-    у привязанного приглашения меняем не даём — она задана хозяином."""
+    """Accept an invitation: set name and password, create an account and sign in.
+    We don't allow changing the email of a bound invitation — it's set by the owner."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         inv = auth.read_invite(session, code)
@@ -443,8 +449,8 @@ def join_do(
         )
         session.add(user)
         session.flush()
-        # Приглашение — одноразовое: занимаем его атомарно. Не вышло (успели
-        # принять параллельно) — откатываем и не заводим второй аккаунт.
+        # An invitation is single-use: we claim it atomically. If that didn't
+        # work (accepted in parallel) — roll back and don't create a second account.
         if not auth.consume_invite(session, inv, user):
             session.rollback()
             return _page(request, "join_bad")
@@ -453,11 +459,11 @@ def join_do(
         return response
 
 
-# --- проверки --------------------------------------------------------------
+# --- checks ----------------------------------------------------------------
 
 
 def _validate(email: str, password: str, password2: str) -> str:
-    """Пусто — годится; иначе КЛЮЧ ошибки (переводится на месте показа)."""
+    """Empty means OK; otherwise the error KEY (translated at display time)."""
     if "@" not in email or len(email) < 5:
         return "auth.err.email_invalid"
     if password != password2:
@@ -469,8 +475,8 @@ def _validate(email: str, password: str, password2: str) -> str:
 
 
 def _safe_next(target: str) -> str:
-    """Куда вернуть после входа. Только внутренний путь: чужой адрес в next —
-    это открытая переадресация, ею уводят на поддельную страницу входа."""
+    """Where to return after sign-in. Only an internal path: a foreign address in
+    next is an open redirect, used to lead to a fake sign-in page."""
     if target.startswith("/") and not target.startswith("//"):
         return target
     return "/"

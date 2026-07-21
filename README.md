@@ -1,82 +1,82 @@
 # VivAtlas
 
-Каталог скиллов, агентов и инструментов из ваших Git-репозиториев. Многопользовательский: у каждого свой вход, свои папки и источники; общий каталог — один на всех.
+A catalogue of skills, agents and tools from your Git repositories. Multi-user: everyone has their own sign-in, their own folders and sources; the shared catalogue is common to all.
 
-План и история: [docs/PLAN.md](docs/PLAN.md). Доступ из ChatGPT и Claude Code: [docs/MCP.md](docs/MCP.md).
+Plan and history: [docs/PLAN.md](docs/PLAN.md). Access from ChatGPT and Claude Code: [docs/MCP.md](docs/MCP.md).
 
-## Что уже работает
+## What already works
 
-- **Каталог карточек.** Один репозиторий → одна карточка: название, три уровня описания (коротко / нормально / технически), превью, теги (автоматические с указанием источника и уверенности + ручные, ручные главнее).
-- **Поиск** по словам (SQLite FTS) и по смыслу (векторы), двуязычный — русский запрос находит английский инструмент.
-- **Рекомендации** — три варианта под задачу с объяснением, либо честный «подходящего нет».
-- **Папки** — общие (ведёт администратор) и личные (у каждого свои); карточку можно перетащить в папку. Git при этом не меняется.
-- **Зоны** — карточка личная или общая (в каталоге); избранное, черновики, лента изменений и «протухшего».
-- **Люди.** Вход по паролю, первый вошедший — владелец. Приглашения ссылкой/письмом, открытая регистрация (переключатель), двухэтапный вход (TOTP + резервные коды), сброс пароля по почте.
-- **Аккаунт.** Смена почты/пароля, удаление, фото профиля (→ WebP) или аватар из готового набора (классические бюсты), личные папки и источники.
-- **Админ-панель.** Люди, доступ и приглашения, общие папки, почта (SMTP), интеграции (адреса/токены/модели поверх `.env`, применяются без перезапуска).
-- **Интерфейс.** Свой рендер на сервере, без сборки. Языки: английский (по умолчанию), русский, иврит (RTL). Темы: светлая / тёмная / OLED / системная. Работает и с телефона.
-- **Источники.** Gitea (общие и личные), сканирование. GitHub — место оставлено (`providers/github.py`).
-- **Добавление.** Одна дверь: ссылка, сайт, скриншот или рилс → кандидаты со звёздами → план → импорт. Адрес, названный моделью, всегда проверяется у хостинга.
-- **Апстрим.** Карточка помнит источник; `upstream` сравнивает, `update` ставит новую версию только там, где вы файл не трогали.
-- **Наружу.** REST API и MCP-сервер для ChatGPT / Claude Code.
+- **Card catalogue.** One repository → one card: name, three levels of description (short / normal / technical), preview, tags (automatic, with source and confidence + manual, manual wins).
+- **Search** by words (SQLite FTS) and by meaning (vectors), bilingual — a Russian query finds an English tool.
+- **Recommendations** — three options for the task with an explanation, or an honest "nothing fits".
+- **Folders** — shared (run by the admin) and personal (everyone has their own); a card can be dragged into a folder. Git is untouched in the process.
+- **Zones** — a card is private or shared (in the catalogue); favourites, drafts, change feed and the "stale" feed.
+- **People.** Sign-in by password, the first to sign in becomes the owner. Invitations by link/email, open registration (toggle), two-step sign-in (TOTP + backup codes), password reset by email.
+- **Account.** Change email/password, deletion, profile photo (→ WebP) or an avatar from a ready-made set (classical busts), personal folders and sources.
+- **Admin panel.** People, access and invitations, shared folders, email (SMTP), integrations (addresses/tokens/models on top of `.env`, applied without a restart).
+- **Interface.** Custom rendering on the server, no build step. Languages: English (default), Russian, Hebrew (RTL). Themes: light / dark / OLED / system. Works from a phone too.
+- **Sources.** Gitea (shared and personal), scanning. GitHub — a place has been left for it (`providers/github.py`).
+- **Adding.** One door: a link, site, screenshot or reel → candidates with stars → plan → import. An address named by a model is always verified with the host.
+- **Upstream.** A card remembers its source; `upstream` compares, `update` installs a new version only where you have not touched the file.
+- **Outward.** REST API and MCP server for ChatGPT / Claude Code.
 
-Главное правило неизменно: **программа ничего не пишет в Git и не сканирует приватные репозитории.** Только чтение открытого.
+The main rule is unchanged: **the program writes nothing to Git and does not scan private repositories.** Reading public repositories only.
 
-## Запуск
+## Running
 
 ```bash
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -e ".[dev]"    # Windows
 # .venv/bin/python -m pip install -e ".[dev]"          # Linux
 
-cp .env.example .env      # SECRET_KEY обязателен; адрес Gitea и ключи — по желанию (можно из админки)
+cp .env.example .env      # SECRET_KEY is required; Gitea address and keys are optional (can be set from the admin panel)
 
-.venv/Scripts/python.exe -m vivatlas.cli init-db                       # создать/обновить базу
-.venv/Scripts/python.exe -m vivatlas.cli scan                          # забрать репозитории
+.venv/Scripts/python.exe -m vivatlas.cli init-db                       # create/update the database
+.venv/Scripts/python.exe -m vivatlas.cli scan                          # fetch repositories
 .venv/Scripts/python.exe -m vivatlas.cli serve --host 0.0.0.0 --port 8710
 ```
 
-Откроется на `http://127.0.0.1:8710` (с `--host 0.0.0.0` — ещё и с телефона в той же сети). Первый зашедший через `/setup` становится владельцем.
+Opens at `http://127.0.0.1:8710` (with `--host 0.0.0.0` — also from a phone on the same network). The first person to go through `/setup` becomes the owner.
 
-> **После обновления кода запускайте `init-db`** — он дописывает новые столбцы в базу. `serve` миграции не делает: поднимете новый код на старой базе — страницы с недостающими полями упадут.
+> **After updating the code, run `init-db`** — it adds new columns to the database. `serve` does not run migrations: bring up new code on an old database and pages with missing fields will break.
 
-## Тесты
+## Tests
 
 ```bash
 .venv/Scripts/python.exe -m pytest
 .venv/Scripts/python.exe -m ruff check src tests
 ```
 
-## Устройство
+## Layout
 
 ```
 src/vivatlas/
-  config.py            настройки из .env
-  runtime_settings.py  переопределения из базы поверх .env (правятся из админки)
-  db.py                подключение к SQLite
-  models.py            таблицы
-  migrate.py           init-db: досоздать столбцы/индексы, пересобрать поиск
-  security.py          пароли, шифрование секретов, главный ключ
-  twofactor.py         двухэтапный вход (TOTP + резервные коды)
-  auth.py, auth_web.py вход, регистрация, приглашения, сброс пароля
-  admin_web.py         админ-панель (люди, доступ, почта, интеграции)
-  settings_web.py      личные настройки, аватары, источники, папки
-  web.py               каталог, карточки, добавление
-  api.py               сборка приложения, REST, /avatar, статика
-  filters.py           видимость: своё + общее
-  categories.py        права на папки (общие/личные)
-  i18n.py, translations*.py   переводы (en/ru/he), RTL
-  mailer.py            письма (сброс пароля, приглашения)
-  avatars.py           загруженное фото → квадратный WebP
-  usericons.py         набор аватаров по умолчанию (static/usericons)
-  scanner.py, indexer.py  сканирование + правило про приватные, индекс
-  mcp_server.py        доступ из ChatGPT / Claude Code
-  cli.py               команды в терминале (init-db, scan, serve, embed, upstream…)
+  config.py            settings from .env
+  runtime_settings.py  overrides from the database on top of .env (edited from the admin panel)
+  db.py                connection to SQLite
+  models.py            tables
+  migrate.py           init-db: add missing columns/indexes, rebuild search
+  security.py          passwords, secret encryption, secret key
+  twofactor.py         two-step sign-in (TOTP + backup codes)
+  auth.py, auth_web.py sign-in, registration, invitations, password reset
+  admin_web.py         admin panel (people, access, email, integrations)
+  settings_web.py      personal settings, avatars, sources, folders
+  web.py               catalogue, cards, adding
+  api.py               app assembly, REST, /avatar, static
+  filters.py           visibility: own + shared
+  categories.py        folder permissions (shared/personal)
+  i18n.py, translations*.py   translations (en/ru/he), RTL
+  mailer.py            emails (password reset, invitations)
+  avatars.py           uploaded photo → square WebP
+  usericons.py         default avatar set (static/usericons)
+  scanner.py, indexer.py  scanning + the private-repo rule, index
+  mcp_server.py        access from ChatGPT / Claude Code
+  cli.py               terminal commands (init-db, scan, serve, embed, upstream…)
   providers/
-    base.py            общий интерфейс к хостингу («розетка»)
+    base.py            common interface to the host (the "socket")
     gitea.py           Gitea
-    github.py          заглушка — место под GitHub
-  templates/, static/  страницы и стили (свой app.css, без сборки)
+    github.py          stub — a place for GitHub
+  templates/, static/  pages and styles (custom app.css, no build step)
 ```
 
-Чтобы добавить GitHub: реализовать методы в `providers/github.py` и включить в `providers/__init__.py`. Остальной код не меняется.
+To add GitHub: implement the methods in `providers/github.py` and enable it in `providers/__init__.py`. The rest of the code stays the same.

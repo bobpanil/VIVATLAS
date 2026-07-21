@@ -13,10 +13,10 @@ def session(make_session):
 
 @pytest.fixture(autouse=True)
 def _secret(monkeypatch):
-    monkeypatch.setattr(settings, "secret_key", "ключ-для-тестов-двери-длинный")
+    monkeypatch.setattr(settings, "secret_key", "a-nice-long-key-for-the-door-tests")
 
 
-def make_user(session, email="boris@example.com", password="мама мыла раму синей", **kw):
+def make_user(session, email="boris@example.com", password="my long and secret passphrase", **kw):
     u = User(
         email=email,
         display_name="Boris",
@@ -35,11 +35,11 @@ def test_token_roundtrip(session):
 
 
 def test_token_void_after_password_change(session):
-    # Смена пароля должна убивать ссылку: иначе одна ссылка меняла бы пароль
-    # сколько угодно раз, в том числе после того, как им уже воспользовались.
+    # A password change must kill the link: otherwise one link could change the
+    # password any number of times, including after it has already been used.
     u = make_user(session)
     tok = auth.make_reset_token(u)
-    u.password_hash = security.hash_password("совсем другой длинный пароль")
+    u.password_hash = security.hash_password("a completely different long password")
     session.flush()
     assert auth.read_reset_token(session, tok) is None
 
@@ -52,7 +52,7 @@ def test_expired_token_rejected(session):
 
 def test_garbage_token_rejected(session):
     make_user(session)
-    assert auth.read_reset_token(session, "не токен вовсе") is None
+    assert auth.read_reset_token(session, "not a token at all") is None
     assert auth.read_reset_token(session, "") is None
 
 
@@ -65,6 +65,6 @@ def test_inactive_user_token_rejected(session):
 def test_token_signed_with_other_key_rejected(session, monkeypatch):
     u = make_user(session)
     tok = auth.make_reset_token(u)
-    # Сменили главный ключ — прежние подписи должны перестать проходить.
-    monkeypatch.setattr(settings, "secret_key", "совсем другой длинный ключ подписи")
+    # Changed the secret key — previous signatures must stop being accepted.
+    monkeypatch.setattr(settings, "secret_key", "a completely different long signing key")
     assert auth.read_reset_token(session, tok) is None

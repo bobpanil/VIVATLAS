@@ -9,15 +9,15 @@
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="stylesheet" href="/static/app.css">
     <script>
-    // Дверь всегда во весь экран. Если попали в рамку (напр. редирект на /login
-    // после удаления своего аккаунта из окна настроек) — вырываемся наверх.
+    // The door is always full-screen. If we end up inside a frame (e.g. a redirect to /login
+    // after deleting our own account from the settings modal) — break out to the top.
     if (window.self !== window.top) { try { window.top.location = window.location.href; } catch (e) {} }
     (function () {
         try {
             var t = localStorage.getItem('vivatlas-theme') || 'light';
             if (t === 'auto') { t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
             if (t === 'dark' || t === 'oled') { document.documentElement.setAttribute('data-theme', t); }
-        } catch (e) { /* приватный режим */ }
+        } catch (e) { /* private mode */ }
     })();
     </script>
 </head>
@@ -224,7 +224,7 @@
         </div>
         {% endif %}
 
-        {# Язык — до входа тоже можно сменить: серверные ссылки, работают без скрипта. #}
+        {# Language — can be switched before sign-in too: server-side links, work without JS. #}
         <div class="auth-lang" role="group" aria-label="{{ t('lang.label') }}">
             {% for code, meta in langs.items() %}
             <a class="auth-lang-opt{% if code == lang %} on{% endif %}"

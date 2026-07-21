@@ -1,15 +1,15 @@
-"""Перенос существующих репозиториев на правило «путь как на GitHub».
+"""Migrate existing repositories to the "path as on GitHub" rule.
 
-Две части. Расчёт плана — чистый, ничего не трогает, проверяется тестами.
-Выполнение — пишет в Gitea, по одному, и останавливается на первой же ошибке,
-не пытаясь героически докрутить остальные: половина переноса это состояние,
-из которого видно, где встали, а не куча наугад.
+Two parts. The plan computation is pure, touches nothing, and is covered by tests.
+Execution writes to Gitea, one at a time, and stops at the very first error,
+without heroically trying to force the rest through: a half-done migration is a state
+you can read where it stopped from, not a random pile.
 
-Правило для существующих карточек:
-  - источник не записан            -> не трогаем, мы не знаем адрес на GitHub;
-  - из источника одна карточка      -> владелец/репозиторий, как на GitHub;
-  - из источника несколько карточек -> владелец/репозиторий-папка, чтобы
-    74 набора из одного awesome-design-md не легли на один адрес.
+Rule for existing cards:
+  - source not recorded            -> leave it alone, we don't know the GitHub address;
+  - one card from a source         -> owner/repository, as on GitHub;
+  - several cards from a source    -> owner/repository-folder, so that
+    74 sets from a single awesome-design-md don't land on one address.
 """
 
 import logging
@@ -47,8 +47,8 @@ class RemapItem:
 @dataclass
 class RemapPlan:
     changes: list[RemapItem]
-    unchanged: list[str]  # источник не записан — нечем зеркалить
-    already: list[str]  # уже по правилу, трогать нечего
+    unchanged: list[str]  # source not recorded — nothing to mirror
+    already: list[str]  # already follows the rule, nothing to touch
 
     @property
     def new_orgs(self) -> list[str]:
@@ -56,7 +56,7 @@ class RemapPlan:
 
 
 def _leaf(path: str) -> str:
-    """Имя папки инструмента. У файла берём папку над ним, не сам файл."""
+    """Tool folder name. For a file, take the folder above it, not the file itself."""
     parts = [p for p in (path or "").split("/") if p]
     if not parts:
         return ""
@@ -66,7 +66,7 @@ def _leaf(path: str) -> str:
 
 
 def target_for(upstream_repo: str, upstream_path: str, shared_source: bool) -> tuple[str, str]:
-    """Куда карточка должна переехать. Владелец и имя по правилу."""
+    """Where the card should move to. Owner and name per the rule."""
     gh_owner, gh_repo = upstream_repo.split("/", 1)
     owner = _safe_name(gh_owner)
     if shared_source:
@@ -77,7 +77,7 @@ def target_for(upstream_repo: str, upstream_path: str, shared_source: bool) -> t
 
 
 def compute_plan(session: Session) -> RemapPlan:
-    """Что куда переедет. Ничего не трогает — только смотрит в базу."""
+    """What moves where. Touches nothing — only reads the database."""
     repos = session.scalars(select(Repository).where(Repository.gone_at.is_(None))).all()
 
     links: dict[int, UpstreamLink | None] = {}
@@ -89,7 +89,7 @@ def compute_plan(session: Session) -> RemapPlan:
             else None
         )
 
-    # Сколько карточек указывают на один и тот же источник.
+    # How many cards point to one and the same source.
     shared = Counter(link.upstream_repo for link in links.values() if link)
 
     changes: list[RemapItem] = []
@@ -125,18 +125,20 @@ def compute_plan(session: Session) -> RemapPlan:
 def _assert_no_collisions(
     changes: list[RemapItem], unchanged: list[str], already: list[str]
 ) -> None:
-    """Два репозитория не должны приехать на один адрес. Молча слить два разных
-    инструмента в один — худшее, что тут может случиться."""
+    """Two repositories must not land on the same address. Silently merging two different
+    tools into one is the worst thing that can happen here."""
     seen: dict[str, str] = {}
     fixed = set(unchanged) | set(already)
     for item in changes:
         if item.new_full in fixed:
             raise RuntimeError(
-                f"{item.old_full} едет на {item.new_full}, а там уже стоит нетронутый репозиторий"
+                f"{item.old_full} is moving to {item.new_full}, but an untouched"
+                " repository is already there"
             )
         if item.new_full in seen:
             raise RuntimeError(
-                f"столкновение: и {seen[item.new_full]}, и {item.old_full} едут на {item.new_full}"
+                f"collision: both {seen[item.new_full]} and {item.old_full} are"
+                f" moving to {item.new_full}"
             )
         seen[item.new_full] = item.old_full
 
@@ -144,17 +146,17 @@ def _assert_no_collisions(
 async def apply_item(
     session: Session, provider: GiteaProvider, item: RemapItem, gitea_url: str
 ) -> None:
-    """Перенести один репозиторий. Пишет в Gitea и в базу.
+    """Migrate one repository. Writes to Gitea and to the database.
 
-    Порядок важен: сначала имя в пределах старого владельца, потом передача.
-    Так репозиторий до последнего шага остаётся там, где мы его знаем.
+    Order matters: first the rename within the old owner, then the transfer.
+    That way the repository stays where we know it until the very last step.
     """
     base = gitea_url.rstrip("/")
 
-    # Целевой адрес не должен быть занят: иначе передача либо упадёт, либо
-    # затрёт чужое. Проверяем до того, как что-то сделать.
+    # The target address must not be taken: otherwise the transfer either fails or
+    # overwrites someone else's. Check before doing anything.
     if await provider.repo_exists(item.new_owner, item.new_name):
-        raise RuntimeError(f"{item.new_full} уже существует — не переношу поверх")
+        raise RuntimeError(f"{item.new_full} already exists — not migrating on top of it")
 
     if item.new_name != item.old_name:
         await provider.rename_repo(item.old_owner, item.old_name, item.new_name)
@@ -163,10 +165,10 @@ async def apply_item(
         await provider.create_org(item.new_owner)
         await provider.transfer_repo(item.old_owner, item.new_name, item.new_owner)
 
-    # Проверяем, что репозиторий и правда там, куда собирались.
+    # Verify the repository really is where we intended it to go.
     if not await provider.repo_exists(item.new_owner, item.new_name):
         raise RuntimeError(
-            f"перенесли {item.old_full}, но по адресу {item.new_full} его нет — остановка"
+            f"migrated {item.old_full}, but it's not at {item.new_full} — stopping"
         )
 
     repo = session.get(Repository, item.repo_id)
@@ -174,5 +176,5 @@ async def apply_item(
     repo.name = item.new_name
     repo.html_url = f"{base}/{item.new_owner}/{item.new_name}"
     repo.clone_url = f"{base}/{item.new_owner}/{item.new_name}.git"
-    # Теперь адрес источника читается прямо из пути — но запишем и явно.
+    # The source address now reads straight from the path — but record it explicitly too.
     repo.original_url = f"https://github.com/{item.upstream_repo}"

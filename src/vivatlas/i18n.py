@@ -1,12 +1,13 @@
-"""Три языка интерфейса: английский (по умолчанию), русский, иврит.
+"""Three UI languages: English (default), Russian, Hebrew.
 
-Язык выбирается на СЕРВЕРЕ — кнопкой-переключателем, которая кладёт куку, а не в
-localStorage как тема. Причина — иврит: он идёт справа налево, и `dir` на <html>
-должен стоять уже в отданной странице, иначе при загрузке всё прыгает.
+The language is chosen on the SERVER — by a toggle button that sets a cookie,
+not in localStorage like the theme. The reason is Hebrew: it runs right to left,
+and `dir` on <html> must already be set in the served page, otherwise everything
+jumps around on load.
 
-Строки лежат в vivatlas.translations как ключ -> {en, ru, he}. Английский —
-источник и запасной вариант: нет перевода — показываем английский, нет и его —
-сам ключ (в разработке сразу видно, что забыли).
+Strings live in vivatlas.translations as key -> {en, ru, he}. English is the
+source and the fallback: no translation — show English, none of that either —
+the key itself (in development you immediately see what's missing).
 """
 
 from fastapi import Request, Response
@@ -17,7 +18,7 @@ DEFAULT_LANG = "en"
 COOKIE = "vivatlas_lang"
 COOKIE_MAX_AGE = 365 * 24 * 3600
 
-# код -> (родное название для переключателя, направление письма)
+# code -> (native name for the toggle, writing direction)
 LANGS: dict[str, tuple[str, str]] = {
     "en": ("English", "ltr"),
     "ru": ("Русский", "ltr"),
@@ -30,7 +31,7 @@ def dir_for(lang: str) -> str:
 
 
 def normalize(lang: str | None) -> str:
-    """Свести к одному из известных языков. Неизвестный/пустой — английский."""
+    """Reduce to one of the known languages. Unknown/empty — English."""
     code = (lang or "").strip().lower()[:2]
     return code if code in LANGS else DEFAULT_LANG
 
@@ -40,7 +41,7 @@ def lang_from_request(request: Request) -> str:
 
 
 def set_lang_cookie(response: Response, lang: str, secure: bool) -> None:
-    # httponly=False: язык не секрет, и пусть скрипт при желании его читает.
+    # httponly=False: the language is no secret, let a script read it if it wants.
     response.set_cookie(
         COOKIE,
         normalize(lang),
@@ -53,7 +54,7 @@ def set_lang_cookie(response: Response, lang: str, secure: bool) -> None:
 
 
 def translate(key: str, lang: str, **kw) -> str:
-    """Строка на нужном языке. Нет перевода — английский, нет и его — сам ключ."""
+    """String in the requested language. No translation — English, none — the key itself."""
     entry = CATALOG.get(key)
     if entry is None:
         return key
@@ -62,22 +63,22 @@ def translate(key: str, lang: str, **kw) -> str:
 
 
 def msg(request: Request, key: str, **kw) -> str:
-    """Строка на языке запроса — для сообщений из кода (ошибки, HTTPException),
-    у которых под рукой есть request, но нет контекста шаблона."""
+    """String in the request's language — for messages from code (errors, HTTPException)
+    that have a request at hand but no template context."""
     return translate(key, getattr(request.state, "lang", DEFAULT_LANG), **kw)
 
 
 def label(prefix: str, slug: str, lang: str) -> str:
-    """Ярлык из перечисления (тип/состояние/направление и т.п.) на нужном языке.
-    Ключ — `prefix.slug`; нет такого — показываем сам slug (как раньше .get(s, s))."""
+    """Label from an enumeration (type/status/purpose etc.) in the requested language.
+    The key is `prefix.slug`; if there's none — show the slug itself (as the old .get(s, s))."""
     key = f"{prefix}.{slug}"
     return translate(key, lang) if key in CATALOG else slug
 
 
 def template_context(request: Request) -> dict:
-    """Отдаётся в каждый шаблон (через context_processors у Jinja2Templates):
-    `t('ключ')`, текущий `lang`, `dir`, список языков и языкозависимые ярлыки
-    типов/состояний/направлений (раньше — статические словари в web.py)."""
+    """Passed into every template (via context_processors on Jinja2Templates):
+    `t('key')`, the current `lang`, `dir`, the language list and language-dependent
+    labels for types/statuses/purposes (previously — static dicts in web.py)."""
     lang = getattr(request.state, "lang", DEFAULT_LANG)
     return {
         "t": lambda key, **kw: translate(key, lang, **kw),

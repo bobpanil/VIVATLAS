@@ -1,4 +1,4 @@
-"""Три языка: нормализация, направление, подстановка, перевод категорий."""
+"""Three languages: normalization, direction, interpolation, category translation."""
 import json
 
 from vivatlas import catnames, i18n
@@ -8,8 +8,8 @@ from vivatlas.config import settings
 def test_lang_normalize():
     assert i18n.normalize("en") == "en"
     assert i18n.normalize("RU") == "ru"
-    assert i18n.normalize("he-IL") == "he"  # берём первые две буквы
-    assert i18n.normalize("zz") == "en"  # неизвестный -> английский
+    assert i18n.normalize("he-IL") == "he"  # take the first two letters
+    assert i18n.normalize("zz") == "en"  # unknown -> English
     assert i18n.normalize(None) == "en"
     assert i18n.normalize("") == "en"
 
@@ -25,9 +25,9 @@ def test_translate_fallback_chain():
     assert i18n.translate("nav.catalog", "en") == "Catalogue"
     assert i18n.translate("nav.catalog", "ru") == "Каталог"
     assert i18n.translate("nav.catalog", "he") == "קטלוג"
-    # нет такого языка в записи -> английский
+    # no such language in the entry -> English
     assert i18n.translate("nav.catalog", "zz") == "Catalogue"
-    # нет ключа -> сам ключ (в разработке сразу видно пропажу)
+    # no key -> the key itself (a missing entry shows up immediately in development)
     assert i18n.translate("no.such.key", "en") == "no.such.key"
 
 
@@ -40,12 +40,12 @@ def test_catnames_label():
     j = json.dumps({"en": "Design", "ru": "Дизайн", "he": "עיצוב"})
     assert catnames.label(j, "Дизайн", "he") == "עיצוב"
     assert catnames.label(j, "Дизайн", "en") == "Design"
-    assert catnames.label("", "Дизайн", "he") == "Дизайн"  # нет перевода -> исходное
-    assert catnames.label("не json", "Дизайн", "he") == "Дизайн"  # мусор -> исходное
+    assert catnames.label("", "Дизайн", "he") == "Дизайн"  # no translation -> original
+    assert catnames.label("not json", "Дизайн", "he") == "Дизайн"  # garbage -> original
 
 
 def test_catnames_translate_fallback_without_key(monkeypatch):
-    # Нет ключа Google — имя во всех трёх языках, без падения.
+    # No Google key — the name in all three languages, no crash.
     monkeypatch.setattr(settings, "google_api_key", "")
     j = catnames.translate_category_name("Дизайн")
     assert json.loads(j) == {"en": "Дизайн", "ru": "Дизайн", "he": "Дизайн"}

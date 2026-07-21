@@ -1,11 +1,11 @@
-"""Набор аватаров по умолчанию — классические бюсты с орбитой (бренд VivAtlas).
+"""Default avatar set — classic busts with an orbit (VivAtlas brand).
 
-Готовые webp лежат в static/usericons/avatar-NN.webp. Человеку при создании
-достаётся случайный; в настройках можно выбрать другой или загрузить своё фото
-(оно берёт верх над набором — см. /avatar в settings_web).
+The ready-made webp files live in static/usericons/avatar-NN.webp. A user gets a
+random one at creation; in settings they can pick a different one or upload their
+own photo (which takes precedence over the set — see /avatar in settings_web).
 
-Список ключей выводим из папки, а не хардкодим: добавили файл — появился в
-выборе, ничего больше править не нужно.
+We derive the list of keys from the folder rather than hardcoding it: drop in a
+file and it shows up in the picker, nothing else to change.
 """
 
 import pathlib
@@ -13,29 +13,29 @@ import random
 
 _DIR = pathlib.Path(__file__).parent / "static" / "usericons"
 
-# Ключи вида "avatar-01" (без расширения), по порядку. Пустой список — если
-# папку не выложили (например, в урезанной сборке); тогда показ падает на
-# инициалы, а выбор в настройках просто пуст.
+# Keys of the form "avatar-01" (no extension), in order. An empty list — if the
+# folder wasn't shipped (e.g. in a stripped-down build); then rendering falls
+# back to initials, and the settings picker is simply empty.
 PRESETS: list[str] = sorted(p.stem for p in _DIR.glob("avatar-*.webp"))
 
 
 def is_valid(key: str) -> bool:
-    """Ключ — из набора? Защита от произвольного значения из формы."""
+    """Is the key from the set? Guards against an arbitrary value from the form."""
     return key in PRESETS
 
 
 def random_preset() -> str:
-    """Случайный ключ набора (или '' если набора нет)."""
+    """A random key from the set (or '' if the set is empty)."""
     return random.choice(PRESETS) if PRESETS else ""
 
 
 def path(key: str) -> pathlib.Path | None:
-    """Путь к webp набора по ключу, или None если ключ чужой."""
+    """Path to the set's webp for the key, or None if the key isn't ours."""
     return _DIR / f"{key}.webp" if is_valid(key) else None
 
 
 def read_bytes(key: str) -> bytes | None:
-    """Байты webp набора по ключу, или None если ключа/файла нет."""
+    """Bytes of the set's webp for the key, or None if the key/file is missing."""
     p = path(key)
     if p is not None and p.exists():
         return p.read_bytes()

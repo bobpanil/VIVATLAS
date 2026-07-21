@@ -1,7 +1,7 @@
-"""Что появилось, изменилось, пропало и что протухло.
+"""What appeared, changed, disappeared, and what went stale.
 
-Изменения записываются в момент сканирования, а не вычисляются задним числом.
-Иначе после удаления репозитория узнать, что он вообще был, уже неоткуда.
+Changes are recorded at scan time, not computed after the fact.
+Otherwise, once a repository is deleted, there's no way to know it ever existed.
 """
 
 import logging
@@ -15,15 +15,15 @@ from vivatlas.models import Artifact, Change, Repository
 
 log = logging.getLogger(__name__)
 
-# Не трогали столько — считаем протухшим. Год выбран потому, что инструмент,
-# к которому не возвращались год, скорее всего уже не нужен.
+# Untouched this long — treat as stale. A year was chosen because a tool
+# you haven't come back to in a year is most likely no longer needed.
 STALE_DAYS = 365
 
 KIND_NAMES = {
-    "added": "появилось",
-    "updated": "изменилось",
-    "removed": "пропало",
-    "renamed": "переименовано",
+    "added": "appeared",
+    "updated": "changed",
+    "removed": "gone",
+    "renamed": "renamed",
 }
 
 KIND_MARKS = {
@@ -87,11 +87,11 @@ def summary(session: Session, days: int = 30) -> dict[str, int]:
 
 
 def stale(session: Session, days: int = STALE_DAYS) -> list[StaleItem]:
-    """Что не трогали дольше срока.
+    """What hasn't been touched longer than the threshold.
 
-    Считаем по дате последнего коммита в репозитории, а не по дате нашего
-    сканирования: нас интересует, когда вещь трогали в последний раз, а не
-    когда мы её последний раз читали.
+    We go by the date of the last commit in the repository, not by our scan
+    date: we care about when the thing was last touched, not when we last
+    read it.
     """
     edge = datetime.now(UTC) - timedelta(days=days)
     now = datetime.now(UTC)
@@ -114,9 +114,9 @@ def stale(session: Session, days: int = STALE_DAYS) -> list[StaleItem]:
             continue
 
         age = (now - updated).days
-        reasons = [f"не трогали {age} дней"]
+        reasons = [f"untouched for {age} days"]
         if a.repository.is_archived:
-            reasons.append("репозиторий заархивирован")
+            reasons.append("repository archived")
         out.append(StaleItem(artifact=a, days=age, reason=", ".join(reasons)))
 
     out.sort(key=lambda s: -s.days)
@@ -124,8 +124,8 @@ def stale(session: Session, days: int = STALE_DAYS) -> list[StaleItem]:
 
 
 def oldest_and_newest(session: Session) -> tuple[int | None, int | None]:
-    """Возраст самого старого и самого свежего — чтобы понимать, есть ли смысл
-    вообще искать протухшее."""
+    """Age of the oldest and newest — to tell whether it's even worth
+    looking for stale items at all."""
     now = datetime.now(UTC)
     dates = [
         r.remote_updated_at

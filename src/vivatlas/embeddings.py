@@ -1,9 +1,9 @@
-"""Превращение карточек в числа и поиск по близости.
+"""Turning cards into numbers and proximity search.
 
-Ищем перебором, без хитрых указателей. На 99-500 карточках это десятки
-миллисекунд: 500 × 1536 чисел — это 3 МБ, их перебор быстрее, чем накладные
-расходы на любой индекс. Ориентировочный потолок такого подхода — тысяч
-пятьдесят карточек; до него нам очень далеко.
+We search by brute force, without clever pointers. On 99-500 cards this is
+tens of milliseconds: 500 × 1536 numbers is 3 MB, and scanning them is faster
+than the overhead of any index. The rough ceiling of this approach is around
+fifty thousand cards; we are a very long way from that.
 """
 
 import hashlib
@@ -20,10 +20,11 @@ log = logging.getLogger(__name__)
 
 
 def embedding_text(artifact: Artifact) -> str:
-    """Что именно превращаем в числа.
+    """What exactly we turn into numbers.
 
-    Берём название и описания, а не сырую документацию: описания уже очищены
-    от разметки и лишнего, и одинаково устроены у всех карточек.
+    We take the name and descriptions rather than the raw documentation: the
+    descriptions are already stripped of markup and clutter, and are structured
+    the same way across all cards.
     """
     parts = [
         artifact.name,
@@ -84,8 +85,8 @@ async def embed_artifact(
 
 
 class VectorIndex:
-    """Все векторы в памяти. Собирается заново на каждый поиск — на нашем
-    объёме это дешевле, чем следить за устареванием кэша."""
+    """All vectors held in memory. Rebuilt from scratch on every search — at
+    our volume this is cheaper than tracking cache staleness."""
 
     def __init__(self, ids: list[int], matrix: np.ndarray) -> None:
         self.ids = ids
@@ -101,8 +102,8 @@ class VectorIndex:
 
         ids = [r[0] for r in rows]
         matrix = np.vstack([from_blob(r[1]) for r in rows])
-        # Заранее приводим к единичной длине: тогда близость — это простое
-        # умножение, без деления на каждом шаге.
+        # Normalise to unit length up front: then proximity is a simple
+        # multiplication, without a division at every step.
         norms = np.linalg.norm(matrix, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         return cls(ids, matrix / norms)

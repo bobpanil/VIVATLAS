@@ -5,8 +5,8 @@
 
 {% block modal_body %}
 <div class="help">
-    {# Вкладками, по теме за раз — не сплошной свиток. Клавиатура и стрелки —
-       общий код tablist в modal_base.html. #}
+    {# Tabs, one topic at a time — not one long scroll. Keyboard and arrows —
+       shared tablist code in modal_base.html. #}
     <nav class="settabs" role="tablist" data-tabkey="helptab" aria-label="{{ t('nav.help') }}">
         <button class="settab on" type="button" data-tab="basics">{{ t('help.tab.basics') }}</button>
         <button class="settab" type="button" data-tab="cards">{{ t('help.tab.cards') }}</button>
@@ -39,9 +39,9 @@
             <h3>{{ t('help.card.h3') }}</h3>
             <p>{{ t('help.card.p_intro') }}</p>
 
-            {# Демо-карточка: выглядит как настоящая, но не нажимается. Владение —
-               слева сверху, избранное — справа сверху, папка — слева снизу,
-               «копировать» — справа снизу. #}
+            {# Demo card: looks real but isn't clickable. Ownership —
+               top-left, favourites — top-right, folder — bottom-left,
+               "copy" — bottom-right. #}
             <div class="card-guide" aria-hidden="true">
                 <div class="card guide-card">
                     <div class="card-corners">

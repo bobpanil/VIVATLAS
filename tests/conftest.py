@@ -1,7 +1,7 @@
-"""Общая подготовка тестовой базы.
+"""Shared setup for the test database.
 
-Схема поднимается так же, как боевая: create_all плюс виртуальная таблица
-поиска. Иначе тесты гоняли бы схему, которой в жизни не существует.
+The schema is stood up the same way as production: create_all plus a virtual
+search table. Otherwise the tests would exercise a schema that never really exists.
 """
 
 import pytest

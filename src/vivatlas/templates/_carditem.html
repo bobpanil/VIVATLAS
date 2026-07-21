@@ -1,20 +1,20 @@
-{# Одна карточка каталога. Используется и в сетке (include), и при поштучном
-   добавлении во время скана (рендер фрагмента в /scan/cards). Ждёт в контексте
-   `it` (словарь карточки из web._card) и `next_path` (куда вернуться формам). #}
+{# A single catalogue card. Used both in the grid (include) and for one-by-one
+   additions during a scan (fragment render in /scan/cards). Expects in context
+   `it` (card dict from web._card) and `next_path` (where forms return to). #}
 {% import "_icons.html" as icons %}
 {% set mine = it.owner_id and it.owner_id == request.state.user_id %}
 {% set admin_shared = request.state.is_owner and it.shared %}
 {% set can_toggle = mine or admin_shared %}
 <div class="card{% if it.is_new %} is-new{% endif %}" draggable="true" data-id="{{ it.id }}"
      data-zone="{{ it.zone }}">
-    {# Карточка — не ссылка целиком, а контейнер: внутри живут свои кнопки. За
-       переход отвечает растянутый .card-link. #}
+    {# The card isn't one big link but a container: it holds its own buttons.
+       Navigation is handled by the stretched .card-link. #}
     <a class="card-link" href="/a/{{ it.id }}" draggable="false" data-modal
        aria-label="{{ t('card.open_aria', owner=it.owner, name=it.name) }}"></a>
 
-    {# Верхние углы: слева — зона/владение (замок/глобус), справа — избранное.
-       Обе кнопки обведены рамкой и лежат поверх превью. Кто вправе — переключает
-       зону; остальным она видна как отметка (без нажатия). #}
+    {# Top corners: left — zone/ownership (lock/globe), right — favourite.
+       Both buttons are outlined and sit over the preview. Those allowed can
+       toggle the zone; for others it shows as a static mark (no click). #}
     <div class="card-corners">
         {% if can_toggle %}
         <form class="zone-form" method="post" action="/artifact/{{ it.id }}/visibility">
@@ -35,7 +35,7 @@
         </span>
         {% endif %}
 
-        {# Избранное — своё у каждого. Работает и без скрипта (форма вернётся сюда). #}
+        {# Favourite — per-user. Works without JS too (the form returns here). #}
         <form class="fav-form" method="post" action="/favorite/{{ it.id }}">
             <input type="hidden" name="next" value="{{ next_path }}">
             <button class="fav-btn{% if it.favorite %} on{% endif %}" type="submit"
@@ -61,10 +61,10 @@
         <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
         <p class="card-sum">{{ it.summary_short or t('card.no_summary') }}</p>
 
-        {# Подвал: слева снизу — папка (значок + имя), а если папок нет —
-           направление (авто-область). Справа снизу — «копировать». Удаление с
-           карточки убрано: удалить можно только из самой карточки (её страницы).
-           Значок и имя в цвете папки (--pur-color), чтобы группа читалась. #}
+        {# Footer: bottom-left — folder (icon + name), or, if there are no
+           folders, the purpose (auto area). Bottom-right — "copy". Deleting from
+           the card is gone: you can only delete from the card itself (its page).
+           Icon and name in the folder colour (--pur-color) so the group reads. #}
         <div class="card-foot" data-pur="{{ it.purpose.key }}"{% if it.categories %} style="--pur-color: {{ it.categories[0].color }}"{% endif %}>
             {% if it.categories %}
             {% set c0 = it.categories[0] %}
@@ -85,7 +85,7 @@
             {% endif %}
 
             {% if it.source_url %}
-            {# «Копировать» — две наложенные карточки. Копирует ссылку на источник. #}
+            {# "Copy" — two stacked cards. Copies the link to the source. #}
             <button class="card-copy" type="button" data-copy="{{ it.source_url }}"
                     aria-label="{{ t('card.copy_source') }}" title="{{ t('card.copy_source') }}">
                 <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">

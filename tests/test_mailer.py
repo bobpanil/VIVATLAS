@@ -3,7 +3,7 @@ import pytest
 from vivatlas import mailer
 from vivatlas.runtime_settings import SmtpConfig
 
-# --- сборка письма ---
+# --- building the message ---
 
 
 def test_render_password_reset_carries_link():
@@ -15,7 +15,7 @@ def test_render_password_reset_carries_link():
 
 
 def test_render_html_escapes_name():
-    # Чужое имя не должно ломать вёрстку письма.
+    # A user-supplied name must not break the email's layout.
     html, _ = mailer.render(
         "password_reset", link="https://x/reset", name="<script>x</script>", minutes=60
     )
@@ -25,9 +25,9 @@ def test_render_html_escapes_name():
 
 def test_build_message_is_multipart_alternative():
     cfg = SmtpConfig(host="h", from_addr="from@example.com", from_name="VivAtlas")
-    msg = mailer._build_message(cfg, "to@example.com", "Тема", "<b>hi</b>", "hi")
+    msg = mailer._build_message(cfg, "to@example.com", "Subject", "<b>hi</b>", "hi")
     assert msg["To"] == "to@example.com"
-    assert msg["Subject"] == "Тема"
+    assert msg["Subject"] == "Subject"
     assert "VivAtlas" in msg["From"]
     assert "from@example.com" in msg["From"]
     assert msg.is_multipart()
@@ -36,7 +36,7 @@ def test_build_message_is_multipart_alternative():
     assert "text/html" in types
 
 
-# --- отправка ---
+# --- sending ---
 
 
 async def test_send_unconfigured_raises():
@@ -74,14 +74,14 @@ async def test_send_starttls_and_empty_auth(monkeypatch):
     await mailer.send(cfg, "to@x", "Subj", "<b>h</b>", "t")
     assert captured["start_tls"] is True
     assert captured["use_tls"] is False
-    # Пустой логин/пароль уходят как None — иначе aiosmtplib пытался бы AUTH.
+    # Empty login/password go out as None — otherwise aiosmtplib would attempt AUTH.
     assert captured["username"] is None
     assert captured["password"] is None
 
 
 async def test_send_wraps_smtp_error(monkeypatch):
     async def fake_send(message, **kw):
-        raise mailer.aiosmtplib.SMTPException("отказ узла")
+        raise mailer.aiosmtplib.SMTPException("host refused")
 
     monkeypatch.setattr(mailer.aiosmtplib, "send", fake_send)
     cfg = SmtpConfig(host="smtp.x", from_addr="from@x")
@@ -90,9 +90,9 @@ async def test_send_wraps_smtp_error(monkeypatch):
 
 
 async def test_send_crlf_in_recipient_becomes_mailerror(monkeypatch):
-    # Перевод строки в адресе EmailMessage не пропускает (заслон от инъекции
-    # заголовков) — но это должно стать MailError, а не улететь голым
-    # ValueError из фоновой задачи. И до самой отправки дойти не должно.
+    # EmailMessage rejects a newline in the address (a barrier against header
+    # injection) — but this must become a MailError, not fly off as a bare
+    # ValueError from the background task. And it must not reach the actual send.
     sent = {"called": False}
 
     async def fake_send(message, **kw):
@@ -101,5 +101,5 @@ async def test_send_crlf_in_recipient_becomes_mailerror(monkeypatch):
     monkeypatch.setattr(mailer.aiosmtplib, "send", fake_send)
     cfg = SmtpConfig(host="smtp.x", from_addr="from@x")
     with pytest.raises(mailer.MailError):
-        await mailer.send(cfg, "victim@x\nBcc: evil@x", "тема", "<b>h</b>", "t")
+        await mailer.send(cfg, "victim@x\nBcc: evil@x", "subject", "<b>h</b>", "t")
     assert sent["called"] is False

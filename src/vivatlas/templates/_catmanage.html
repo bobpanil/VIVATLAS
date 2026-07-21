@@ -1,9 +1,9 @@
-{# Управлялка папок — одна на общие (админ-панель) и личные (настройки).
-   rid делает id уникальными (иконки, форма порядка); scope уходит в создание;
-   back — куда вернуться после действия (/settings или /admin). #}
+{# Folder manager — one for shared (admin panel) and personal (settings).
+   rid keeps ids unique (icons, order form); scope goes into creation;
+   back — where to return to after an action (/settings or /admin). #}
 {% macro cat_manage(cats, scope, rid, placeholder, back='/settings') %}
-    {# Список рисуем всегда (даже пустым): созданную папку скрипт вставляет сюда
-       сразу, без перезагрузки — а вставлять некуда, если списка нет. #}
+    {# Always render the list (even when empty): the script inserts a newly created
+       folder here at once, without a reload — and there's nowhere to insert if no list exists. #}
     <ul class="cat-manage" id="{{ rid }}-list" data-reorder="{{ rid }}" data-next="{{ back }}">
         {% for c in cats %}
         {% include "_catrow.html" %}

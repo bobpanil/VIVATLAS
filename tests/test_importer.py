@@ -2,7 +2,7 @@ import pytest
 
 from vivatlas.importer import ImportError_, parse_url
 
-# --- целый репозиторий ---
+# --- whole repository ---
 
 
 def test_plain_repo_url():
@@ -21,24 +21,24 @@ def test_repo_url_with_trailing_slash():
 
 
 def test_tree_without_path_is_whole_repo():
-    # /tree/main — это просто ветка, а не папка.
+    # /tree/main is just a branch, not a folder.
     s = parse_url("https://github.com/a/b/tree/main")
     assert s.kind == "repo"
     assert s.ref == "main"
 
 
-# --- папка ---
+# --- folder ---
 
 
 def test_folder_url():
-    # Ровно то, откуда приехали design-lib.
+    # Exactly where design-lib came from.
     s = parse_url("https://github.com/VoltAgent/awesome-design-md/tree/main/design-md/stripe")
     assert s.kind == "folder"
     assert s.path == "design-md/stripe"
     assert s.ref == "main"
     assert s.leaf == "stripe"
-    # Имя по правилу зеркала: репозиторий + папка, а не просто папка. Иначе
-    # 74 набора из одного awesome-design-md легли бы на один адрес.
+    # Name by the mirror rule: repository + folder, not just the folder. Otherwise
+    # 74 sets from a single awesome-design-md would land on one address.
     assert s.suggested_name == "awesome-design-md-stripe"
 
 
@@ -48,7 +48,7 @@ def test_deep_folder_name_is_the_last_part():
     assert s.suggested_name == "b-my-tool"
 
 
-# --- файл ---
+# --- file ---
 
 
 def test_blob_url():
@@ -66,7 +66,7 @@ def test_raw_url():
     assert s.path == "docs/SKILL.md"
 
 
-# --- чего не умеем, о том говорим прямо ---
+# --- what we can't do, we say plainly ---
 
 
 def test_gitlab_is_rejected_clearly():
@@ -76,7 +76,7 @@ def test_gitlab_is_rejected_clearly():
 
 def test_garbage_is_rejected():
     with pytest.raises(ImportError_):
-        parse_url("просто текст")
+        parse_url("just text")
     with pytest.raises(ImportError_):
         parse_url("https://example.com/a/b")
 
@@ -91,11 +91,11 @@ def test_whitespace_is_tolerated():
     assert s.full_repo == "a/b"
 
 
-# --- имя по адресу на GitHub (правило зеркала пути) ---
+# --- name from the GitHub address (path mirror rule) ---
 
 
 def test_whole_repo_mirrors_github_exactly():
-    # Канонический случай самого Бориса: адрес Gitea повторяет адрес GitHub.
+    # Boris's own canonical case: the Gitea address mirrors the GitHub address.
     src = parse_url("https://github.com/mvanhorn/last30days-skill")
     assert src.mirror_owner == "mvanhorn"
     assert src.mirror_name == "last30days-skill"
@@ -108,8 +108,8 @@ def test_owner_case_is_kept():
 
 
 def test_subfolder_of_a_monorepo_carries_the_folder():
-    # 74 набора из одного awesome-design-md должны разойтись по разным именам,
-    # иначе все 74 лягут на один адрес.
+    # 74 sets from a single awesome-design-md must split into different names,
+    # otherwise all 74 would land on one address.
     a = parse_url("https://github.com/VoltAgent/awesome-design-md/tree/main/design-md/airbnb")
     b = parse_url("https://github.com/VoltAgent/awesome-design-md/tree/main/design-md/apple")
     assert a.mirror_owner == b.mirror_owner == "VoltAgent"
@@ -119,8 +119,8 @@ def test_subfolder_of_a_monorepo_carries_the_folder():
 
 
 def test_two_airbnb_from_different_sources_do_not_collide():
-    # Тревога Бориса: второй airbnb не должен спорить с первым. У них разные
-    # владельцы — и адреса расходятся сами собой.
+    # Boris's worry: the second airbnb must not clash with the first. They have different
+    # owners — and the addresses diverge on their own.
     ours = parse_url("https://github.com/VoltAgent/awesome-design-md/tree/main/design-md/airbnb")
     theirs = parse_url("https://github.com/someone/design-kits/tree/main/airbnb")
     assert (
@@ -129,6 +129,6 @@ def test_two_airbnb_from_different_sources_do_not_collide():
 
 
 def test_unsafe_characters_become_dashes_not_gone():
-    # Пробел не выбрасываем: "foo bar" и "foobar" — разные имена.
+    # We don't drop the space: "foo bar" and "foobar" are different names.
     src = parse_url("https://github.com/VoltAgent/awesome-design-md/tree/main/design-md/my kit")
     assert src.mirror_name == "awesome-design-md-my-kit"

@@ -27,7 +27,7 @@ def test_text_files_are_read():
 def test_binary_files_are_listed_but_not_read():
     contents = read_archive(make_tar({"preview.svg": b"<svg/>", "logo.png": b"\x89PNG\x00"}))
     assert contents.get("logo.png").text is None
-    assert contents.get("logo.png") is not None  # но в списке есть
+    assert contents.get("logo.png") is not None  # but present in the list
 
 
 def test_git_internals_are_skipped():
@@ -35,7 +35,7 @@ def test_git_internals_are_skipped():
     assert contents.paths == ["README.md"]
 
 
-# --- секреты ---
+# --- secrets ---
 
 
 def test_secret_files_are_never_read():
@@ -50,7 +50,7 @@ def test_secret_files_are_never_read():
         )
     )
     for path in (".env", "id_rsa", "server.pem"):
-        assert contents.get(path).text is None, f"{path} прочитан, а не должен"
+        assert contents.get(path).text is None, f"{path} was read but should not have been"
     assert contents.get("README.md").text == "safe"
 
 
@@ -64,7 +64,7 @@ def test_secret_content_never_reaches_doc_text():
 
 
 def test_example_files_are_not_secrets():
-    # .env.example не содержит настоящих значений — читать можно.
+    # .env.example does not contain real values — safe to read.
     assert is_secret_file(".env.example") is False
     assert is_secret_file("config.sample") is False
     assert is_secret_file(".env") is True
@@ -72,9 +72,9 @@ def test_example_files_are_not_secrets():
 
 
 def test_big_anchor_file_is_still_read():
-    # Была ошибка: потолок 200 КБ молча выбрасывал SKILL.md на 207 КБ
-    # (mvanhorn/last30days-skill), и карточка выходила с текстом
-    # "документация отсутствует". Опорный файл терять нельзя.
+    # Bug: the 200 KB ceiling silently dropped a 207 KB SKILL.md
+    # (mvanhorn/last30days-skill), and the card came out with the text
+    # "documentation missing". The anchor file must never be lost.
     big = b"# Skill\n" + b"x" * 300_000
     contents = read_archive(make_tar({"SKILL.md": big}))
     assert contents.get("SKILL.md").text is not None

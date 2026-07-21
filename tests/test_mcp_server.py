@@ -8,7 +8,7 @@ from vivatlas.models import Artifact, ArtifactTag, Repository, Source, Tag
 
 @pytest.fixture
 def catalog(make_session, monkeypatch):
-    """Подсовываем инструментам временную базу вместо боевой."""
+    """Feed the tools a temporary database instead of the production one."""
     session = make_session()
     source = Source(kind="fake", base_url="https://x", display_name="Fake")
     session.add(source)
@@ -28,21 +28,21 @@ def catalog(make_session, monkeypatch):
         name="airbnb",
         artifact_type="design-kit",
         confidence=0.95,
-        summary_short="Дизайн-набор Airbnb",
-        summary_normal="Цвета и шрифты",
-        summary_technical="Токены",
+        summary_short="Airbnb design kit",
+        summary_normal="Colours and fonts",
+        summary_technical="Tokens",
         file_count=3,
         source_commit="abc12345deadbeef",
-        shared=True,  # общая карточка из общего каталога — MCP отдаёт только такие
+        shared=True,  # shared card from the shared catalogue — MCP returns only these
     )
     session.add(art)
     session.flush()
-    tag = Tag(slug="design-system", label="design-system", category="тип")
+    tag = Tag(slug="design-system", label="design-system", category="type")
     session.add(tag)
     session.flush()
     session.add(
         ArtifactTag(
-            artifact_id=art.id, tag_id=tag.id, source="derived", confidence=0.95, origin="правило"
+            artifact_id=art.id, tag_id=tag.id, source="derived", confidence=0.95, origin="rule"
         )
     )
     session.commit()
@@ -78,8 +78,8 @@ async def test_all_tools_are_registered():
 
 
 async def test_every_tool_has_a_description():
-    # Описание — это то, по чему модель на той стороне решает, звать ли
-    # инструмент. Без него он бесполезен.
+    # The description is what the model on the other side uses to decide whether
+    # to call the tool. Without it, the tool is useless.
     for tool in await mcp_server.mcp.list_tools():
         assert tool.description and len(tool.description.strip()) > 20, tool.name
 
@@ -89,9 +89,9 @@ async def test_get_artifact_returns_card(catalog):
     d = await call("get_artifact", {"artifact_id": art.id})
 
     assert d["name"] == "design-lib/airbnb"
-    assert d["summary_short"] == "Дизайн-набор Airbnb"
+    assert d["summary_short"] == "Airbnb design kit"
     assert d["tags"][0]["source"] == "derived"
-    assert d["commit"] == "abc12345"  # укорочен, а не весь
+    assert d["commit"] == "abc12345"  # shortened, not the full one
 
 
 async def test_get_artifact_missing_says_so_without_crashing(catalog):
@@ -106,20 +106,20 @@ async def test_quality_notes_warn_about_weak_data(catalog):
     session.commit()
 
     d = await call("get_artifact", {"artifact_id": art.id})
-    # Та сторона должна знать, чему верить, а чему нет.
-    assert any("неуверенно" in n for n in d["notes"])
-    assert any("описания нет" in n for n in d["notes"])
+    # The other side needs to know what to trust and what not to.
+    assert any("low confidence" in n for n in d["notes"])
+    assert any("no description" in n for n in d["notes"])
 
 
 async def test_catalog_overview_mentions_private_are_skipped(catalog):
     d = await call("catalog_overview", {})
     assert d["artifacts"] == 1
-    assert "Приватные не сканируются" in d["note"]
+    assert "Private ones aren't scanned" in d["note"]
 
 
 async def test_list_artifacts_limit_is_capped(catalog):
-    # Ответ читает модель с ограниченной памятью — нельзя позволить попросить
-    # тысячу карточек и забить ей всю память.
+    # A model with limited memory reads the response — we can't let it ask for
+    # a thousand cards and flood its whole memory.
     d = await call("list_artifacts", {"limit": 9999})
     assert d["showing"] <= mcp_server.MAX_LIMIT
 

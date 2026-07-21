@@ -6,22 +6,22 @@
 {% endmacro %}
 
 {% block content %}
-{# Заголовок страницы для доступности: на экране его не видно (логотип и так
-   говорит, где мы), но по нему работает переход по заголовкам в скринридере и
-   он задаёт тему документа. #}
+{# Page heading for accessibility: not visible on screen (the logo already
+   says where we are), but it drives heading navigation in the screen reader and
+   sets the document's subject. #}
 <h1 class="vh">{{ t('catalog.h1') }}</h1>
-{# Сколько фильтров активно — все теперь за кнопкой «Фильтры» (тип/зона/избранное
-   переехали в шторку из верхнего ряда). Бейдж на кнопке показывает это число. #}
+{# How many filters are active — they all now live behind the "Filters" button
+   (type/zone/favourites moved into the sheet from the top row). The button badge shows this number. #}
 {% set sheet_active = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0)
     + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) %}
-{# Липкая шапка: при листании остаётся на месте, карточки уходят под неё.
-   Один ряд — поиск по центру программы, справа «Фильтры» и размер, аватар
-   стоит у base.html поверх справа. Под рядом — подсказка, тип-таблетки,
-   активные фильтры. #}
+{# Sticky header: stays put while scrolling, cards slide underneath it.
+   One row — search centred on the app, "Filters" and size on the right, the avatar
+   is placed by base.html on top at the right. Below the row — a hint, type chips,
+   active filters. #}
 <div class="stickyhead">
     <div class="toolbar">
-        {# Пустая распорка слева, равная правой колонке: поиск с «Найти» встают
-           ровно по центру программы. #}
+        {# Empty spacer on the left, matching the right column: search with "Find" land
+           exactly at the centre of the app. #}
         <div class="toolbar-left" aria-hidden="true"></div>
 
         <form class="searchform" action="/" method="get" role="search">
@@ -29,10 +29,10 @@
                 <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
                        placeholder="{{ t('index.search_placeholder') }}"
                        aria-label="{{ t('index.search_aria') }}">
-                {# Enter отправляет форму; значок — та же кнопка отправки для тех,
-                   кто кликает. Значок внутри поля, у конца строки. Без title —
-                   подсказки у поиска не показываем (aria-label остаётся для
-                   скринридеров). #}
+                {# Enter submits the form; the icon is the same submit button for those
+                   who click. The icon sits inside the field, at the end of the line. No title —
+                   we don't show a tooltip on search (aria-label stays for
+                   screen readers). #}
                 <button class="search-go" type="submit" aria-label="{{ t('index.find_btn') }}">{{ icons.ic('search') }}</button>
             </div>
             {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
@@ -46,11 +46,11 @@
                 {{ icons.ic('filter') }}{% if sheet_active %}<b class="fbadge">{{ sheet_active }}</b>{% endif %}
             </button>
             {% endif %}
-            {# Ручка размера. Показываем всегда на каталоге (даже когда карточек
-               ещё нет) — иначе панель «прыгает» между пустым и полным видом, и
-               значок размера пропадал. Прячем только на разборе ссылки (link).
-               Без скриптов останется вид по умолчанию — сетка рабочая в любом
-               случае. Слева — одна карточка (крупнее), справа — много (мельче). #}
+            {# Size handle. Always shown on the catalogue (even when there are no
+               cards yet) — otherwise the panel "jumps" between the empty and full view, and
+               the size icon would disappear. We hide it only on link parsing (link).
+               Without scripts the default view stays — the grid works either
+               way. On the left — one card (bigger), on the right — many (smaller). #}
             {% if not link %}
             <div class="sizectl">
                 <span class="sizectl-ic sizectl-few" aria-hidden="true" title="{{ t('index.size_bigger') }}">
@@ -72,8 +72,8 @@
                     <button class="sheet-x" type="button" id="sheet-x" aria-label="{{ t('index.close') }}">×</button>
                 </div>
                 <div class="sheet-body">
-                    {# Сортировка каталога. При поиске порядок задаёт релевантность —
-                       там сортировку не показываем. #}
+                    {# Catalogue sorting. On search, relevance sets the order —
+                       there we don't show sorting. #}
                     {% if not q %}
                     <p class="fgroup">{{ t('index.sort_group') }}</p>
                     <nav class="filters" aria-label="{{ t('index.sort_group') }}">
@@ -86,7 +86,7 @@
                     </nav>
                     {% endif %}
 
-                    {# Тип/зона/избранное — теперь здесь, а не отдельным рядом наверху. #}
+                    {# Type/zone/favourites — now here, not as a separate row at the top. #}
                     <p class="fgroup">{{ t('index.view_group') }}</p>
                     <nav class="filters" aria-label="{{ t('index.view_group') }}">
                         <a class="filter" href="/{% if q %}?q={{ q|urlencode }}{% endif %}"
@@ -163,13 +163,13 @@
     <p class="hint">{{ t('index.found_count', count=items|length) }}</p>
     {% endif %}
 
-    {# Активные фильтры больше не выносим отдельным рядом наверх — их число видно
-       бейджем на кнопке «Фильтры», а сами они отмечены галочкой в шторке. #}
+    {# We no longer pull active filters out into a separate row at the top — their count is shown
+       by a badge on the "Filters" button, and they themselves are ticked in the sheet. #}
 </div>
 
-{# Полоса скана: живёт, пока идёт сбор из личного источника. Заполняется и
-   обновляется скриптом (опрос /scan/status). Есть скан в контексте — рисуем
-   сразу, чтобы полоса была видна ещё до первого опроса. #}
+{# Scan bar: lives while collecting from a private source. Filled and
+   updated by the script (polling /scan/status). If there's a scan in context — we render
+   right away, so the bar is visible even before the first poll. #}
 <div class="scanbar" id="scanbar" {% if not scan %}hidden{% endif %}
      {% if scan %}data-state="{{ scan.state }}" data-done="{{ scan.done }}"
      data-total="{{ scan.total }}" data-added="{{ scan.added }}"
@@ -189,8 +189,8 @@
 </div>
 
 {% if link %}
-{# Искать ссылку среди названий бессмысленно — такого текста в карточках нет.
-   Раньше это молча возвращало пустоту. Предлагаем то, зачем её и принесли. #}
+{# Searching for a link among names is pointless — there's no such text in the cards.
+   This used to silently return nothing. We offer what it was actually brought here for. #}
 <div class="banner banner-blue">
     <div>
         <b>{{ t('index.banner_link_title') }}</b>
@@ -203,9 +203,9 @@
 </div>
 {% endif %}
 
-{# «У вас пропало из избранного»: карточку удалил её владелец. Избранное —
-   ссылка, не копия, поэтому не даём ей исчезнуть молча. Закрывается — и гаснет
-   в базе. #}
+{# "Gone from your favourites": the card was deleted by its owner. A favourite is
+   a link, not a copy, so we don't let it vanish silently. Dismiss it — and it clears
+   in the database. #}
 {% if removed_notices %}
 <div class="removed-banner" id="removed-banner" role="status">
     <span class="removed-text">{{ t('index.removed_from_fav', names=removed_notices | map(attribute='name') | join(', ')) }}</span>
@@ -222,8 +222,8 @@ function dismissRemoved() {
 
 {% if items or scan %}
 {% set next_path = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
-{# Пустую сетку тоже рисуем, если идёт скан: скрипт вставит в неё карточки
-   поштучно по мере обработки. #}
+{# We render an empty grid too if a scan is running: the script will insert cards
+   into it one by one as they're processed. #}
 <div class="grid">
     {% for it in items %}
     {% include "_carditem.html" %}
@@ -249,29 +249,29 @@ function dismissRemoved() {
 </div>
 {% endif %}
 
-{# Скриншот, вставленный на главной, уходит на разбор сам. Поле поиска его
-   всё равно не примет — картинку не с чем сравнивать по смыслу. #}
+{# A screenshot pasted on the home page goes off to parsing on its own. The search field
+   won't take it anyway — there's nothing to compare an image against by meaning. #}
 <form id="pasteform" method="post" action="/add" enctype="multipart/form-data" hidden>
     <input type="file" name="file" id="pastefile" aria-label="{{ t('index.paste_file_aria') }}">
 </form>
 <script>
-// Ручка размера карточек. Меняет вид сразу и запоминает выбор на этом
-// устройстве: настройка личная, в адрес её тащить незачем — ссылкой делятся,
-// чтобы показать находку, а не свой размер плиток.
+// Card size handle. Changes the view instantly and remembers the choice on this
+// device: the setting is personal, no point dragging it into the URL — a link is shared
+// to show a find, not your own tile size.
 (function () {
     var slider = document.getElementById('cols');
     if (!slider) return;
 
     function apply(n, remember) {
         document.documentElement.style.setProperty('--cols', n);
-        // Масштаб содержимого карточки: больше столбцов → мельче карточки не
-        // только по ширине (сетка), но и по высоте (шрифт/отступы). Так плитки
-        // уменьшаются в обе стороны, а не вытягиваются узкими и длинными.
+        // Scale of the card content: more columns → smaller cards not
+        // only in width (the grid), but also in height (font/padding). This way tiles
+        // shrink in both directions instead of stretching narrow and long.
         var scale = Math.max(0.72, Math.min(1.3, 5 / (parseInt(n, 10) + 1)));
         document.documentElement.style.setProperty('--card-scale', scale.toFixed(3));
         slider.value = n;
         if (remember) {
-            try { localStorage.setItem('vivatlas-cols', n); } catch (e) { /* приватный режим */ }
+            try { localStorage.setItem('vivatlas-cols', n); } catch (e) { /* private mode */ }
         }
     }
 
@@ -282,9 +282,9 @@ function dismissRemoved() {
     slider.addEventListener('input', function () { apply(slider.value, true); });
 })();
 
-// Шторка фильтров. На десктопе выпадает под кнопкой, на телефоне — снизу.
-// Без скрипта останется скрытой, но «Тип» наверху и активные фильтры видны и
-// снимаются ссылками — то есть фильтровать можно и так.
+// Filters sheet. On desktop it drops down under the button, on the phone — from the bottom.
+// Without the script it stays hidden, but "Type" at the top and the active filters are visible and
+// cleared by links — so you can filter that way too.
 (function () {
     var btn = document.getElementById('filters-btn');
     var sheet = document.getElementById('sheet');
@@ -311,7 +311,7 @@ function dismissRemoved() {
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !sheet.hidden) close();
     });
-    // Клик вне шторки на десктопе — закрыть.
+    // Click outside the sheet on desktop — close.
     document.addEventListener('click', function (e) {
         if (sheet.hidden) return;
         if (!sheet.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
@@ -328,23 +328,23 @@ document.addEventListener('paste', function (e) {
         try {
             var dt = new DataTransfer();
             var ext = (f.type.split('/')[1] || 'png').split('+')[0];
-            dt.items.add(new File([f], 'вставлено.' + ext, { type: f.type }));
+            dt.items.add(new File([f], 'pasted.' + ext, { type: f.type }));
             document.getElementById('pastefile').files = dt.files;
             document.getElementById('pasteform').submit();
         } catch (err) {
-            window.location = '/add';   // не вышло — пусть выберет файл руками
+            window.location = '/add';   // didn't work — let them pick the file by hand
         }
         return;
     }
 });
 
-// Копировать ссылку на репозиторий прямо из карточки — чтобы вставить её,
-// например, в Claude Code, не открывая карточку ради адреса.
+// Copy the repository link straight from the card — to paste it,
+// for example, into Claude Code, without opening the card just for the address.
 (function () {
     function flash(btn) {
         btn.classList.add('ok');
         var t = btn.getAttribute('title');
-        btn.setAttribute('title', 'Скопировано');
+        btn.setAttribute('title', 'Copied');
         setTimeout(function () {
             btn.classList.remove('ok');
             btn.setAttribute('title', t);
@@ -366,7 +366,7 @@ document.addEventListener('paste', function (e) {
         ta.style.top = '-1000px';
         document.body.appendChild(ta);
         ta.select();
-        try { document.execCommand('copy'); flash(btn); } catch (e) { /* не вышло */ }
+        try { document.execCommand('copy'); flash(btn); } catch (e) { /* didn't work */ }
         document.body.removeChild(ta);
     }
     document.addEventListener('click', function (e) {
@@ -378,11 +378,11 @@ document.addEventListener('paste', function (e) {
     });
 })();
 
-// Перетаскивание карточки в папку сайдбара. Пока тянем — приложение слегка
-// затемняется, остальные карточки гаснут, а область папок подсвечивается
-// (свечение), чтобы было ясно, куда бросать. Бросили на папку — карточка туда
-// ложится (владелец; иначе сервер ответит отказом). После успеха перезагружаем
-// вид — карточка/счётчики встают верно без хрупкой ручной правки DOM.
+// Dragging a card into a sidebar folder. While dragging — the app dims
+// slightly, the other cards fade, and the folder area lights up
+// (a glow), so it's clear where to drop. Dropped on a folder — the card
+// files there (owner; otherwise the server responds with a refusal). On success we reload
+// the view — the card/counters land correctly without brittle manual DOM editing.
 (function () {
     var dragId = null;
     var root = document.documentElement;
@@ -405,13 +405,13 @@ document.addEventListener('paste', function (e) {
         dragId = card.getAttribute('data-id');
         try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); } catch (x) {}
         card.classList.add('dragging');
-        // Затемняем поле и подсвечиваем область папок (см. css .card-dragging).
+        // Dim the field and light up the folder area (see css .card-dragging).
         root.classList.add('card-dragging');
     });
     document.addEventListener('dragend', endDrag);
 
-    // Пока тащим карточку, весь список категорий принимает бросок, но кладём
-    // только на реальную папку.
+    // While dragging a card, the whole category list accepts the drop, but we file
+    // only onto a real folder.
     var inCat = function (el) { return el && el.closest ? el.closest('#cat-list') : null; };
 
     document.addEventListener('dragover', function (e) {
@@ -422,11 +422,11 @@ document.addEventListener('paste', function (e) {
         try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
         var drop = e.target.closest ? e.target.closest('.side-drop') : null;
         unlight();
-        // Общие папки не-администратору бросок не принимают — не подсвечиваем.
+        // Shared folders don't accept a drop from a non-admin — we don't light them up.
         if (drop && !drop.getAttribute('data-nodrop')) drop.classList.add('drag-over');
     });
 
-    // Мягкий отклик «положили в папку»: короткая анимация.
+    // A soft "filed into a folder" response: a short animation.
     function flash(card) {
         if (!card) return;
         card.classList.remove('filed');
@@ -445,23 +445,23 @@ document.addEventListener('paste', function (e) {
         var drop = e.target.closest ? e.target.closest('.side-drop') : null;
         var id = dragId;
         endDrag();
-        if (!drop) return;                               // бросили мимо папки
-        if (drop.getAttribute('data-nodrop')) return;    // общая папка, не админ
+        if (!drop) return;                               // dropped past a folder
+        if (drop.getAttribute('data-nodrop')) return;    // shared folder, not admin
         var body = new FormData();
         body.append('cat', drop.getAttribute('data-cat'));
-        body.append('op', 'add');   // перетаскивание ДОБАВЛЯЕТ членство
+        body.append('op', 'add');   // dragging ADDS membership
         fetch('/artifact/' + id + '/category', {
             method: 'POST', headers: { 'Accept': 'application/json' }, body: body
         }).then(function (r) {
-            if (!r.ok) throw new Error('отказ ' + r.status);
+            if (!r.ok) throw new Error('rejected ' + r.status);
             return r.json();
         }).then(function (data) {
-            // Уже лежала там — ничего не изменилось: только мигнём карточкой.
+            // Already there — nothing changed: we just flash the card.
             if (data && data.changed === false) {
                 flash(document.querySelector('.card[data-id="' + id + '"]'));
                 return;
             }
-            // Изменилось — перерисуем вид: карточка получит папку, счётчики сойдутся.
+            // Changed — redraw the view: the card gets a folder, the counters add up.
             location.reload();
         }).catch(function (err) {
             alert(('' + err).indexOf('403') > -1
@@ -471,8 +471,8 @@ document.addEventListener('paste', function (e) {
     });
 })();
 
-// Избранное: переключаем без перезагрузки. Без скрипта форма отправится сама и
-// вернётся на этот же вид (см. поле next).
+// Favourites: we toggle without a reload. Without the script the form submits on its own and
+// returns to this same view (see the next field).
 (function () {
     document.addEventListener('submit', function (e) {
         var form = e.target.closest ? e.target.closest('.fav-form') : null;
@@ -487,13 +487,13 @@ document.addEventListener('paste', function (e) {
             if (!btn) return;
             btn.classList.toggle('on', !!d.favorite);
             btn.setAttribute('aria-pressed', d.favorite ? 'true' : 'false');
-        }).catch(function () { form.submit(); });   // не вышло — обычная отправка
+        }).catch(function () { form.submit(); });   // didn't work — regular submit
     });
 })();
 
-// Полоса скана личного источника. Пока сервер в фоне собирает карточки, раз в
-// пару секунд спрашиваем /scan/status (двигаем полосу) и /scan/cards (вставляем
-// новые карточки поштучно, без перезагрузки) и обновляем счётчик «все».
+// Private-source scan bar. While the server collects cards in the background, every
+// couple of seconds we ask /scan/status (move the bar) and /scan/cards (insert
+// new cards one by one, without a reload) and update the "all" counter.
 (function () {
     var bar = document.getElementById('scanbar');
     if (!bar) return;
@@ -506,7 +506,7 @@ document.addEventListener('paste', function (e) {
     var grid = document.querySelector('.grid');
     var countAll = document.getElementById('count-all');
 
-    // С какого id тянуть новые карточки: максимум уже показанных.
+    // From which id to pull new cards: the max of those already shown.
     var maxId = 0;
     if (grid) {
         grid.querySelectorAll('.card[data-id]').forEach(function (c) {
@@ -522,7 +522,7 @@ document.addEventListener('paste', function (e) {
     }
     xbtn.addEventListener('click', dismiss);
 
-    // Забрать и вставить карточки, добавленные после maxId. Пустой ответ — ничего.
+    // Fetch and insert cards added after maxId. An empty response — nothing.
     function pullCards() {
         if (!grid) return Promise.resolve();
         return fetch('/scan/cards?after=' + maxId, { headers: { 'Accept': 'application/json' } })
@@ -548,26 +548,26 @@ document.addEventListener('paste', function (e) {
         bar.setAttribute('data-state', s.state || 'idle');
         if (s.state === 'running') {
             spin.hidden = false;
-            title.textContent = 'Собираю ваши инструменты' + (s.source ? ' — ' + s.source : '');
-            sub.textContent = total ? ('обработано ' + done + ' из ' + total)
-                                    : 'читаю список репозиториев…';
+            title.textContent = 'Collecting your tools' + (s.source ? ' — ' + s.source : '');
+            sub.textContent = total ? ('processed ' + done + ' of ' + total)
+                                    : 'reading the repository list…';
             fill.style.width = (total ? Math.round(done / total * 100) : 8) + '%';
             xbtn.hidden = true;
         } else if (s.state === 'done') {
             spin.hidden = true;
-            title.textContent = 'Готово' + (s.source ? ' — ' + s.source : '');
-            sub.textContent = added ? ('добавлено инструментов: ' + added)
-                                    : 'новых инструментов не нашлось';
+            title.textContent = 'Done' + (s.source ? ' — ' + s.source : '');
+            sub.textContent = added ? ('tools added: ' + added)
+                                    : 'no new tools found';
             fill.style.width = '100%';
             xbtn.hidden = false;
         } else if (s.state === 'error') {
             spin.hidden = true;
-            title.textContent = 'Сканирование не удалось';
+            title.textContent = 'Scan failed';
             sub.textContent = s.error || '';
             fill.style.width = '100%';
             xbtn.hidden = false;
         } else {
-            dismiss();   // idle — скана нет
+            dismiss();   // idle — no scan
         }
     }
 
@@ -595,8 +595,8 @@ document.addEventListener('paste', function (e) {
     }
 })();
 
-// Переключатель зоны в футере карточки (замок ↔ глобус). Без скрипта форма
-// отправится сама и вернётся на этот же вид (поле next).
+// Zone toggle in the card footer (lock ↔ globe). Without the script the form
+// submits on its own and returns to this same view (the next field).
 (function () {
     document.addEventListener('submit', function (e) {
         var form = e.target.closest ? e.target.closest('.zone-form') : null;
@@ -608,9 +608,9 @@ document.addEventListener('paste', function (e) {
             headers: { 'Accept': 'application/json' },
             body: new FormData(form)
         }).then(function (r) {
-            // Сервер отказал (напр. администратор пытается вернуть в общее чужую
-            // карточку — так нельзя): не перекрашиваем оптимистично, а
-            // перезагружаемся обычной отправкой — состояние встанет верное.
+            // The server refused (e.g. an admin tries to return someone else's
+            // card to shared — not allowed): we don't repaint optimistically, but
+            // reload via a regular submit — the state will land correct.
             if (!r.ok) throw new Error('rejected');
             return r.json();
         }).then(function (d) {
@@ -618,13 +618,13 @@ document.addEventListener('paste', function (e) {
             btn.classList.toggle('zone-private', !!d.private);
             btn.classList.toggle('zone-common', !d.private);
             btn.setAttribute('title', d.private
-                ? 'Частная — видна только вам. Нажмите, чтобы опубликовать.'
-                : 'Публичная — видят все. Нажмите, чтобы сделать частной.');
-            btn.setAttribute('aria-label', d.private ? 'Сделать публичной' : 'Сделать частной');
-            // Перекрашиваем рамку карточки под новую зону.
+                ? 'Private — visible only to you. Click to publish.'
+                : 'Public — visible to everyone. Click to make private.');
+            btn.setAttribute('aria-label', d.private ? 'Make public' : 'Make private');
+            // Repaint the card border to match the new zone.
             var card = form.closest ? form.closest('.card') : null;
             if (card) card.setAttribute('data-zone', d.zone || (d.private ? 'private' : 'common'));
-        }).catch(function () { form.submit(); });   // не вышло — обычная отправка
+        }).catch(function () { form.submit(); });   // didn't work — regular submit
     });
 })();
 </script>

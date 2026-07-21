@@ -10,17 +10,17 @@ KEY = "test-secret-key-12345"
 
 @respx.mock
 async def test_key_goes_in_header_not_in_url():
-    # Была утечка: ключ передавался как ?key=... и httpx писал полный адрес в
-    # лог — ключ оказывался в каждой строчке лога.
+    # There was a leak: the key was passed as ?key=... and httpx wrote the full URL
+    # to the log — the key ended up in every log line.
     route = respx.post(f"{BASE}/models/m:embedContent").mock(
         return_value=httpx.Response(200, json={"embedding": {"values": [0.1, 0.2]}})
     )
     model = GoogleEmbeddingModel(KEY, "m", dim=2)
-    await model.embed("привет")
+    await model.embed("hello")
     await model.aclose()
 
     request = route.calls.last.request
-    assert KEY not in str(request.url), "ключ в адресе — утечёт в логи"
+    assert KEY not in str(request.url), "key in the URL — it will leak into the logs"
     assert request.headers["x-goog-api-key"] == KEY
 
 
@@ -32,13 +32,13 @@ async def test_empty_key_fails_loudly():
 
 @respx.mock
 async def test_wrong_dimension_is_an_error():
-    # Модель вернула не столько чисел, сколько просили. Молча принять нельзя:
-    # такие числа несравнимы с остальными в базе.
+    # The model returned a different count of numbers than requested. Can't accept it silently:
+    # such numbers aren't comparable to the rest in the database.
     respx.post(f"{BASE}/models/m:embedContent").mock(
         return_value=httpx.Response(200, json={"embedding": {"values": [0.1, 0.2, 0.3]}})
     )
     model = GoogleEmbeddingModel(KEY, "m", dim=2)
-    with pytest.raises(GoogleAIError, match="ожидали 2"):
+    with pytest.raises(GoogleAIError, match="expected 2"):
         await model.embed("x")
     await model.aclose()
 
@@ -66,7 +66,7 @@ async def test_retries_on_overload_then_succeeds():
 async def test_gives_up_after_retries_with_clear_message():
     respx.post(f"{BASE}/models/m:generateContent").mock(return_value=httpx.Response(429))
     model = GoogleTextModel(KEY, "m")
-    with pytest.raises(GoogleAIError, match="квота"):
+    with pytest.raises(GoogleAIError, match="quota"):
         await model.generate_json("p", {"type": "object"})
     await model.aclose()
 
@@ -77,6 +77,6 @@ async def test_empty_answer_is_an_error_not_empty_dict():
         return_value=httpx.Response(200, json={"candidates": [{"finishReason": "SAFETY"}]})
     )
     model = GoogleTextModel(KEY, "m")
-    with pytest.raises(GoogleAIError, match="пустой ответ"):
+    with pytest.raises(GoogleAIError, match="empty response"):
         await model.generate_json("p", {"type": "object"})
     await model.aclose()

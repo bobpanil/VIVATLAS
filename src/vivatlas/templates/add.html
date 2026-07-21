@@ -11,8 +11,8 @@
 
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
-{# Одно окно на всё: ссылку набирают или вставляют, скриншот на телефоне лежит
-   в буфере, а не в файлах. Вставка, перетаскивание, выбор — три пути, одно место. #}
+{# One field for everything: the link is typed or pasted, a phone screenshot sits
+   in the clipboard, not in files. Paste, drag, pick — three paths, one place. #}
 <form class="add-form" method="post" action="/add" enctype="multipart/form-data"
       id="addform" onsubmit="working(this)">
     <div class="drop" id="drop">
@@ -192,17 +192,17 @@
 
 {% block scripts %}
 <script>
-// Работа идёт на сервере и занимает секунды. Без блокировки на кнопку жмут
-// второй раз — а на последнем шаге это второй импорт. Кнопка теперь в футере,
-// вне формы (form=), поэтому ищем её и внутри, и снаружи.
+// The work runs on the server and takes seconds. Without disabling it, the button gets
+// clicked a second time — and on the last step that's a second import. The button now lives
+// in the footer, outside the form (form=), so we look for it both inside and out.
 function working(form) {
     var b = form.querySelector('button[type="submit"]')
         || document.querySelector('button[type="submit"][form="' + form.id + '"]');
     if (b) { b.disabled = true; b.textContent = {{ t('add.js_working') | tojson }}; }
 }
 
-// Одно окно принимает всё: текст, вставленную ссылку, картинку из буфера,
-// перетащенный или выбранный файл.
+// One field accepts everything: text, a pasted link, an image from the clipboard,
+// a dragged or picked file.
 (function () {
     var drop = document.getElementById('drop');
     if (!drop) return;
@@ -223,7 +223,7 @@ function working(form) {
         } catch (e) {
             return;
         }
-        chipname.textContent = f.name + ' · ' + Math.round(f.size / 1024) + ' КБ';
+        chipname.textContent = f.name + ' · ' + Math.round(f.size / 1024) + ' KB';
         if (f.type.indexOf('image/') === 0) {
             thumb.src = URL.createObjectURL(f);
             thumb.hidden = false;
@@ -257,7 +257,7 @@ function working(form) {
                     e.preventDefault();
                     if (!f.name || f.name === 'image.png') {
                         var ext = (f.type.split('/')[1] || 'png').split('+')[0];
-                        f = new File([f], 'вставлено.' + ext, { type: f.type });
+                        f = new File([f], 'pasted.' + ext, { type: f.type });
                     }
                     attach(f);
                     return;

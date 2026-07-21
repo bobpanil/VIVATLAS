@@ -27,8 +27,8 @@ def repo_json(rid: int, name: str, private: bool = False) -> dict:
 
 @respx.mock
 async def test_sends_browser_user_agent():
-    # Инстанс отвечает 403 без узнаваемого User-Agent — если заголовок
-    # потеряется, сканирование молча перестанет работать целиком.
+    # The instance responds 403 without a recognizable User-Agent — if the header
+    # is lost, scanning silently stops working entirely.
     route = respx.get(f"{API}/repos/search").mock(
         return_value=httpx.Response(200, json={"data": []})
     )
@@ -105,8 +105,8 @@ async def test_http_error_is_raised_not_swallowed():
 
 
 def test_provider_really_has_all_its_methods():
-    # Однажды методы записи оказались дописаны внутрь другой функции, а не в
-    # класс. Программа собиралась, тесты шли, а импорт падал на живом запуске.
+    # Once the write methods ended up added inside another function rather than the
+    # class. The program built, the tests passed, but the import failed on a live run.
     from vivatlas.providers.gitea import GiteaProvider
 
     for name in (
@@ -120,7 +120,7 @@ def test_provider_really_has_all_its_methods():
         "delete_repo",
         "aclose",
     ):
-        assert hasattr(GiteaProvider, name), f"у GiteaProvider нет {name}"
+        assert hasattr(GiteaProvider, name), f"GiteaProvider has no {name}"
         assert callable(getattr(GiteaProvider, name))
 
 

@@ -1,13 +1,13 @@
-"""Иконки для категорий-папок — набор для ручного выбора.
+"""Icons for folder categories — a set for manual selection.
 
-Простые контурные значки 16×16, рисуются цветом текста. Ключ хранится в
-Category.icon; пусто — папка без значка. Держим набор в одном месте, чтобы и
-выбор в настройках, и показ в сайдбаре брали из него.
+Simple 16×16 outline icons, drawn in the text colour. The key is stored in
+Category.icon; empty means a folder with no icon. We keep the set in one place so
+both the settings picker and the sidebar display draw from it.
 """
 
-# ruff: noqa: E501 — это данные: пути SVG длинные, ломать их по строкам вредно.
+# ruff: noqa: E501 — this is data: SVG paths are long, breaking them across lines hurts.
 
-# slug -> внутренность <svg viewBox="0 0 16 16"> (без внешнего тега)
+# slug -> the inside of <svg viewBox="0 0 16 16"> (without the outer tag)
 ICONS: dict[str, str] = {
     "folder": '<path d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.5 1.5h5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z"/>',
     "star": '<path d="M8 2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.9 4.4 13.1l.7-4L2.2 6.3l4-.6z"/>',
@@ -42,58 +42,58 @@ ICONS: dict[str, str] = {
     "bell": '<path d="M8 2a3.5 3.5 0 0 0-3.5 3.5c0 4-1.5 5-1.5 5h10s-1.5-1-1.5-5A3.5 3.5 0 0 0 8 2zM6.5 13a1.5 1.5 0 0 0 3 0"/>',
 }
 
-# Порядок для сетки выбора.
+# Order for the picker grid.
 ICON_SLUGS: list[str] = list(ICONS.keys())
 
 
-# Подсказка иконки по смыслу названия: список (ключ-иконка, слова). Первое
-# совпадение выигрывает. Слова и русские, и английские — язык запроса не важен.
+# Icon suggestion by the meaning of the name: list of (icon-key, words). The first
+# match wins; matched as substrings against the lowercased folder name.
 _SUGGEST: list[tuple[str, tuple[str, ...]]] = [
-    ("palette", ("дизайн", "design", "оформл", "ui", "ux", "фронт", "front", "вёрст", "верст", "стил", "бренд", "brand")),
-    ("terminal", ("автоматиз", "automat", "cli", "скрипт", "script", "терминал", "terminal", "команд", "bash", "shell")),
-    ("code", ("код", "code", "разработ", "программ", "рефактор", "refactor", "dev")),
-    ("search", ("исследован", "research", "аналит", "analyt", "поиск", "search", "изуч")),
-    ("database", ("данны", "data", "база", "database", "хранил", "sql", "датасет")),
-    ("chart", ("график", "chart", "метрик", "metric", "статист", "dashboard", "отчёт", "отчет")),
-    ("shield", ("безопасн", "security", "secur", "защит", "приват", "privacy")),
-    ("bug", ("ошибк", "bug", "баг", "дебаг", "debug", "тест", "test", "провер", "qa")),
-    ("cloud", ("облак", "cloud", "деплой", "deploy", "devops", "хостинг", "infra", "ci")),
-    ("globe", ("сеть", "network", "web", "api", "интернет", "глобал", "http")),
-    ("film", ("медиа", "media", "видео", "video", "ролик", "reel", "фильм")),
-    ("camera", ("фото", "photo", "картин", "image", "снимок", "скрин")),
-    ("book", ("документ", "doc", "книг", "book", "справоч", "guide", "заметк", "note", "wiki")),
-    ("rocket", ("ракет", "rocket", "запуск", "launch", "старт", "mvp", "релиз", "release")),
-    ("bolt", ("быстр", "perf", "speed", "performance", "скорост", "оптимиз")),
-    ("sparkles", ("ai", "нейро", "gpt", "llm", "магия", "idea", "идея", "умн")),
-    ("wrench", ("инструмент", "tool", "наладк", "утилит", "util", "конфиг", "config")),
-    ("star", ("избранн", "favor", "любим", "star", "лучш", "топ")),
+    ("palette", ("design", "ui", "ux", "front", "brand", "css", "style", "layout")),
+    ("terminal", ("automat", "cli", "script", "terminal", "bash", "shell")),
+    ("code", ("code", "refactor", "dev", "program")),
+    ("search", ("research", "analyt", "search", "explore")),
+    ("database", ("data", "database", "sql", "dataset", "store")),
+    ("chart", ("chart", "metric", "dashboard", "stats", "report")),
+    ("shield", ("security", "secur", "privacy", "protect")),
+    ("bug", ("bug", "debug", "test", "qa", "check")),
+    ("cloud", ("cloud", "deploy", "devops", "infra", "ci", "host")),
+    ("globe", ("network", "web", "api", "http", "internet")),
+    ("film", ("media", "video", "reel", "film")),
+    ("camera", ("photo", "image", "screenshot", "picture")),
+    ("book", ("doc", "book", "guide", "note", "wiki", "reference")),
+    ("rocket", ("rocket", "runtime", "launch", "start", "mvp", "release")),
+    ("bolt", ("perf", "speed", "performance", "optimi")),
+    ("sparkles", ("ai", "neural", "gpt", "llm", "idea", "smart")),
+    ("wrench", ("tool", "util", "config", "setup")),
+    ("star", ("favor", "star", "top", "best")),
 ]
 
 
-# Цвета категорий: у каждой папки свой устойчивый цвет, чтобы все её карточки
-# (значок и дата в подвале, значок в сайдбаре) читались как одна группа. Берём
-# по id, детерминированно — цвет не «прыгает» между заходами.
+# Category colours: each folder has its own stable colour so all its cards
+# (icon and date in the footer, icon in the sidebar) read as one group. We derive
+# it from the id, deterministically — the colour doesn't "jump" between visits.
 CATEGORY_COLORS: list[str] = [
-    "#c2418f",  # малиновый
-    "#2f7d8c",  # бирюзовый
-    "#4a5bbf",  # индиго
-    "#d98200",  # янтарный
-    "#2e8b57",  # зелёный
-    "#7a4fb5",  # фиолетовый
-    "#2f6fb0",  # синий
-    "#b5643a",  # терракота
-    "#0f9d8f",  # изумруд
-    "#a03c78",  # пурпур
+    "#c2418f",  # raspberry
+    "#2f7d8c",  # turquoise
+    "#4a5bbf",  # indigo
+    "#d98200",  # amber
+    "#2e8b57",  # green
+    "#7a4fb5",  # violet
+    "#2f6fb0",  # blue
+    "#b5643a",  # terracotta
+    "#0f9d8f",  # emerald
+    "#a03c78",  # purple
 ]
 
 
 def category_color(cat_id: int) -> str:
-    """Устойчивый цвет папки по её id. Одна папка — один цвет для всех карточек."""
+    """Stable folder colour by its id. One folder — one colour for all its cards."""
     return CATEGORY_COLORS[(int(cat_id) - 1) % len(CATEGORY_COLORS)]
 
 
 def suggest_icon(name: str) -> str:
-    """Иконка, подходящая по смыслу названия. Не угадали — папка."""
+    """Icon that fits the meaning of the name. No match — folder."""
     low = name.lower()
     for slug, words in _SUGGEST:
         if any(w in low for w in words):
@@ -102,13 +102,13 @@ def suggest_icon(name: str) -> str:
 
 
 def icon_inner(slug: str) -> str:
-    """Внутренность svg по ключу, или пусто."""
+    """The svg inside for a key, or empty."""
     return ICONS.get(slug, "")
 
 
 def caticon_svg(slug: str):
-    """Готовый <svg> иконки для шаблонов. Пусто — ничего. Регистрируется как
-    глобал caticon в КАЖДОМ окружении шаблонов, где нужен (у модулей свои env)."""
+    """Ready-made icon <svg> for templates. Empty — nothing. Registered as the
+    caticon global in EVERY template environment that needs it (modules have their own env)."""
     from markupsafe import Markup
 
     inner = ICONS.get(slug, "")

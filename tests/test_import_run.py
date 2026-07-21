@@ -33,7 +33,7 @@ def make_plan(files=None, kind="folder") -> ImportPlan:
 
 
 class FakeGitea:
-    """Поддельная Gitea. Настоящую в тестах не трогаем."""
+    """Fake Gitea. We don't touch the real one in tests."""
 
     def __init__(self, existing: set[str] | None = None, fail_at: int | None = None) -> None:
         self.existing = existing or set()
@@ -57,7 +57,7 @@ class FakeGitea:
 
     async def put_file(self, owner, name, path, content, message, branch="main"):
         if self.fail_at is not None and len(self.written) >= self.fail_at:
-            raise RuntimeError("сеть отвалилась")
+            raise RuntimeError("network dropped")
         self.written.append(path)
         return {}
 
@@ -65,7 +65,7 @@ class FakeGitea:
         self.deleted.append(f"{owner}/{name}")
 
 
-# --- создание ---
+# --- creation ---
 
 
 async def test_import_creates_repo_and_writes_files(session):
@@ -83,22 +83,22 @@ async def test_import_creates_repo_and_writes_files(session):
 
 
 async def test_existing_repo_is_never_overwritten(session):
-    # Самое опасное: затереть то, что уже есть. Отказ, а не перезапись.
+    # The most dangerous thing: wiping out what already exists. Refuse, don't overwrite.
     gitea = FakeGitea(existing={"skills-lib/last30days"})
 
-    with pytest.raises(RuntimeError, match="уже есть"):
+    with pytest.raises(RuntimeError, match="already exists"):
         await execute(session, gitea, make_plan(), "https://git.example.com")
 
     assert gitea.created == []
     assert gitea.written == []
 
 
-# --- откат ---
+# --- rollback ---
 
 
 async def test_failure_midway_rolls_back(session):
-    # Половина репозитория хуже, чем ничего: карточка выйдет кривой, а отметка
-    # источника будет врать.
+    # Half a repository is worse than nothing: the card comes out wrong, and the
+    # source marker will lie.
     files = [ImportFile(f"f{i}.md", b"x", f"up/f{i}.md", f"sha{i}") for i in range(5)]
     gitea = FakeGitea(fail_at=3)
 
@@ -107,7 +107,7 @@ async def test_failure_midway_rolls_back(session):
 
     assert gitea.created == ["skills-lib/last30days"]
     assert len(gitea.written) == 3
-    assert gitea.deleted == ["skills-lib/last30days"], "созданное не откатилось"
+    assert gitea.deleted == ["skills-lib/last30days"], "created was not rolled back"
 
 
 async def test_nothing_lands_in_db_when_import_fails(session):
@@ -119,12 +119,12 @@ async def test_nothing_lands_in_db_when_import_fails(session):
     assert session.scalars(select(Repository)).all() == []
 
 
-# --- отметка источника ---
+# --- source marker ---
 
 
 async def test_baseline_is_honest_by_construction(session):
-    # Мы сами только что скопировали файлы — значит копия и оригинал совпадают
-    # заведомо. Отметка не может быть "разошлось до того, как начали следить".
+    # We just copied the files ourselves — so the copy and the original match by
+    # construction. The marker can't be "diverged before we started watching".
     gitea = FakeGitea()
     await execute(session, gitea, make_plan(), "https://git.example.com")
     session.commit()
@@ -140,12 +140,12 @@ async def test_baseline_is_honest_by_construction(session):
     assert link.status == "in-sync"
     assert link.baseline_local_sha == link.baseline_upstream_sha == "sha-anchor"
     assert link.baseline_at is not None
-    assert link.discovered_by == "импортировано этой программой"
+    assert link.discovered_by == "imported by this program"
     assert link.upstream_path == "skills/last30days/SKILL.md"
 
 
 async def test_without_anchor_status_is_unknown_not_in_sync(session):
-    # Нечего сравнивать — так и говорим, а не рисуем "всё совпадает".
+    # Nothing to compare — so we say so, instead of pretending "everything matches".
     files = [ImportFile("data.json", b"{}", "up/data.json", "sha-x")]
     gitea = FakeGitea()
     await execute(session, gitea, make_plan(files), "https://git.example.com")
@@ -160,7 +160,7 @@ async def test_without_anchor_status_is_unknown_not_in_sync(session):
     session.commit()
 
     assert link.status == "unknown"
-    assert "нет опорного файла" in link.check_error
+    assert "no anchor file" in link.check_error
 
 
 async def test_imported_repo_is_findable_by_upstream(session):
@@ -180,9 +180,9 @@ async def test_imported_repo_is_findable_by_upstream(session):
 
 
 async def test_record_upstream_overwrites_existing_link(session):
-    # Сборка карточки уже заводит источник по original_url, который мы сами и
-    # проставили. Наши сведения точнее — у нас слепки. Надо перезаписать, а не
-    # упасть на "такая запись уже есть".
+    # Card building already creates a source from the original_url that we set
+    # ourselves. Our information is more precise — we have snapshots. We need to
+    # overwrite, not fail on "such a record already exists".
     from vivatlas.models import UpstreamLink
 
     gitea = FakeGitea()
@@ -194,13 +194,13 @@ async def test_record_upstream_overwrites_existing_link(session):
     session.add(art)
     session.flush()
 
-    # кто-то уже завёл запись, без слепков
+    # someone already created a record, without snapshots
     session.add(
         UpstreamLink(
             artifact_id=art.id,
             kind="gitea-mirror",
             upstream_repo="mvanhorn/last30days-skill",
-            discovered_by="Gitea: это зеркало",
+            discovered_by="Gitea: this is a mirror",
             status="unknown",
         )
     )
@@ -209,7 +209,7 @@ async def test_record_upstream_overwrites_existing_link(session):
     link = record_upstream(session, art.id, make_plan())
     session.commit()
 
-    assert len(session.scalars(select(UpstreamLink)).all()) == 1, "завелась вторая запись"
-    assert link.discovered_by == "импортировано этой программой"
+    assert len(session.scalars(select(UpstreamLink)).all()) == 1, "a second record was created"
+    assert link.discovered_by == "imported by this program"
     assert link.status == "in-sync"
     assert link.baseline_local_sha == "sha-anchor"

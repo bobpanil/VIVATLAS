@@ -1,13 +1,13 @@
-"""Для чего инструмент — одним значком.
+"""What a tool is for — in a single icon.
 
-Направления не выдуманы, а сложены из тегов, которые реально стоят на
-карточках. Проверялось по живой базе: у скиллов встречаются web-accessibility,
-playwright, lighthouse, security-scanning, code-refactoring — из них и
-получились разделы. Тега нет ни в одном списке — значит направление не
-определено, так и пишем. Придумывать значок наугад хуже, чем не ставить.
+The purposes aren't invented; they're assembled from tags that actually sit on
+the cards. Checked against the live database: skills carry web-accessibility,
+playwright, lighthouse, security-scanning, code-refactoring — and those became
+the sections. If a tag is in none of the lists, the purpose is undefined, and
+that's what we write. Guessing an icon at random is worse than leaving it off.
 
-Значки одноцветные намеренно: в каталоге 74 дизайн-набора со своими палитрами,
-и цветные иконки дрались бы с ними.
+The icons are single-colour on purpose: the catalogue holds 74 design kits with
+their own palettes, and colourful icons would clash with them.
 """
 
 from dataclasses import dataclass
@@ -22,16 +22,16 @@ from vivatlas.models import ArtifactTag, Tag
 class Purpose:
     key: str
     label: str
-    icon: str  # готовое содержимое <svg>, 16x16, рисуется цветом текста
+    icon: str  # ready <svg> contents, 16x16, drawn in the text colour
 
 
-# Порядок = приоритет при равном числе совпадений. Сначала узкое и говорящее,
-# в конце широкое: "оформление" подошло бы почти всему, поэтому оно последнее.
+# Order = priority when the match counts are equal. Narrow and telling first,
+# broad last: "styling" would fit almost anything, so it comes last.
 PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "security",
-            "безопасность",
+            "security",
             '<path d="M8 1.5 2.5 4v4c0 3 2.3 5.6 5.5 6.5 3.2-.9 5.5-3.5 5.5-6.5V4L8 1.5Z"/>',
         ),
         {
@@ -51,7 +51,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "accessibility",
-            "доступность",
+            "accessibility",
             '<circle cx="8" cy="8" r="6.2"/><path d="M8 5.2v5.6M5.4 7h5.2"/>',
         ),
         {
@@ -69,7 +69,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "performance",
-            "скорость",
+            "speed",
             '<path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z"/>',
         ),
         {
@@ -84,7 +84,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "testing",
-            "проверка",
+            "testing",
             '<path d="M2.5 8.5 6 12l7.5-8"/>',
         ),
         {
@@ -103,7 +103,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "research",
-            "исследование",
+            "research",
             '<circle cx="7" cy="7" r="4.7"/><path d="M10.4 10.4 14 14"/>',
         ),
         {
@@ -121,7 +121,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "code",
-            "код",
+            "code",
             '<path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4"/>',
         ),
         {
@@ -138,7 +138,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "automation",
-            "автоматизация",
+            "automation",
             (
                 '<circle cx="8" cy="8" r="2.3"/>'
                 '<path d="M8 1.6v2.1M8 12.3v2.1M14.4 8h-2.1M3.7 8H1.6'
@@ -160,7 +160,7 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
     (
         Purpose(
             "design",
-            "оформление",
+            "styling",
             (
                 '<path d="M8 1.6a6.4 6.4 0 1 0 0 12.8c.9 0 1.4-.6 1.4-1.3 0-.9-.7-1.2-.7-1.9'
                 ' 0-.5.4-.9 1-.9h1.3a3.4 3.4 0 0 0 3.4-3.4c0-3-2.9-5.3-6.4-5.3Z"/>'
@@ -205,15 +205,15 @@ PURPOSES: list[tuple[Purpose, set[str]]] = [
 
 UNKNOWN = Purpose(
     "unknown",
-    "не определено",
+    "undefined",
     '<path d="M3 8h10"/>',
 )
 
 
-# Слово в имени весит больше любого тега. Проверено на живой базе:
-# site-accessibility-auditor по тегам выходил "проверкой" (playwright,
-# web-testing перевесили), хотя доступность у него прямо в названии. Автор
-# назвал инструмент — он и знает, для чего тот сделан.
+# A word in the name weighs more than any tag. Checked against the live database:
+# site-accessibility-auditor came out as "testing" by its tags (playwright,
+# web-testing outweighed it), though accessibility is right there in the name. The
+# author named the tool — they know what it was built for.
 _NAME_HINTS: list[tuple[str, tuple[str, ...]]] = [
     ("security", ("security", "vulnerab", "secret", "audit-sec")),
     ("accessibility", ("accessib", "a11y", "wcag")),
@@ -226,14 +226,14 @@ _NAME_HINTS: list[tuple[str, tuple[str, ...]]] = [
 ]
 
 NAME_WEIGHT = 3
-MIN_SCORE = 2  # одно случайное совпадение — не вывод
+MIN_SCORE = 2  # a single chance match isn't a conclusion
 
 
 def detect(tag_slugs: list[str], name: str = "") -> tuple[Purpose, int]:
-    """Направление по тегам и имени. Возвращает (направление, вес).
+    """Purpose from tags and name. Returns (purpose, weight).
 
-    Совпадений меньше двух — не определяем. Одинокий тег это случайность, а
-    неверный значок хуже, чем никакого: он врёт, а пустой просто молчит.
+    Fewer than two matches — we don't decide. A lone tag is coincidence, and
+    a wrong icon is worse than none: it lies, an empty one just stays silent.
     """
     tags = {t.lower() for t in tag_slugs}
     lowered = name.lower()

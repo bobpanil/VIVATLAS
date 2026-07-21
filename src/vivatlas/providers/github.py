@@ -1,13 +1,13 @@
-"""GitHub — пока не подключён.
+"""GitHub — not wired up yet.
 
-Место под будущего провайдера. Чтобы включить: реализовать методы ниже поверх
-GitHub REST API и зарегистрировать класс в providers/__init__.py. Остальной код
-трогать не придётся — он работает через GitProvider.
+A placeholder for a future provider. To enable it: implement the methods below on top of
+the GitHub REST API and register the class in providers/__init__.py. The rest of the code
+won't need touching — it works through GitProvider.
 
-Отличия от Gitea, которые здесь придётся учесть:
-  - постраничность через заголовок Link, а не через пустую страницу;
-  - архив отдаётся редиректом на codeload;
-  - лимит запросов виден в заголовках X-RateLimit-*.
+Differences from Gitea to account for here:
+  - pagination via the Link header, not via an empty page;
+  - the archive is served as a redirect to codeload;
+  - the rate limit is visible in the X-RateLimit-* headers.
 """
 
 from vivatlas.providers.base import RepoRef
@@ -18,7 +18,7 @@ class GitHubProvider:
 
     def __init__(self, *args, **kwargs) -> None:
         raise NotImplementedError(
-            "Провайдер GitHub ещё не реализован. Сейчас поддерживается только Gitea."
+            "The GitHub provider is not implemented yet. Only Gitea is currently supported."
         )
 
     async def list_repositories(self) -> list[RepoRef]:

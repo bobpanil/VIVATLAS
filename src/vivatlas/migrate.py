@@ -1,9 +1,9 @@
-"""Приведение базы к текущей схеме.
+"""Bring the database up to the current schema.
 
-Полноценная система миграций (Alembic) для одного пользователя и одного файла
-базы — лишний вес. Здесь хватает трёх шагов: создать недостающие таблицы,
-дописать недостающие столбцы, пересобрать таблицу полнотекстового поиска.
-Все шаги можно повторять сколько угодно раз.
+A full-blown migration system (Alembic) is dead weight for a single user and a
+single database file. Three steps are enough here: create missing tables,
+add missing columns, rebuild the full-text search table.
+Every step can be repeated any number of times.
 """
 
 import logging
@@ -15,7 +15,7 @@ from vivatlas.models import Base
 
 log = logging.getLogger(__name__)
 
-# Столбцы, добавленные после первого выпуска: таблица → столбец → тип.
+# Columns added after the first release: table → column → type.
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "artifacts": {
         "file_paths": "TEXT DEFAULT ''",
@@ -24,9 +24,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "hidden": "BOOLEAN DEFAULT 0",
         "is_new": "BOOLEAN DEFAULT 0",
         "owner_user_id": "INTEGER",
-        # Без DEFAULT намеренно: у существующих строк тут ляжет NULL, и это метка
-        # «ещё не мигрировано». После вывода из private_to_user_id NULL исчезнет,
-        # и повторный прогон уже ничего не тронет.
+        # No DEFAULT on purpose: existing rows get NULL here, which flags them as
+        # "not yet migrated". Once derived from private_to_user_id the NULL is gone,
+        # and a repeat run touches nothing.
         "shared": "BOOLEAN",
     },
     "repositories": {
@@ -42,22 +42,22 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "categories": {
         "icon": "VARCHAR(32) DEFAULT ''",
         "names_json": "TEXT DEFAULT ''",
-        # Пусто = общая (админская) папка; задан = личная папка человека. У
-        # существующих папок ляжет NULL — они и есть прежние общие. Отдельного
-        # backfill не нужно.
+        # Empty = shared (admin) folder; set = a user's personal folder. Existing
+        # folders get NULL — those are the former shared ones. No separate
+        # backfill needed.
         "owner_user_id": "INTEGER",
     },
     "users": {
-        # Аватар по умолчанию из набора. У существующих строк ляжет '' —
-        # backfill ниже проставит каждому случайный.
+        # Default avatar from the preset set. Existing rows get '' — the
+        # backfill below assigns each a random one.
         "avatar_preset": "VARCHAR(32) DEFAULT ''",
     },
 }
 
-# Индексы, которые модель объявляет на добавленных позже столбцах. create_all не
-# трогает уже существующую таблицу, а ALTER ADD COLUMN идёт без индекса, поэтому
-# на обновлённой боевой базе их пришлось бы досоздавать вручную. Имена — как их
-# даёт SQLAlchemy (ix_<таблица>_<столбец>), чтобы на свежей базе не задвоить.
+# Indexes the model declares on columns added later. create_all doesn't touch an
+# already-existing table, and ALTER ADD COLUMN comes without an index, so on an
+# upgraded production database they'd have to be created by hand. Names match what
+# SQLAlchemy gives (ix_<table>_<column>) so a fresh database doesn't double them.
 _ADDED_INDEXES = [
     ("ix_artifacts_owner_user_id", "artifacts", "owner_user_id"),
     ("ix_artifacts_shared", "artifacts", "shared"),
@@ -65,12 +65,12 @@ _ADDED_INDEXES = [
     ("ix_categories_owner_user_id", "categories", "owner_user_id"),
 ]
 
-# Полнотекстовый поиск. unicode61 разбирает и русский, и английский;
-# remove_diacritics убирает разницу между "ё" и "е".
+# Full-text search. unicode61 parses both Russian and English;
+# remove_diacritics erases the difference between the Russian letters yo and ye.
 #
-# Таблица хранит свою копию текста (обычный режим, без content=''). Режим
-# без содержимого экономит место, но не умеет удалять строки — а нам надо
-# обновлять карточки. На нашем объёме копия текста весит единицы мегабайт.
+# The table keeps its own copy of the text (normal mode, without content=''). The
+# contentless mode saves space but can't delete rows — and we need to
+# update cards. At our volume the text copy weighs a few megabytes.
 _FTS_SQL = """
 CREATE VIRTUAL TABLE IF NOT EXISTS artifacts_fts USING fts5(
     name,
@@ -84,11 +84,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS artifacts_fts USING fts5(
 
 
 def create_fts_table(conn) -> None:
-    """Создать таблицу поиска по словам.
+    """Create the full-text search table.
 
-    Отдельно от ensure_schema, чтобы тесты поднимали ту же схему, что и боевая
-    база: create_all виртуальные таблицы не создаёт, и без этого поиск по
-    словам падает на пустом месте.
+    Kept separate from ensure_schema so tests bring up the same schema as the
+    production database: create_all doesn't create virtual tables, and without
+    this full-text search fails out of the gate.
     """
     conn.execute(text(_FTS_SQL))
 
@@ -114,13 +114,13 @@ def _table_exists(conn, table: str) -> bool:
 
 
 def derive_ownership(conn) -> int:
-    """Вывести owner_user_id/shared из старой отметки private_to_user_id ОДИН раз.
+    """Derive owner_user_id/shared from the old private_to_user_id flag ONCE.
 
-    Задан пользователь — он владелец, карточка личная (shared=0); пусто — общая
-    затравка без владельца (shared=1). Метка «ещё не мигрировано» — shared IS
-    NULL; после прогона NULL исчезает, и повтор трогает 0 строк (идемпотентно).
-    Возвращает, сколько карточек перевели. 0 — колонок ещё нет или всё уже
-    переведено. Порядок важен: зовётся ПОСЛЕ правки private в ensure_schema.
+    User set — they're the owner, the card is private (shared=0); empty — a
+    shared seed with no owner (shared=1). The "not yet migrated" flag is shared IS
+    NULL; after a run the NULL is gone, and a repeat touches 0 rows (idempotent).
+    Returns how many cards were converted. 0 — the columns aren't there yet or
+    everything is already converted. Order matters: called AFTER the private fixup in ensure_schema.
     """
     if not _table_exists(conn, "artifacts"):
         return 0
@@ -139,10 +139,10 @@ def derive_ownership(conn) -> int:
     ).rowcount
 
 
-# Новая таблица категорий: имя больше НЕ глобально-уникальное (иначе двое не
-# завели бы по «Дизайну» и сам факт чужой папки утекал бы отказом). Уникальность
-# теперь в пределах владельца + частичный индекс для общих имён. Схема повторяет
-# модель Category, чтобы ALTER ADD COLUMN потом ничего не досоздавал.
+# New categories table: the name is NO longer globally unique (else two people
+# couldn't both make a "Design" folder and someone else's folder would leak via a
+# rejection). Uniqueness is now per-owner + a partial index for shared names. The
+# schema mirrors the Category model so ALTER ADD COLUMN creates nothing later.
 _CATEGORIES_NEW_DDL = """
 CREATE TABLE categories_new (
     id INTEGER NOT NULL,
@@ -160,10 +160,10 @@ CREATE TABLE categories_new (
 
 
 def _needs_category_rebuild(cur) -> bool:
-    """Осталась ли на categories старая ГЛОБАЛЬНАЯ уникальность имени? Признак —
-    уникальный авто-индекс (origin='u') ровно по одному столбцу [name]. После
-    пересборки уникальность станет составной (owner_user_id, name), её авто-индекс
-    покрывает два столбца, и эта проверка вернёт False — то есть идемпотентно."""
+    """Does categories still carry the old GLOBAL name uniqueness? The tell is a
+    unique auto-index (origin='u') over exactly one column [name]. After the
+    rebuild uniqueness becomes composite (owner_user_id, name), its auto-index
+    covers two columns, and this check returns False — i.e. idempotent."""
     for _seq, name, unique, origin, *_ in cur.execute("PRAGMA index_list(categories)").fetchall():
         if unique == 1 and origin == "u":
             cols = [ci[2] for ci in cur.execute(f"PRAGMA index_info('{name}')").fetchall()]
@@ -173,13 +173,13 @@ def _needs_category_rebuild(cur) -> bool:
 
 
 def rebuild_categories_scope() -> bool:
-    """Разово пересобрать categories, сняв глобальную уникальность имени и добавив
-    owner_user_id. SQLite не умеет снять inline-UNIQUE через ALTER — только полной
-    пересборкой таблицы. Делаем ВНЕ основной транзакции и с foreign_keys=OFF:
-    иначе DROP старой таблицы каскадом (ArtifactCategory.category_id ON DELETE
-    CASCADE) стёр бы уже перенесённое членство, а по artifacts.category_id
-    (SET NULL) — само значение, из которого мы переносим. Возвращает True, если
-    пересобрали. Идемпотентно: со второго раза _needs_category_rebuild — False."""
+    """Rebuild categories once, dropping global name uniqueness and adding
+    owner_user_id. SQLite can't drop an inline UNIQUE via ALTER — only via a full
+    table rebuild. Done OUTSIDE the main transaction and with foreign_keys=OFF:
+    otherwise dropping the old table would cascade (ArtifactCategory.category_id ON
+    DELETE CASCADE) and wipe already-migrated membership, and via artifacts.category_id
+    (SET NULL) the very value we migrate from. Returns True if it
+    rebuilt. Idempotent: on the second pass _needs_category_rebuild is False."""
     if engine.dialect.name != "sqlite":
         return False
     raw = engine.raw_connection()
@@ -192,15 +192,15 @@ def rebuild_categories_scope() -> bool:
         if not exists or not _needs_category_rebuild(cur):
             return False
         cols = {row[1] for row in cur.execute("PRAGMA table_info(categories)").fetchall()}
-        # На самой старой базе часть столбцов могла ещё не появиться (они в
-        # _ADDED_COLUMNS, а пересборка идёт ДО ALTER ADD COLUMN). Берём столбец,
-        # только если он есть, иначе подставляем значение по умолчанию — COALESCE
-        # спасает от NULL, но не от «нет такого столбца».
+        # On the oldest database some columns may not exist yet (they're in
+        # _ADDED_COLUMNS, and the rebuild runs BEFORE ALTER ADD COLUMN). We take a
+        # column only if it exists, otherwise substitute a default — COALESCE
+        # saves us from NULL, but not from "no such column".
         owner_sel = "owner_user_id" if "owner_user_id" in cols else "NULL"
         names_sel = "COALESCE(names_json, '')" if "names_json" in cols else "''"
         icon_sel = "COALESCE(icon, '')" if "icon" in cols else "''"
         old_iso = dbapi.isolation_level
-        dbapi.isolation_level = None  # ручное управление BEGIN/COMMIT
+        dbapi.isolation_level = None  # manual BEGIN/COMMIT control
         try:
             cur.execute("PRAGMA foreign_keys=OFF")
             cur.execute("BEGIN")
@@ -224,15 +224,15 @@ def rebuild_categories_scope() -> bool:
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_shared_category_name "
                 "ON categories(name) WHERE owner_user_id IS NULL"
             )
-            # Проверяем ТОЛЬКО задетые пересборкой таблицы: общий
-            # foreign_key_check уронил бы миграцию из-за любой посторонней
-            # висящей ссылки в базе, к папкам отношения не имеющей.
+            # Check ONLY the tables touched by the rebuild: a global
+            # foreign_key_check would crash the migration over any unrelated
+            # dangling reference in the database that has nothing to do with folders.
             bad = (
                 cur.execute("PRAGMA foreign_key_check(categories)").fetchall()
                 + cur.execute("PRAGMA foreign_key_check(artifact_categories)").fetchall()
             )
             if bad:
-                raise RuntimeError(f"foreign_key_check после пересборки categories: {bad}")
+                raise RuntimeError(f"foreign_key_check after categories rebuild: {bad}")
             cur.execute("COMMIT")
         except Exception:
             cur.execute("ROLLBACK")
@@ -247,10 +247,10 @@ def rebuild_categories_scope() -> bool:
 
 
 def backfill_artifact_categories(conn) -> int:
-    """Перенести старое одиночное artifacts.category_id в таблицу-связку
-    ArtifactCategory ОДИН раз. NOT EXISTS делает шаг идемпотентным: повтор
-    вставит 0 строк. Прежние категории были общими, так что перенесённое членство
-    сразу в общих папках — доп. правки владельца не нужны."""
+    """Migrate the old single artifacts.category_id into the ArtifactCategory
+    link table ONCE. NOT EXISTS makes the step idempotent: a repeat inserts
+    0 rows. Former categories were shared, so the migrated membership lands
+    straight in shared folders — no extra owner fixup needed."""
     if not (_table_exists(conn, "artifact_categories") and _table_exists(conn, "artifacts")):
         return 0
     if "category_id" not in _existing_columns(conn, "artifacts"):
@@ -272,11 +272,11 @@ def backfill_artifact_categories(conn) -> int:
 
 
 def backfill_avatar_presets(conn) -> int:
-    """Проставить аватар по умолчанию из набора тем, у кого его ещё нет.
+    """Assign a default avatar from the preset set to whoever doesn't have one yet.
 
-    Случайность на стороне Python (в SQLite нет удобного выбора из списка
-    ключей). Идемпотентно: трогаем только пустые/NULL — повтор даёт 0. Возвращает
-    число обновлённых. 0 — столбца/набора нет либо у всех уже задан."""
+    Randomness lives on the Python side (SQLite has no handy pick from a list of
+    keys). Idempotent: we touch only empty/NULL — a repeat yields 0. Returns
+    the number updated. 0 — the column/preset set is missing or everyone already has one."""
     if not _table_exists(conn, "users") or "avatar_preset" not in _existing_columns(conn, "users"):
         return 0
     from vivatlas import usericons
@@ -295,16 +295,16 @@ def backfill_avatar_presets(conn) -> int:
 
 
 def ensure_schema() -> list[str]:
-    """Довести базу до текущей схемы. Возвращает список того, что сделали."""
+    """Bring the database up to the current schema. Returns a list of what was done."""
     done: list[str] = []
 
     Base.metadata.create_all(engine)
 
-    # Пересборку categories делаем СРАЗУ после create_all и ДО основной
-    # транзакции: ей нужен foreign_keys=OFF, а его нельзя переключать внутри
-    # открытой транзакции.
+    # Rebuild categories RIGHT after create_all and BEFORE the main
+    # transaction: it needs foreign_keys=OFF, which can't be toggled inside
+    # an open transaction.
     if rebuild_categories_scope():
-        done.append("папки-категории пересобраны под личные/общие")
+        done.append("category folders rebuilt for personal/shared")
 
     with engine.begin() as conn:
         for table, columns in _ADDED_COLUMNS.items():
@@ -314,19 +314,19 @@ def ensure_schema() -> list[str]:
             for column, ddl in columns.items():
                 if column not in present:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
-                    done.append(f"добавлен столбец {table}.{column}")
+                    done.append(f"added column {table}.{column}")
 
-        # Досоздаём индексы на добавленных столбцах (на этих полях держится вся
-        # видимость — без индекса каждый показ каталога сканирует таблицу).
+        # Create the indexes on the added columns (all visibility rests on these
+        # fields — without an index every catalogue view scans the table).
         for ix, table, column in _ADDED_INDEXES:
             if _table_exists(conn, table) and column in _existing_columns(conn, table):
                 conn.execute(text(f"CREATE INDEX IF NOT EXISTS {ix} ON {table}({column})"))
 
-        # Разовая правка данных: у уже отсканированных карточек личных
-        # источников частная зона держалась на владельце источника. Модель
-        # видимости перешла на явную отметку private_to_user_id — проставим её
-        # тем, где её ещё нет, иначе они стали бы публичными. Идемпотентно:
-        # трогаем только NULL.
+        # One-time data fixup: for already-scanned cards of personal
+        # sources the private zone rode on the source owner. The visibility
+        # model moved to an explicit private_to_user_id flag — set it on
+        # those that don't have it yet, otherwise they'd become public. Idempotent:
+        # we touch only NULL.
         if _table_exists(conn, "artifacts") and _table_exists(conn, "sources"):
             fixed = conn.execute(
                 text(
@@ -346,16 +346,16 @@ def ensure_schema() -> list[str]:
                 )
             ).rowcount
             if fixed:
-                done.append(f"частная зона проставлена {fixed} карточкам личных источников")
+                done.append(f"private zone set on {fixed} cards of personal sources")
 
-        # Владение и «общий» выводим из старой отметки private_to_user_id.
+        # Derive ownership and "shared" from the old private_to_user_id flag.
         derived = derive_ownership(conn)
         if derived:
-            done.append(f"владение/общий выведены из старой зоны для {derived} карточек")
+            done.append(f"ownership/shared derived from the old zone for {derived} cards")
 
-        # Частичный уникальный индекс для ОБЩИХ имён (owner пуст): составная
-        # уникальность (owner, name) его не держит, т.к. SQLite считает NULL
-        # разными. На пересобранных и свежих базах он уже есть — здесь на всякий.
+        # Partial unique index for SHARED names (owner empty): the composite
+        # uniqueness (owner, name) doesn't cover it, since SQLite treats NULLs
+        # as distinct. On rebuilt and fresh databases it already exists — here just in case.
         if _table_exists(conn, "categories") and "owner_user_id" in _existing_columns(
             conn, "categories"
         ):
@@ -366,32 +366,32 @@ def ensure_schema() -> list[str]:
                 )
             )
 
-        # Старое одиночное category_id переносим в таблицу-связку ArtifactCategory.
+        # Migrate the old single category_id into the ArtifactCategory link table.
         filed = backfill_artifact_categories(conn)
         if filed:
-            done.append(f"членство в папках перенесено для {filed} карточек")
+            done.append(f"folder membership migrated for {filed} cards")
 
-        # У кого ещё нет аватара по умолчанию — назначаем случайный из набора.
+        # Whoever lacks a default avatar — assign a random one from the set.
         seeded = backfill_avatar_presets(conn)
         if seeded:
-            done.append(f"аватар по умолчанию назначен {seeded} пользователям")
+            done.append(f"default avatar assigned to {seeded} users")
 
-        # Первая версия таблицы была без содержимого — такая не умеет удалять
-        # строки, а нам надо обновлять карточки. Пересоздаём.
+        # The first version of the table was contentless — that can't delete
+        # rows, and we need to update cards. Recreate it.
         if _fts_is_contentless(conn):
             conn.execute(text("DROP TABLE artifacts_fts"))
-            done.append("пересоздана таблица поиска по словам")
+            done.append("full-text search table recreated")
 
         if not _table_exists(conn, "artifacts_fts"):
             conn.execute(text(_FTS_SQL))
-            if "пересоздана таблица поиска по словам" not in done:
-                done.append("создана таблица поиска по словам")
+            if "full-text search table recreated" not in done:
+                done.append("full-text search table created")
 
     return done
 
 
 def rebuild_fts() -> int:
-    """Перезаполнить таблицу поиска по словам из карточек."""
+    """Refill the full-text search table from the cards."""
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM artifacts_fts"))
         conn.execute(

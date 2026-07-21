@@ -49,7 +49,7 @@ def session():
         yield s
 
 
-# --- правило про приватные ---
+# --- the private-repo rule ---
 
 
 def test_private_repo_is_never_scannable():
@@ -65,8 +65,8 @@ def test_empty_repo_is_skipped():
 
 
 def test_archived_repo_is_still_scannable():
-    # Заархивированный — это старый, а не закрытый. Он-то нам и нужен в списке
-    # протухшего.
+    # Archived means old, not closed. That's exactly what we want in the stale
+    # list.
     assert is_scannable(make_repo(is_archived=True)) is True
 
 
@@ -94,14 +94,14 @@ async def test_private_repos_never_reach_the_database(session):
 async def test_repo_missing_private_flag_is_treated_as_private():
     from vivatlas.providers.gitea import _to_repo_ref
 
-    # Если хостинг не сказал, приватный ли репозиторий, считаем что да.
-    # Ошибиться в эту сторону безопасно, в обратную — нет.
+    # If the host didn't say whether the repository is private, we assume it is.
+    # Erring in this direction is safe, the other way is not.
     repo = _to_repo_ref({"id": 7, "owner": {"login": "x"}, "name": "y"})
     assert repo.is_private is True
     assert is_scannable(repo) is False
 
 
-# --- повторное сканирование ---
+# --- rescanning ---
 
 
 async def test_second_scan_updates_instead_of_duplicating(session):
@@ -131,12 +131,12 @@ async def test_disappeared_repo_is_marked_not_deleted(session):
 
     assert result.gone == 1
     gone = session.scalar(select(Repository).where(Repository.name == "goes"))
-    assert gone is not None  # запись осталась
+    assert gone is not None  # the record is still there
     assert gone.gone_at is not None
 
 
 async def test_repo_that_becomes_private_disappears_from_listing(session):
-    # Репозиторий закрыли. Он пропадает из выдачи, и мы обязаны это заметить.
+    # The repository was made private. It disappears from the listing, and we must notice that.
     provider = FakeProvider([make_repo(external_id="1", name="was-public")])
     source = get_or_create_source(session, "fake", "https://git.example.com", "Fake")
     await scan_source(session, provider, source)

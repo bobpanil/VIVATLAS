@@ -1,9 +1,9 @@
-"""Отбор карточек по признакам.
+"""Filter cards by attributes.
 
-Фильтры строятся из того, что в базе правда есть, а не из выдуманного списка.
-Категории тегов пришли от модели при разметке: назначение, платформа, язык,
-формат, запуск. Пустых фильтров не показываем — выбор, который ничего не
-находит, только раздражает.
+Filters are built from what actually exists in the database, not a made-up list.
+Tag categories came from the model during tagging: purpose, platform, language,
+format, runtime. We don't show empty filters — a choice that finds nothing
+is just annoying.
 """
 
 from dataclasses import dataclass, field
@@ -24,13 +24,13 @@ from vivatlas.models import (
     UpstreamLink,
 )
 
-# Порядок важен: сначала то, чем пользуются чаще.
-CATEGORY_ORDER = ["назначение", "платформа", "язык", "формат", "запуск", "тип", "прочее"]
+# Order matters: the most-used ones first.
+CATEGORY_ORDER = ["purpose", "platform", "language", "format", "runtime", "type", "other"]
 
 PERIODS = {
-    "7": ("за неделю", 7),
-    "30": ("за месяц", 30),
-    "90": ("за три месяца", 90),
+    "7": ("past week", 7),
+    "30": ("past month", 30),
+    "90": ("past three months", 90),
 }
 
 
@@ -44,18 +44,18 @@ class Filters:
     fav: str = ""
     cat: str = ""
     draft: str = ""
-    zone: str = ""  # "private" | "common" — отбор по зоне карточки
-    sort: str = ""  # "" | "name" | "updated" | "added" — порядок в каталоге
+    zone: str = ""  # "private" | "common" — filter by card zone
+    sort: str = ""  # "" | "name" | "updated" | "added" — order in the catalogue
 
     def active(self) -> bool:
-        # Сортировка — не фильтр: она ничего не прячет, поэтому в счётчик
-        # активных фильтров (бейдж) и в «снять всё» не входит.
+        # Sorting is not a filter: it hides nothing, so it's not counted in the
+        # active-filter count (badge) or in "clear all".
         return any(
             (self.type, self.tag, self.days, self.status, self.owner, self.fav, self.cat, self.zone)
         )
 
     def as_query(self, drop: str = "", **override) -> dict:
-        """Для сборки ссылок: те же фильтры, но один снят или заменён."""
+        """For building links: the same filters, but one dropped or replaced."""
         out = {
             "type": self.type,
             "tag": self.tag,
@@ -81,7 +81,7 @@ class Option:
     count: int
     icon: str = ""
     color: str = ""
-    owned: bool = False  # для папок: личная (True) или общая (False)
+    owned: bool = False  # for folders: private (True) or shared (False)
 
 
 @dataclass
@@ -92,16 +92,17 @@ class FilterGroup:
 
 
 def visible_ids(user_id: int | None) -> Select:
-    """id карточек, которые вправе видеть этот человек. Видно, если карточка
-    общая (shared) ИЛИ этот человек — её владелец. Чужое личное — никогда.
+    """IDs of the cards this user is allowed to see. Visible if the card is
+    shared OR this user is its owner. Someone else's private card — never.
 
-    Владение и видимость раздельны: расшаренная карточка остаётся за своим
-    владельцем, а он всё равно видит и свои неразделённые. Граница зон в одном
-    месте, чтобы её нельзя было забыть на каком-то экране.
+    Ownership and visibility are separate: a shared card still belongs to its
+    owner, and they still see their own unshared ones too. The zone boundary is
+    in one place, so it can't be forgotten on some screen.
 
-    Аноним (user_id пуст) видит только общие: сравнивать владельца не с чем, а
-    `owner == None` в SQL превратилось бы в «у кого владелец пуст» и показало бы
-    бесхозные личные — поэтому эту ветку добавляем только при известном человеке.
+    An anonymous user (user_id empty) sees only shared ones: there's nothing to
+    compare the owner against, and `owner == None` in SQL would become "whose
+    owner is empty" and would show ownerless private cards — so we add that branch
+    only when the user is known.
     """
     visible = Artifact.shared.is_(True)
     if user_id is not None:
@@ -112,25 +113,25 @@ def visible_ids(user_id: int | None) -> Select:
 def apply(
     query: Select, f: Filters, fav_ids: set[int] | None = None, user_id: int | None = None
 ) -> Select:
-    # Зона — всегда: даже без фильтров человек видит только своё и общее.
+    # Zone always applies: even with no filters a user sees only their own and shared.
     query = query.where(Artifact.id.in_(visible_ids(user_id)))
-    # Черновики — свой раздел: в общем каталоге их не показываем, а по draft=1
-    # показываем только их. Так недоделанное не мешается с готовым.
+    # Drafts get their own section: we don't show them in the main catalogue, and
+    # draft=1 shows only them. That keeps unfinished work out of the finished.
     if f.draft:
         query = query.where(Artifact.artifact_type == "draft")
     else:
         query = query.where(Artifact.artifact_type != "draft")
     if f.fav:
-        # Избранное — личное: без известного пользователя показывать нечего.
+        # Favourites are personal: with no known user there's nothing to show.
         query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
     if f.zone == "private":
         query = query.where(Artifact.shared.is_(False))
     elif f.zone == "common":
         query = query.where(Artifact.shared.is_(True))
     if f.cat and f.cat.isdigit():
-        # Членство теперь в связке. Папку, которую человек не вправе видеть (чужая
-        # личная), в отбор не пускаем: иначе по пустоте/непустоте результата можно
-        # было бы прощупать её существование и что в ней из общего.
+        # Membership now lives in the link table. A folder the user may not see
+        # (someone else's private) is kept out of the filter: otherwise an empty vs
+        # non-empty result could probe its existence and which shared cards it holds.
         query = query.where(
             Artifact.id.in_(
                 select(ArtifactCategory.artifact_id).where(
@@ -166,16 +167,16 @@ def count_matching(session: Session, f: Filters) -> int:
 
 
 def sort_order(sort: str) -> list:
-    """ORDER BY для просмотра каталога. По умолчанию — по имени (А→Я). «updated» —
-    свежеобновлённые сверху, «added» — недавно заведённые. Дату источника берём
-    подзапросом, а не join, чтобы не спорить с возможным join по владельцу."""
+    """ORDER BY for browsing the catalogue. Default is by name (A→Z). "updated" —
+    freshly updated on top, "added" — recently created. We take the source date via
+    a subquery, not a join, so it won't clash with a possible join on owner."""
     if sort == "updated":
         upd = (
             select(Repository.remote_updated_at)
             .where(Repository.id == Artifact.repository_id)
             .scalar_subquery()
         )
-        # В SQLite NULL при DESC уходит вниз сам — карточки без даты будут в конце.
+        # In SQLite NULL sinks to the bottom on DESC by itself — undated cards end up last.
         return [upd.desc(), Artifact.name]
     if sort == "added":
         return [Artifact.created_at.desc(), Artifact.name]
@@ -185,7 +186,7 @@ def sort_order(sort: str) -> list:
 def tag_groups(
     session: Session, limit_per_group: int = 8, user_id: int | None = None, lang: str = "en"
 ) -> list[FilterGroup]:
-    """Теги, разложенные по категориям. Только те, что реально стоят на карточках."""
+    """Tags grouped by category. Only those actually attached to cards."""
     from vivatlas import i18n
 
     vis = visible_ids(user_id)
@@ -206,8 +207,8 @@ def tag_groups(
         options = by_cat.get(category)
         if not options:
             continue
-        # "источник" и "тип" уже есть отдельными фильтрами — не дублируем.
-        if category in ("тип",):
+        # "source" and "type" already exist as separate filters — don't duplicate them.
+        if category in ("type",):
             continue
         groups.append(
             FilterGroup(
@@ -222,16 +223,16 @@ def tag_groups(
 def category_options(
     session: Session, user_id: int | None = None, lang: str | None = None
 ) -> list[Option]:
-    """Папки со счётчиком: общие + свои личные (чужие личные — никогда, даже
-    администратору). Показываем все, включая пустые: в пустую надо иметь
-    возможность перетащить первую карточку. Сначала общие, потом свои личные.
-    Название — на языке интерфейса (перевод папки), если он задан."""
+    """Folders with a count: shared + your own private (someone else's private —
+    never, even for an admin). We show all, including empty ones: you need to be
+    able to drag the first card into an empty one. Shared first, then your private.
+    Name is in the interface language (folder translation), if one is set."""
     from vivatlas import catnames
 
     vis = visible_ids(user_id)
     vcats = visible_category_ids(user_id)
-    # Счёт по связке и только по видимым карточкам И видимым папкам: карточка в
-    # чужой личной папке не должна попадать ни в чей чужой счётчик.
+    # Count via the link table and only over visible cards AND visible folders: a
+    # card in someone else's private folder must not land in anyone else's count.
     counts = dict(
         session.execute(
             select(ArtifactCategory.category_id, func.count())
@@ -245,7 +246,7 @@ def category_options(
     cats = session.scalars(
         select(Category)
         .where(Category.id.in_(vcats))
-        # Общие (owner пуст) первыми, затем личные — каждая группа по position.
+        # Shared (owner empty) first, then private — each group by position.
         .order_by(Category.owner_user_id.is_not(None), Category.position, Category.name)
     ).all()
     return [
@@ -262,7 +263,7 @@ def category_options(
 
 
 def type_options(session: Session, user_id: int | None = None) -> list[Option]:
-    # Черновики — отдельный раздел, среди типов их не показываем.
+    # Drafts are a separate section; we don't show them among the types.
     rows = session.execute(
         select(Artifact.artifact_type, func.count())
         .where(Artifact.id.in_(visible_ids(user_id)), Artifact.artifact_type != "draft")
@@ -273,8 +274,8 @@ def type_options(session: Session, user_id: int | None = None) -> list[Option]:
 
 
 def zone_counts(session: Session, user_id: int | None = None) -> dict:
-    """Сколько видимых карточек в каждой зоне — для пилюль «частная»/«общая».
-    Черновики не в счёт (у них свой раздел)."""
+    """How many visible cards are in each zone — for the "private"/"shared" pills.
+    Drafts don't count (they have their own section)."""
     vis = visible_ids(user_id)
     base = select(func.count()).select_from(Artifact).where(
         Artifact.id.in_(vis), Artifact.artifact_type != "draft"
@@ -286,7 +287,7 @@ def zone_counts(session: Session, user_id: int | None = None) -> dict:
 
 
 def draft_count(session: Session, user_id: int | None = None) -> int:
-    """Сколько черновиков у этого человека — для постоянного раздела «Черновики»."""
+    """How many drafts this user has — for the permanent "Drafts" section."""
     return session.scalar(
         select(func.count())
         .select_from(Artifact)
@@ -308,8 +309,8 @@ def owner_options(session: Session, user_id: int | None = None) -> list[Option]:
 def status_options(
     session: Session, user_id: int | None = None, lang: str = "en"
 ) -> list[Option]:
-    """Состояния источника. Показываем только непустые: выбор, который ничего
-    не находит, только раздражает."""
+    """Source statuses. We show only non-empty ones: a choice that finds nothing
+    is just annoying."""
     from vivatlas import i18n
 
     rows = session.execute(

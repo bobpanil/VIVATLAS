@@ -1,4 +1,4 @@
-"""Страницы для человека. API для программ живёт в api.py."""
+"""Pages for humans. The API for programs lives in api.py."""
 
 import asyncio
 import hashlib
@@ -60,14 +60,14 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 templates.env.globals["caticon"] = caticons.caticon_svg
-# type_name / basis_name / status_name / kind_name — языкозависимые ярлыки,
-# приходят из i18n.template_context (context_processors) и берутся из каталога.
-# Здесь только нейтральная марка изменения (символ, язык не важен).
+# type_name / basis_name / status_name / kind_name — language-dependent labels,
+# come from i18n.template_context (context_processors) and are taken from the catalogue.
+# Here only the neutral change mark (a symbol, language doesn't matter).
 templates.env.globals["kind_mark"] = lambda k: ch.KIND_MARKS.get(k, "·")
 
 
 def _combine(params: dict, **extra) -> dict:
-    """Добавить к набору фильтров ещё что-то (обычно поисковый запрос)."""
+    """Add something else to the filter set (usually a search query)."""
     out = dict(params)
     out.update({k: v for k, v in extra.items() if v})
     return out
@@ -77,11 +77,11 @@ templates.env.filters["combine"] = _combine
 
 
 def author_of(session, artifact: Artifact) -> str:
-    """Кто сделал.
+    """Who made it.
 
-    Владелец в Gitea — это наша организация (design-lib, skills-lib), а не
-    автор. Настоящий автор — владелец репозитория-источника. Источника нет —
-    автор неизвестен, и врать про это не надо.
+    The owner in Gitea is our organization (design-lib, skills-lib), not the
+    author. The real author is the owner of the source repository. No source —
+    the author is unknown, and there's no need to lie about it.
     """
     link = session.scalar(select(UpstreamLink).where(UpstreamLink.artifact_id == artifact.id))
     if link and link.upstream_repo and "/" in link.upstream_repo:
@@ -90,7 +90,7 @@ def author_of(session, artifact: Artifact) -> str:
 
 
 def preview_url(artifact: Artifact) -> str | None:
-    """Превью берём прямо из Gitea — репозитории открытые, проксировать незачем."""
+    """We take the preview straight from Gitea — the repositories are open, no need to proxy."""
     if not artifact.preview_path or not artifact.repository.html_url:
         return None
     branch = artifact.repository.default_branch
@@ -98,8 +98,8 @@ def preview_url(artifact: Artifact) -> str | None:
 
 
 def _counts(session, user_id: int | None = None) -> dict:
-    # Считаем только видимое этому человеку: общее плюс своё частное. Черновики —
-    # отдельный раздел, в общий счёт и типы не входят.
+    # Count only what's visible to this user: shared plus their own private. Drafts
+    # are a separate section, not included in the total count or the types.
     vis = flt.visible_ids(user_id)
     not_draft = Artifact.artifact_type != "draft"
     by_type = session.execute(
@@ -118,8 +118,8 @@ def _counts(session, user_id: int | None = None) -> dict:
             )
             or 0
         )
-    # Избранное — для бейджа в панели: столько же, сколько покажет вид /?fav=1
-    # (видимое, не черновик, у этого человека). Аноним ничего в избранном не имеет.
+    # Favourites — for the badge in the panel: as many as the /?fav=1 view shows
+    # (visible, not a draft, for this user). An anonymous user has nothing in favourites.
     favorites = 0
     if user_id is not None:
         favorites = (
@@ -145,7 +145,7 @@ def _counts(session, user_id: int | None = None) -> dict:
 
 
 def _fav_ids(session, user_id: int | None) -> set[int]:
-    """Какие карточки этот человек занёс в избранное."""
+    """Which cards this user has added to favourites."""
     if user_id is None:
         return set()
     return set(
@@ -155,8 +155,8 @@ def _fav_ids(session, user_id: int | None) -> set[int]:
 
 @router.get("/lang/{code}")
 def set_language(request: Request, code: str, next: str = "/") -> RedirectResponse:
-    """Переключить язык интерфейса: кладём куку и возвращаемся, откуда пришли.
-    Открыт без входа — язык меняют и на странице входа."""
+    """Switch the interface language: set a cookie and return to where we came from.
+    Open without sign-in — the language is changed on the sign-in page too."""
     dest = next if next.startswith("/") and not next.startswith("//") else "/"
     resp = RedirectResponse(dest, status_code=303)
     i18n.set_lang_cookie(resp, code, secure=request.url.scheme == "https")
@@ -183,9 +183,9 @@ async def index(
         draft=draft, zone=zone, sort=sort,
     )
 
-    # Вставили ссылку в поиск — искать её среди названий бессмысленно: такого
-    # текста в карточках нет и быть не может. Раньше это молча возвращало
-    # пустоту. Теперь предлагаем то, чего человек и хотел, — разобрать её.
+    # A link pasted into search — searching for it among names is pointless: such
+    # text isn't and can't be in the cards. Previously this silently returned
+    # nothing. Now we offer what the user actually wanted — to parse it.
     link = looks_like_link(q)
 
     model = build_embedding_model() if q and not link else None
@@ -195,8 +195,9 @@ async def index(
             lang = getattr(request.state, "lang", "en")
             counts = _counts(session, user_id)
             fav_ids = _fav_ids(session, user_id)
-            # Счётчик «избранное» — только по видимому: скрытые и вне зоны не в счёт,
-            # иначе пилюля показывает больше, чем реально откроется.
+            # The "favourites" counter — only over what's visible: hidden and
+            # out-of-zone don't count,
+            # otherwise the pill shows more than will actually open.
             fav_visible = (
                 session.scalar(
                     select(func.count())
@@ -211,9 +212,9 @@ async def index(
             if link:
                 items = []
             elif q:
-                # Поиск уже отобрал по смыслу — фильтры применяем к его выдаче,
-                # а не к базе: иначе порядок по близости потеряется. Зона входит
-                # в apply, поэтому чужое частное отсеется и в поиске.
+                # Search has already picked by meaning — we apply filters to its results,
+                # not to the base: otherwise the order by proximity would be lost. The zone is
+                # part of apply, so someone else's private items get filtered out in search too.
                 hits = await do_search(session, q, model, mode=Mode.BOTH, limit=200)
                 allowed = {
                     a for a in session.scalars(flt.apply(select(Artifact.id), f, fav_ids, user_id))
@@ -265,16 +266,16 @@ async def index(
 def toggle_favorite(
     request: Request, artifact_id: int, next: Annotated[str, Form()] = "/"
 ) -> Response:
-    """Занести карточку в избранное или убрать. Избранное — личное, поэтому
-    привязано к вошедшему. Возвращает JSON для страницы, редирект — без скрипта."""
+    """Add a card to favourites or remove it. Favourites are personal, so
+    tied to the signed-in user. Returns JSON for the page, a redirect without a script."""
     user_id = getattr(request.state, "user_id", None)
     if user_id is None:
         raise HTTPException(401, i18n.msg(request, "err.login_required"))
     with session_scope() as session:
         art = session.get(Artifact, artifact_id)
-        # Видимость — та же, что везде: избранное можно ставить только на то, что
-        # человек вправе видеть. Иначе по 200/404 виден факт существования чужой
-        # личной карточки, а её имя потом утекает отметкой об удалении.
+        # Visibility — the same as everywhere: you can favourite only what the
+        # user is entitled to see. Otherwise a 200/404 reveals the existence of someone else's
+        # private card, and its name later leaks through the removal notice.
         mine = art is not None and art.owner_user_id is not None and art.owner_user_id == user_id
         if art is None or not (art.shared or mine):
             raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
@@ -292,15 +293,15 @@ def toggle_favorite(
 
     if "application/json" in request.headers.get("accept", ""):
         return JSONResponse({"favorite": now_fav})
-    # Без скрипта: вернуться туда, откуда пришли. Только внутренний путь.
+    # Without a script: return to where we came from. Internal path only.
     dest = next if next.startswith("/") else "/"
     return RedirectResponse(dest, status_code=303)
 
 
 @router.get("/scan/status")
 def scan_status(request: Request) -> JSONResponse:
-    """Состояние идущего скана — для полосы прогресса на главной. Опрашивается
-    страницей раз в пару секунд, пока идёт сбор."""
+    """State of the running scan — for the progress bar on the home page. Polled
+    by the page every couple of seconds while collection is underway."""
     user_id = getattr(request.state, "user_id", None)
     prog = scan_progress(user_id)
     return JSONResponse(prog or {"state": "idle"})
@@ -308,16 +309,16 @@ def scan_status(request: Request) -> JSONResponse:
 
 @router.post("/scan/dismiss")
 def scan_dismiss(request: Request) -> JSONResponse:
-    """Закрыть полосу (человек нажал ✕ или увидел итог)."""
+    """Close the bar (the user clicked ✕ or saw the result)."""
     clear_scan(getattr(request.state, "user_id", None))
     return JSONResponse({"ok": True})
 
 
 @router.get("/scan/cards")
 def scan_cards(request: Request, after: int = 0) -> JSONResponse:
-    """Готовая разметка карточек, добавленных после `after` (id больше него).
-    Пока идёт скан, главная опрашивает это и вставляет новые карточки поштучно,
-    не перезагружая страницу; заодно отдаём свежий общий счётчик для пилюли."""
+    """Ready-made markup for cards added after `after` (id greater than it).
+    While a scan runs, the home page polls this and inserts new cards one by one,
+    without reloading the page; along the way we return a fresh total count for the pill."""
     user_id = getattr(request.state, "user_id", None)
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
@@ -332,8 +333,8 @@ def scan_cards(request: Request, after: int = 0) -> JSONResponse:
             .order_by(Artifact.id)
         ).all()
         tmpl = templates.get_template("_carditem.html")
-        # request обязателен: карточка считает права (владелец/администратор) по
-        # request.state. Без него шаблон падал UndefinedError на каждой карточке.
+        # request is required: the card computes rights (owner/administrator) from
+        # request.state. Without it the template raised UndefinedError on every card.
         html = "".join(
             tmpl.render(
                 it=_card(session, a, [], fav_ids, lang, user_id), next_path="/", request=request
@@ -345,15 +346,15 @@ def scan_cards(request: Request, after: int = 0) -> JSONResponse:
     return JSONResponse({"html": html, "total": total, "max_id": max_id, "count": len(arts)})
 
 
-_CAT_STOP = {"и", "для", "по", "the", "and", "for", "of", "или", "с", "на"}
+_CAT_STOP = {"the", "and", "for", "of"}
 
 
 def _auto_category(session, art: Artifact, user_id: int | None) -> int | None:
-    """Сама подобрать ЛИЧНУЮ папку новому инструменту: у какой из личных папок
-    этого человека слова из названия встречаются в тексте карточки (имя,
-    описание, направление, теги). Общие (админские) папки не трогаем — туда
-    карточку кладут руками, да и новая карточка пока личная. Не угадали или
-    личных папок нет — оставляем без папки, человек переложит перетаскиванием."""
+    """Automatically pick a PRIVATE folder for a new tool: for which of this user's
+    private folders the words from its name appear in the card's text (name,
+    description, purpose, tags). Shared (admin) folders we don't touch — a card is
+    put there by hand, and a new card is private for now anyway. If we didn't guess or
+    there are no private folders — leave it without a folder, the user will move it by dragging."""
     if user_id is None:
         return None
     cats = session.scalars(
@@ -369,14 +370,14 @@ def _auto_category(session, art: Artifact, user_id: int | None) -> int | None:
     text = " ".join(
         [art.name or "", art.summary_short or "", purpose, *(s for s in tag_slugs)]
     ).lower()
-    # По целым словам, а не по подстроке: иначе «cli» находится в «clickhouse».
-    text_words = set(re.split(r"[^0-9a-zа-яё]+", text))
+    # By whole words, not by substring: otherwise "cli" is found in "clickhouse".
+    text_words = set(re.split(r"\W+",text))
 
     best_id, best_score = None, 0
     for c in cats:
         words = [
             w
-            for w in re.split(r"[^0-9a-zа-яё]+", c.name.lower())
+            for w in re.split(r"\W+",c.name.lower())
             if len(w) >= 3 and w not in _CAT_STOP
         ]
         score = sum(1 for w in words if w in text_words)
@@ -386,15 +387,15 @@ def _auto_category(session, art: Artifact, user_id: int | None) -> int | None:
 
 
 def _zone(a: Artifact) -> str:
-    """Зона карточки: общая, если она расшарена (shared); иначе частная —
-    видит только владелец."""
+    """The card's zone: common if it is shared; otherwise private —
+    only the owner sees it."""
     return "common" if a.shared else "private"
 
 
 def _artifact_categories(session, artifact_id: int, user_id: int | None, lang: str) -> list[dict]:
-    """Папки карточки, которые вправе видеть ЭТОТ человек: общие + свои личные.
-    Чужое личное членство (кто-то положил общую карточку в свою личную папку)
-    другим не показываем. Сначала общие, потом свои личные."""
+    """The card's folders that THIS user is entitled to see: shared + their own private.
+    Someone else's private membership (someone put a shared card into their own private folder)
+    we don't show to others. Shared first, then their own private."""
     rows = session.scalars(
         select(Category)
         .join(ArtifactCategory, ArtifactCategory.category_id == Category.id)
@@ -433,14 +434,14 @@ def _card(
         "type": a.artifact_type,
         "summary_short": a.summary_short,
         "preview_url": preview_url(a),
-        # Копируем ссылку на ИСТОЧНИК (откуда взято), а не на хранилище в Gitea.
-        # Источник — то, что показываем и чем делятся. Нет источника — пусть
-        # будет хранилище, чем ничего.
+        # We copy the link to the SOURCE (where it was taken from), not to the store in Gitea.
+        # The source is what we show and what people share. No source — let it be
+        # the store, better than nothing.
         "source_url": a.repository.original_url or a.repository.html_url,
         "favorite": a.id in fav_ids,
         "zone": _zone(a),
-        # Владелец и «общий» — чтобы шаблон решил, показывать ли кнопки «в общее»
-        # / «снять» / «удалить». Права считает шаблон по request.state.
+        # Owner and "shared" — so the template decides whether to show the "make shared"
+        # / "unshare" / "delete" buttons. The template computes rights from request.state.
         "owner_id": a.owner_user_id,
         "shared": a.shared,
         "is_new": a.is_new,
@@ -460,22 +461,22 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
         a = session.get(Artifact, artifact_id)
         if a is None:
             raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
-        # Зона: чужое частное не показываем даже по прямой ссылке. «Не найдена»,
-        # а не «нельзя» — незачем подтверждать, что такая карточка существует.
-        # Видно, если карточка общая или этот человек — её владелец.
+        # Zone: someone else's private items we don't show even by direct link. "Not found",
+        # not "forbidden" — no need to confirm that such a card exists.
+        # Visible if the card is shared or this user is its owner.
         mine = a.owner_user_id is not None and a.owner_user_id == user_id
         if not (a.shared or mine):
             raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
 
-        # Открыл — значит увидел: гасим бейдж «новое».
+        # Opened means seen: we clear the "new" badge.
         if a.is_new:
             a.is_new = False
 
         links = session.scalars(
             select(ArtifactTag).where(ArtifactTag.artifact_id == artifact_id)
         ).all()
-        # Сначала свои решения, потом правила, потом догадки — по убыванию
-        # надёжности, а не по алфавиту.
+        # First manual decisions, then rules, then guesses — by descending
+        # reliability, not alphabetically.
         order = {"manual": 0, "derived": 1, "ai": 2}
         tags = sorted(
             (
@@ -514,13 +515,14 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "is_draft": a.artifact_type == "draft",
                 "counts": _counts(session, user_id),
                 "categories": flt.category_options(session, user_id, lang),
-                # Папки, в которых карточка сейчас лежит (видимые этому человеку) —
-                # для раздела «Папки» на странице карточки: убрать/добавить.
+                # Folders the card currently sits in (visible to this user) —
+                # for the "Folders" section on the card page: remove/add.
                 "art_categories": _artifact_categories(session, a.id, user_id, lang),
                 "art_id": a.id,
-                # Можно ли класть эту карточку в ОБЩИЕ папки: только общую (shared)
-                # и только администратору — общие папки настраивает он. Личные —
-                # всегда свои.
+                # Whether this card can be put into SHARED folders: only a shared one
+                # and only by an administrator — shared folders are configured by
+                # them. Private ones —
+                # always your own.
                 "can_file_shared": a.shared and getattr(request.state, "is_owner", False),
                 "active_cat": "",
                 "active_draft": False,
@@ -530,9 +532,9 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
 
 @router.get("/dev", response_class=HTMLResponse)
 def dev_page(request: Request) -> HTMLResponse:
-    """Живой справочник дизайн-языка: токены цвета, шрифты, скругления, кнопки,
-    поля, иконки, карточки, меню — на одном экране. Чтобы дизайн можно было
-    «вынести» и держать единым: правишь набор — сверяешься здесь."""
+    """A living reference for the design language: colour tokens, fonts, corner radii, buttons,
+    fields, icons, cards, menus — on one screen. So the design can be
+    "extracted" and kept unified: you edit the set — you check against this."""
     return templates.TemplateResponse(request, "dev.html", {"nav": "dev"})
 
 
@@ -544,24 +546,25 @@ def set_category(
     op: Annotated[str, Form()] = "add",
     next: Annotated[str, Form()] = "/",
 ) -> Response:
-    """Положить карточку в папку (op=add) или вынуть (op=remove). Членство —
-    многие-ко-многим: одна карточка бывает и в общей папке, и в личных.
+    """Put a card into a folder (op=add) or take it out (op=remove). Membership is
+    many-to-many: one card can be in both a shared folder and private ones.
 
-    Права: в ОБЩУЮ папку раскладывает владелец карточки или администратор, и
-    только общую (shared) карточку; в СВОЮ ЛИЧНУЮ папку любой кладёт любую
-    карточку, которую вправе видеть; в чужую личную — нельзя (её и не видно)."""
+    Rights: into a SHARED folder it's filed by the card's owner or an administrator, and
+    only a shared card; into YOUR OWN PRIVATE folder anyone puts any
+    card they're entitled to see; into someone else's private one — not allowed
+    (it isn't even visible)."""
     user_id = getattr(request.state, "user_id", None)
     if user_id is None:
         raise HTTPException(401, i18n.msg(request, "err.login_required"))
     with session_scope() as session:
         art = session.get(Artifact, artifact_id)
-        # Видимость карточки: чужое частное — «не найдено», чтобы не подтверждать,
-        # что она существует.
+        # Card visibility: someone else's private items — "not found", so as not to confirm
+        # that it exists.
         mine = art is not None and art.owner_user_id is not None and art.owner_user_id == user_id
         if art is None or not (art.shared or mine):
             raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
         category = session.get(Category, int(cat)) if cat.isdigit() else None
-        # Чужую личную папку не подтверждаем существованием — «не найдено».
+        # We don't confirm someone else's private folder's existence — "not found".
         if category is None or not catperm.can_view(category, user_id):
             raise HTTPException(404, i18n.msg(request, "err.category_not_found"))
         is_admin = getattr(request.state, "is_owner", False)
@@ -579,15 +582,15 @@ def set_category(
             if existing is not None:
                 session.delete(existing)
             member = False
-        else:  # add (по умолчанию — перетаскивание в папку)
+        else:  # add (by default — dragging into a folder)
             changed = existing is None
             if existing is None:
                 session.add(ArtifactCategory(artifact_id=art.id, category_id=category.id))
             member = True
 
     if "application/json" in request.headers.get("accept", ""):
-        # changed=false — членство уже было таким: клиент не двигает счётчики
-        # (иначе повторный бросок на свёрнутую в «+N» папку задвоил бы счёт).
+        # changed=false — membership was already like this: the client doesn't move the counters
+        # (otherwise a repeat drop onto a folder collapsed into "+N" would double the count).
         return JSONResponse({"ok": True, "cat": int(cat), "member": member, "changed": changed})
     dest = next if next.startswith("/") else "/"
     return RedirectResponse(dest, status_code=303)
@@ -597,13 +600,15 @@ def set_category(
 def toggle_visibility(
     request: Request, artifact_id: int, next: Annotated[str, Form()] = "/"
 ) -> Response:
-    """Переключить зону карточки: частная (видна только владельцу) ↔ общая
-    (видят все).
+    """Toggle the card's zone: private (visible only to the owner) ↔ common
+    (everyone sees it).
 
-    Выложить в общее может ТОЛЬКО владелец — чужое личное администратор даже не
-    видит, не то что делится им за человека. Снять с общего может владелец ИЛИ
-    администратор: за общий каталог он отвечает. Владение при этом не меняется —
-    снятая с общего карточка возвращается своему же владельцу."""
+    ONLY the owner can make something shared — someone else's private items an
+    administrator doesn't even
+    see, let alone share them on the user's behalf. Unsharing can be done by the owner OR
+    an administrator: they're responsible for the shared catalogue. Ownership
+    doesn't change in the process —
+    a card taken off shared returns to its own owner."""
     user_id = getattr(request.state, "user_id", None)
     if user_id is None:
         raise HTTPException(401, i18n.msg(request, "err.login_required"))
@@ -633,11 +638,11 @@ def toggle_visibility(
 
 
 def _delete_artifact(session, art: Artifact, actor_user_id: int) -> None:
-    """Убрать карточку из каталога совсем — со всеми хвостами.
+    """Remove a card from the catalogue entirely — with all its loose ends.
 
-    Кого предупредить: избранное — это ссылка, не копия, и тем, кто держал
-    карточку у себя, нельзя дать ей исчезнуть молча. Плюс владелец, если удаляет
-    не он (это администратор снял общую). Себя не уведомляем.
+    Whom to warn: a favourite is a link, not a copy, and those who kept the
+    card must not have it vanish silently. Plus the owner, if it's deleted
+    by someone else (an administrator took down a shared one). We don't notify ourselves.
     """
     aid, name = art.id, art.name
 
@@ -651,9 +656,9 @@ def _delete_artifact(session, art: Artifact, actor_user_id: int) -> None:
     for uid in affected:
         session.add(RemovedNotice(user_id=uid, artifact_name=name))
 
-    # Связанные строки удаляем сами: у части внешних ключей нет каскада, и без
-    # этого база не даст удалить карточку. Историю изменений не теряем — только
-    # отвязываем от исчезнувшей карточки.
+    # We delete the related rows ourselves: some foreign keys have no cascade, and without
+    # this the database won't let us delete the card. We don't lose the change history — we only
+    # detach it from the vanished card.
     session.execute(text("DELETE FROM artifacts_fts WHERE rowid = :id"), {"id": aid})
     session.execute(sa_delete(Embedding).where(Embedding.artifact_id == aid))
     session.execute(sa_delete(ArtifactTag).where(ArtifactTag.artifact_id == aid))
@@ -662,8 +667,8 @@ def _delete_artifact(session, art: Artifact, actor_user_id: int) -> None:
     session.execute(sa_delete(Favorite).where(Favorite.artifact_id == aid))
     session.execute(sa_update(Change).where(Change.artifact_id == aid).values(artifact_id=None))
 
-    # Метим репозиторий удалённым человеком и хороним его: иначе следующий скан
-    # увидит его живым и соберёт карточку заново — «навсегда» было бы неправдой.
+    # We mark the repository as removed by the user and bury it: otherwise the next scan
+    # would see it alive and rebuild the card — "forever" would be a lie.
     from datetime import UTC, datetime
 
     repo = session.get(Repository, art.repository_id)
@@ -678,9 +683,10 @@ def _delete_artifact(session, art: Artifact, actor_user_id: int) -> None:
 def delete_artifact(
     request: Request, artifact_id: int, next: Annotated[str, Form()] = "/"
 ) -> Response:
-    """Удалить карточку. Может владелец — свою (любую); администратор — только
-    общую (в чужое личное он не заглядывает, значит и не удаляет). Тем, у кого
-    она была в избранном, останется отметка «удалено»."""
+    """Delete a card. The owner can — any of their own; an administrator — only
+    a shared one (they don't peek into someone else's private items, so they
+    don't delete them). Those who
+    had it in favourites will be left with a "removed" notice."""
     user_id = getattr(request.state, "user_id", None)
     if user_id is None:
         raise HTTPException(401, i18n.msg(request, "err.login_required"))
@@ -701,7 +707,7 @@ def delete_artifact(
 
 
 def _removed_notices(session, user_id: int | None) -> list[dict]:
-    """Непрочитанные отметки «у вас удалили карточку из избранного»."""
+    """Unread notices "a card was removed from your favourites"."""
     if user_id is None:
         return []
     rows = session.scalars(
@@ -714,7 +720,7 @@ def _removed_notices(session, user_id: int | None) -> list[dict]:
 
 @router.post("/notices/dismiss")
 def dismiss_notices(request: Request) -> JSONResponse:
-    """Закрыть отметки об удалённых карточках — все разом."""
+    """Dismiss the notices about removed cards — all at once."""
     user_id = getattr(request.state, "user_id", None)
     if user_id is None:
         raise HTTPException(401, i18n.msg(request, "err.login_required"))
@@ -729,39 +735,40 @@ def dismiss_notices(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
-# Хостинги, которые сейчас умеет сканировать провайдер Gitea. Codeberg — это
-# Forgejo (форк Gitea), тот же API.
+# Hosts the Gitea provider can currently scan. Codeberg is
+# Forgejo (a Gitea fork), the same API.
 _GITEA_KINDS = {"gitea", "codeberg"}
 
 
-# Прогресс идущих сканов: user_id -> {state, total, done, added, source, error}.
-# Живёт в памяти одного процесса-сервера (8710). Скан — фоновая задача того же
-# цикла; главная страница опрашивает статус и рисует полосу. Пропадёт при
-# перезапуске — это нормально: полоса просто исчезнет, карточки останутся.
+# Progress of running scans: user_id -> {state, total, done, added, source, error}.
+# Lives in the memory of a single server process (8710). A scan is a background task of the same
+# loop; the home page polls the status and draws the bar. It's lost on
+# restart — that's fine: the bar just disappears, the cards remain.
 _SCANS: dict[int, dict] = {}
-# Держим сильную ссылку на фоновые задачи: create_task хранит лишь слабую, и
-# без этого сборщик мусора может убить скан на середине.
+# We keep a strong reference to the background tasks: create_task holds only a weak one, and
+# without this the garbage collector may kill a scan mid-way.
 _SCAN_TASKS: set = set()
 
 
 def scan_progress(user_id: int | None) -> dict | None:
-    """Состояние скана этого человека для полосы прогресса. Нет — None."""
+    """The scan state of this user for the progress bar. None if there is none."""
     if user_id is None:
         return None
     return _SCANS.get(user_id)
 
 
 def clear_scan(user_id: int | None) -> None:
-    """Убрать полосу после того, как человек её закрыл или увидел итог."""
+    """Remove the bar after the user has closed it or seen the result."""
     if user_id is not None:
         _SCANS.pop(user_id, None)
 
 
 def precheck_user_scan(user_id: int | None, source_id: int) -> tuple[str, str]:
-    """Мгновенные проверки без сети: это свой источник, хостинг поддержан, токен
-    на месте и читается. Возвращает (ключ_ошибки, имя_источника) — ошибку
-    переводит вызывающий на языке запроса. Сеть (список репозиториев) и всё
-    остальное — уже в фоне, чтобы кнопка отвечала сразу."""
+    """Instant checks without the network: it's your own source, the host is supported, the token
+    is present and readable. Returns (error_key, source_name) — the error is
+    translated by the caller in the request's language. The network (the
+    repository list) and everything
+    else — already in the background, so the button responds immediately."""
     with session_scope() as session:
         src = session.get(Source, source_id)
         if src is None or src.owner_user_id != user_id:
@@ -780,9 +787,9 @@ def precheck_user_scan(user_id: int | None, source_id: int) -> tuple[str, str]:
 
 
 def launch_user_scan(user_id: int, source_id: int, source_name: str, lang: str = "en") -> None:
-    """Запустить фоновый скан. Заводит полосу прогресса и отдаёт управление
-    сразу — весь обход (даже получение списка) идёт задачей того же цикла, а
-    кнопка мгновенно ведёт на главную, где видна полоса."""
+    """Start a background scan. Sets up the progress bar and hands back control
+    immediately — the whole crawl (even fetching the list) runs as a task of the same loop, and
+    the button instantly leads to the home page where the bar is visible."""
     _SCANS[user_id] = {
         "state": "running",
         "total": 0,
@@ -791,7 +798,7 @@ def launch_user_scan(user_id: int, source_id: int, source_name: str, lang: str =
         "source": source_name,
         "error": "",
     }
-    # Ручной запуск — полная пересборка (force): человек нажал и ждёт свежего.
+    # Manual launch — a full rebuild (force): the user clicked and is waiting for something fresh.
     task = asyncio.create_task(
         _run_user_scan(user_id, source_id, _SCANS[user_id], force=True, lang=lang)
     )
@@ -806,12 +813,12 @@ async def _run_user_scan(
     force: bool = False,
     lang: str = "en",
 ) -> None:
-    """Фоновый обход источника целиком: получить список репозиториев, затем по
-    одному — скачать, описать, разложить в частную зону владельца. С progress
-    (ручной запуск) двигаем полосу на главной; без него (ежедневный авто-скан)
-    работаем тихо. force — полная пересборка (ручной); без него авто-скан
-    пропускает неизменившиеся репозитории, тратя ИИ только на новые. Сбой на
-    одном репозитории не роняет остальные; общий сбой помечает полосу ошибкой."""
+    """A full background crawl of a source: fetch the repository list, then one
+    by one — download, describe, file into the owner's private zone. With progress
+    (manual launch) we move the bar on the home page; without it (the daily auto-scan)
+    we work quietly. force — a full rebuild (manual); without it the auto-scan
+    skips unchanged repositories, spending AI only on new ones. A failure on
+    one repository doesn't take down the rest; a general failure marks the bar with an error."""
 
     def bump(key: str, n: int = 1) -> None:
         if progress is not None:
@@ -821,9 +828,10 @@ async def _run_user_scan(
         if progress is not None:
             progress.update(kw)
 
-    # Токен берём из базы здесь, в фоне: в precheck его не расшифровываем дольше
-    # нужного. Источник свой — уже проверено (ручной запуск) либо это личный
-    # источник из авто-обхода.
+    # We take the token from the database here, in the background: in precheck we
+    # don't decrypt it longer
+    # than needed. It's your own source — already checked (manual launch) or it's a personal
+    # source from the auto-crawl.
     with session_scope() as session:
         src = session.get(Source, source_id)
         base_url, token_enc = (src.base_url, src.token_enc) if src else ("", "")
@@ -837,13 +845,13 @@ async def _run_user_scan(
     text_model = build_text_model()
     embed_model = build_embedding_model()
     try:
-        # Получить и сохранить список репозиториев. Пока total=0, полоса честно
-        # пишет «читаю список репозиториев…».
+        # Fetch and save the repository list. While total=0, the bar honestly
+        # says "reading the repository list…".
         with session_scope() as session:
             src = session.get(Source, source_id)
             await scan_source(session, provider, src, include_private=True)
             session.commit()
-            # select(Repository.id) отдаёт уже сами id-числа, а не строки.
+            # select(Repository.id) already returns the id numbers themselves, not rows.
             repo_ids = list(
                 session.scalars(
                     select(Repository.id).where(
@@ -860,15 +868,15 @@ async def _run_user_scan(
                         session, provider, text_model, repo, force=force
                     )
                     art = session.scalar(select(Artifact).where(Artifact.repository_id == rid))
-                    # «unchanged» — коммит тот же, карточка уже собрана: не тратим
-                    # ИИ впустую (важно для ежедневного авто-скана).
+                    # "unchanged" — the same commit, the card is already built: we don't waste
+                    # AI (important for the daily auto-scan).
                     if art is not None and not result.startswith("unchanged"):
                         await embed_artifact(session, embed_model, art)
                         await tag_artifact(session, art, text_model)
                         index_artifact_for_words(session, art)
-                        # Новую карточку кладём личной владельцу (в общее выкладывает
-                        # он сам кнопкой) и помечаем «новинкой». У уже существующей
-                        # владельца, зону и категорию не трогаем — уважаем его выбор.
+                        # A new card we file as private to the owner (they make it shared
+                        # themselves with a button) and mark it "new". For an existing one we
+                        # don't touch the owner, zone or category — we respect their choice.
                         if result.startswith("created"):
                             art.hidden = False
                             art.owner_user_id = user_id
@@ -882,11 +890,11 @@ async def _run_user_scan(
                             bump("added")
                     session.commit()
             except Exception:
-                log.exception("scan: репозиторий %s не собрался", rid)
+                log.exception("scan: repository %s failed to build", rid)
             bump("done")
         setp(state="done")
     except Exception as exc:
-        log.exception("scan источника %s не удался", source_id)
+        log.exception("scan of source %s failed", source_id)
         setp(state="error", error=str(exc))
     finally:
         await provider.aclose()
@@ -896,12 +904,12 @@ async def _run_user_scan(
 
 @router.get("/recommend")
 def recommend_redirect(task: str = "") -> RedirectResponse:
-    """«Что взять?» слит с поиском: одно окно на всё. Старую ссылку с задачей
-    уводим прямо в поиск, чтобы закладки не сломались.
+    """"What to pick?" is merged into search: one window for everything. The old link with a task
+    we redirect straight into search, so bookmarks don't break.
 
-    Рекомендации никуда не делись — они остались для ChatGPT через MCP, где у
-    ответа есть место под объяснения. На сайте же поиск и так ранжирует по
-    смыслу, и отдельная страница только раздваивала «спросить программу»."""
+    Recommendations haven't gone anywhere — they remain for ChatGPT via MCP, where the
+    answer has room for explanations. On the site search already ranks by
+    meaning, and a separate page only split "ask the program" in two."""
     q = f"?q={quote(task.strip())}" if task.strip() else ""
     return RedirectResponse(f"/{q}", status_code=308)
 
@@ -949,17 +957,17 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
         )
 
 
-# --- добавление ---------------------------------------------------------
+# --- adding -------------------------------------------------------------
 #
-# Три шага, и порядок тут — не украшение:
+# Three steps, and the order here is not decoration:
 #
-#   1. что дали  -> ищем, показываем кандидатов. Ничего не пишем.
-#   2. выбрали   -> показываем план: что создастся, сколько файлов. Не пишем.
-#   3. нажали    -> пишем.
+#   1. what was given -> search, show candidates. We write nothing.
+#   2. picked         -> show the plan: what will be created, how many files. We don't write.
+#   3. clicked        -> we write.
 #
-# Автоматически не тащим никогда. Название на слух и с картинки распознаётся
-# неточно, модель иногда выдумывает адрес — на живом рилсе выдала
-# skills/last-30-day, которого не существует. Решает человек, глазами.
+# We never pull in automatically. A name by ear and from a picture is recognized
+# imprecisely, the model sometimes invents an address — on a real reel it produced
+# skills/last-30-day, which doesn't exist. The user decides, with their eyes.
 
 
 def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
@@ -983,12 +991,12 @@ async def add_find(
     source: Annotated[str, Form()] = "",
     file: Annotated[UploadFile | None, File()] = None,
 ) -> HTMLResponse:
-    """Шаг 1: что дали — то и разбираем. Ничего не пишем."""
+    """Step 1: we parse whatever was given. We write nothing."""
     tmp: Path | None = None
     src = source.strip()
 
     if file is not None and file.filename:
-        # Расширение сохраняем: по нему finder отличает картинку от ролика.
+        # We keep the extension: by it the finder tells a picture from a video.
         suffix = Path(file.filename).suffix or ".bin"
         data = await file.read()
         if len(data) > MAX_MEDIA_BYTES:
@@ -1040,13 +1048,13 @@ async def add_plan(
     to: Annotated[str, Form()] = "",
     name: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Шаг 2: что именно будет создано. По-прежнему ничего не пишем."""
+    """Step 2: what exactly will be created. Still nothing is written."""
     fetcher = GitHubFetcher(token=settings.github_token)
     try:
         plan = await plan_import(fetcher, url, target_owner=to, target_name=name)
     except ImportError_ as exc:
-        # Отказ бывает полезным: "это целый проект, а вот папки внутри,
-        # похожие на инструменты" — со ссылками, по которым можно продолжить.
+        # A refusal can be useful: "this is a whole project, but here are the folders inside
+        # that look like tools" — with links you can continue from.
         return _add_page(request, "refused", message=str(exc), url=url, to=to)
     except Exception as exc:
         return _add_page(
@@ -1065,11 +1073,12 @@ async def add_run(
     to: Annotated[str, Form()] = "",
     name: Annotated[str, Form()] = "",
 ):
-    """Шаг 3: записываем. Только сюда и только по нажатию.
+    """Step 3: we write. Only here and only on a click.
 
-    План строим заново, а не храним между шагами. Лишняя закачка архива, зато
-    никакого устаревшего плана: между "показали" и "нажали" человек мог уйти
-    пить чай, а у источника за это время всё поменялось.
+    We rebuild the plan from scratch rather than keeping it between steps. An
+    extra archive download, but
+    no stale plan: between "shown" and "clicked" the user could have gone off
+    for tea, and meanwhile everything at the source changed.
     """
     if not settings.gitea_token:
         return _add_page(
@@ -1096,9 +1105,9 @@ async def add_run(
             repo = session.get(Repository, result.repository_id)
             await index_repository(session, provider, text_model, repo, force=True)
 
-            # Личной у создателя — ДО первого коммита с этой карточкой: импорт
-            # идёт в общий Gitea, и index_repository пометил бы её общей. Между
-            # тем коммитом и AI-описанием (секунды) она висела бы видимой всем.
+            # Private to the creator — BEFORE the first commit with this card: the import
+            # goes into the shared Gitea, and index_repository would have marked it shared. Between
+            # that commit and the AI description (seconds) it would hang visible to everyone.
             art = session.scalar(select(Artifact).where(Artifact.repository_id == repo.id))
             art.owner_user_id = user_id
             art.shared = False
@@ -1108,7 +1117,7 @@ async def add_run(
             await embed_artifact(session, embed_model, art)
             await tag_artifact(session, art, text_model)
             index_artifact_for_words(session, art)
-            # Сама подобрать личную папку по смыслу — человеку останется поправить.
+            # Automatically pick a private folder by meaning — the user is left to adjust it.
             auto_cid = _auto_category(session, art, user_id)
             if auto_cid is not None:
                 session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
@@ -1133,11 +1142,11 @@ async def add_run(
 
 
 def _create_draft(session, user_id, source_url: str, name: str, summary: str, heard: str) -> int:
-    """Черновик: карточка без импорта из GitHub. Когда ссылку или ролик не
-    удалось свести к репозиторию, сохраняем, что распознали, — чтобы обработать
-    потом. Живёт в отдельном источнике «Черновики», личная у создателя."""
-    src = get_or_create_source(session, "draft", "", "Черновики")
-    key = source_url or name or heard or "черновик"
+    """A draft: a card without an import from GitHub. When a link or a video
+    couldn't be reduced to a repository, we save what was recognized — to process
+    later. Lives in a separate "Drafts" source, private to the creator."""
+    src = get_or_create_source(session, "draft", "", "Drafts")
+    key = source_url or name or heard or "draft"
     ext = "draft-" + hashlib.md5(key.encode("utf-8")).hexdigest()[:16]  # noqa: S324
 
     repo = session.scalar(
@@ -1147,8 +1156,8 @@ def _create_draft(session, user_id, source_url: str, name: str, summary: str, he
         repo = Repository(
             source_id=src.id,
             external_id=ext,
-            owner="черновик",
-            name=(name or "черновик")[:256],
+            owner="draft",
+            name=(name or "draft")[:256],
             default_branch="",
             html_url="",
             original_url=source_url or "",
@@ -1160,7 +1169,7 @@ def _create_draft(session, user_id, source_url: str, name: str, summary: str, he
     if art is None:
         art = Artifact(
             repository_id=repo.id,
-            name=(name or "черновик")[:256],
+            name=(name or "draft")[:256],
             artifact_type="draft",
             summary_short=summary or "",
             doc_text=heard or "",
@@ -1186,7 +1195,7 @@ def add_draft(
     summary: Annotated[str, Form()] = "",
     heard: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Не свелось к GitHub — делаем черновик и ведём к тому же выбору зоны."""
+    """Didn't reduce to GitHub — we make a draft and lead to the same zone choice."""
     user_id = getattr(request.state, "user_id", None)
     with session_scope() as session:
         aid = _create_draft(
@@ -1209,12 +1218,12 @@ def add_save(
     artifact_id: Annotated[int, Form()],
     zone: Annotated[str, Form()] = "shared",
 ) -> RedirectResponse:
-    """Финал создания: карточку отмечают личной или расшаренной и сохраняют.
-    До этого она — личный черновик создателя."""
+    """The final step of creation: the card is marked private or shared and saved.
+    Until then it's the creator's private draft."""
     user_id = getattr(request.state, "user_id", None)
     with session_scope() as session:
         art = session.get(Artifact, artifact_id)
-        # Зону задаёт владелец черновика (или бесхозного — тогда он им и станет).
+        # The zone is set by the draft's owner (or an ownerless one — then they become it).
         if art is not None and art.owner_user_id in (user_id, None):
             art.owner_user_id = user_id
             art.shared = zone != "private"

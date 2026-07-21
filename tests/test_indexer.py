@@ -24,8 +24,8 @@ def session():
                 default_branch="main",
             )
         )
-        # Именно commit, а не flush: index_all при ошибке делает rollback, и
-        # незафиксированная подготовка теста уехала бы вместе с ним.
+        # commit here, not flush: index_all rolls back on error, and the
+        # uncommitted test setup would be swept away with it.
         s.commit()
         yield s
 
@@ -61,11 +61,11 @@ class FakeModel:
     async def generate_json(self, prompt, schema):
         self.calls += 1
         if self.fail:
-            raise RuntimeError("квота кончилась")
+            raise RuntimeError("out of quota")
         return {
-            "summary_short": "Коротко",
-            "summary_normal": "Нормально",
-            "summary_technical": "Технически",
+            "summary_short": "Short",
+            "summary_normal": "Normal",
+            "summary_technical": "Technical",
         }
 
     async def aclose(self): ...
@@ -81,13 +81,13 @@ async def test_creates_card_with_summaries(session):
     assert outcome == "created"
     art = session.scalar(select(Artifact))
     assert art.artifact_type == "skill"
-    assert art.summary_short == "Коротко"
+    assert art.summary_short == "Short"
     assert art.source_commit == "abc123"
 
 
 async def test_failed_summary_is_recorded_not_faked(session):
-    # Если модель не ответила, карточка остаётся, но описание пустое и с
-    # пометкой почему. Притворяться, что описание есть, нельзя.
+    # If the model didn't respond, the card stays but the summary is empty
+    # and marked with why. We must not pretend a summary exists.
     repo = session.scalar(select(Repository))
     provider = FakeProvider({"SKILL.md": b"# Brandkit"})
     model = FakeModel(fail=True)
@@ -97,8 +97,8 @@ async def test_failed_summary_is_recorded_not_faked(session):
     assert outcome.endswith("+no-summary")
     art = session.scalar(select(Artifact))
     assert art.summary_short == ""
-    assert "квота" in art.summary_error
-    assert art.artifact_type == "skill"  # тип всё равно распознали
+    assert "quota" in art.summary_error
+    assert art.artifact_type == "skill"  # the type was still recognised
 
 
 async def test_same_commit_skips_download(session):
@@ -111,8 +111,8 @@ async def test_same_commit_skips_download(session):
 
     outcome = await index_repository(session, provider, model, repo)
     assert outcome == "unchanged"
-    assert provider.archive_calls == 1  # второй раз не качали
-    assert model.calls == 1  # и модель не дёргали
+    assert provider.archive_calls == 1  # didn't download a second time
+    assert model.calls == 1  # and the model wasn't called
 
 
 async def test_new_commit_triggers_rebuild(session):
@@ -130,8 +130,8 @@ async def test_new_commit_triggers_rebuild(session):
 
 
 async def test_card_without_summary_is_retried_on_next_run(session):
-    # Описание не вышло — на следующем прогоне пробуем ещё раз, даже если
-    # коммит тот же. Иначе карточка навсегда останется без текста.
+    # The summary failed — on the next run we try again, even if the commit
+    # is the same. Otherwise the card would stay text-less forever.
     repo = session.scalar(select(Repository))
     provider = FakeProvider({"SKILL.md": b"# Brandkit"})
 
@@ -142,14 +142,14 @@ async def test_card_without_summary_is_retried_on_next_run(session):
     assert outcome != "unchanged"
     assert good.calls == 1
     art = session.scalar(select(Artifact))
-    assert art.summary_short == "Коротко"
+    assert art.summary_short == "Short"
     assert art.summary_error is None
 
 
 async def test_work_survives_a_crash_midway(session):
-    # Была ошибка: всё сохранялось одной транзакцией в конце. Прогон оборвался
-    # на 56-м репозитории из 99 — и вся работа откатилась. Теперь каждая
-    # карточка сохраняется сразу, и обрыв уносит с собой только текущую.
+    # There was a bug: everything was saved in one transaction at the end. A run
+    # broke off on the 56th repository out of 99 — and all the work rolled back.
+    # Now each card is saved immediately, and a break only takes the current one.
     from vivatlas.indexer import index_all
 
     source = session.scalar(select(Source))
@@ -169,7 +169,7 @@ async def test_work_survives_a_crash_midway(session):
         async def download_archive(self, repo, ref):
             self.archive_calls += 1
             if self.archive_calls > 2:
-                raise RuntimeError("сеть отвалилась")
+                raise RuntimeError("network dropped")
             return self.blob
 
     provider = DyingProvider({"SKILL.md": b"# x"})
@@ -177,7 +177,7 @@ async def test_work_survives_a_crash_midway(session):
 
     assert result.created == 2
     assert result.failed == 2
-    # Главное: две успешные карточки в базе, а не ноль.
+    # The point: two successful cards in the database, not zero.
     session.expire_all()
     assert session.scalar(select(func.count()).select_from(Artifact)) == 2
 
@@ -193,20 +193,20 @@ async def test_no_ai_mode_creates_card_without_summary(session):
     assert art.artifact_type == "design-kit"
     assert art.preview_path == "preview.svg"
     assert art.summary_short == ""
-    assert art.summary_error is None  # не ошибка, просто не просили
+    assert art.summary_error is None  # not an error, just wasn't requested
 
 
 async def test_counters_do_not_double_count_a_failed_row(session):
-    # Была ошибка: строка считалась и "обработанной", и "ошибочной" сразу,
-    # из-за чего в отчёте выходило больше строк, чем репозиториев.
+    # There was a bug: a row was counted as both "processed" and "failed" at
+    # once, which made the report show more rows than repositories.
     from vivatlas.indexer import index_all
 
     class AlwaysFailing(FakeProvider):
         async def download_archive(self, repo, ref):
-            raise RuntimeError("сеть отвалилась")
+            raise RuntimeError("network dropped")
 
     result = await index_all(session, AlwaysFailing({"SKILL.md": b"# x"}), FakeModel())
 
     assert result.failed == 1
     assert result.processed == 0
-    assert result.processed + result.failed == 1  # ровно один репозиторий
+    assert result.processed + result.failed == 1  # exactly one repository

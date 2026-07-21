@@ -1,15 +1,15 @@
-"""Вход, сессии, кто сейчас за дверью.
+"""Sign-in, sessions, who's at the door right now.
 
-Правила, которые тут держатся:
+The rules that hold here:
 
-  - в куке лежит случайный ключ, в базе — его хеш. Украдут базу — не получат
-    готовых пропусков, только их отпечатки;
-  - кука HttpOnly: скрипт на странице её не прочитает, значит и не утащит;
-  - Secure ставится, когда соединение по https. Локально по http кука всё
-    равно ходит — иначе войти на самой машине было бы нельзя;
-  - при неверном пароле argon2 всё равно считается, даже если такой почты нет.
-    Иначе по времени ответа видно, какие почты заведены, а какие нет;
-  - перебор запирает аккаунт на время. Считаем неудачи, а не гадаем.
+  - the cookie carries a random key, the database its hash. Steal the database
+    and you get no ready-made passes, only their fingerprints;
+  - the cookie is HttpOnly: a script on the page can't read it, so it can't steal it;
+  - Secure is set when the connection is over https. Locally over http the cookie
+    still travels — otherwise signing in on the machine itself would be impossible;
+  - on a wrong password argon2 is computed anyway, even if there's no such email.
+    Otherwise the response time reveals which emails exist and which don't;
+  - brute-forcing locks the account for a while. We count failures, we don't guess.
 """
 
 import hashlib
@@ -37,15 +37,15 @@ log = logging.getLogger(__name__)
 COOKIE_NAME = "vivatlas_session"
 SESSION_DAYS = 30
 
-# Перебор. После стольких неудач подряд аккаунт заперт на столько минут. Мягко:
-# цель — измотать перебор, а не наказать хозяина за опечатку.
+# Brute-force. After this many failures in a row the account is locked for this many
+# minutes. Gently: the goal is to wear down brute-forcing, not punish the owner for a typo.
 MAX_FAILS = 8
 LOCK_MINUTES = 15
 
-# Хеш несуществующего пароля. Нужен, чтобы для неизвестной почты argon2 работал
-# ровно столько же, сколько для известной, — иначе время ответа выдаёт, кто
-# заведён. Считается один раз при загрузке модуля.
-_DUMMY_HASH = security.hash_password("нет такого пользователя, это заглушка")
+# Hash of a nonexistent password. Needed so that for an unknown email argon2 runs
+# exactly as long as for a known one — otherwise the response time reveals who is
+# registered. Computed once when the module loads.
+_DUMMY_HASH = security.hash_password("no such user, this is a placeholder")
 
 
 def _now() -> datetime:
@@ -53,12 +53,12 @@ def _now() -> datetime:
 
 
 def _aware(dt: datetime | None) -> datetime | None:
-    """Дата из базы — с поясом.
+    """A date from the database — with a timezone.
 
-    SQLite часовой пояс не хранит и возвращает дату без него. Сравнить такую
-    с datetime.now(UTC) нельзя — Python бросает ошибку. Проверено тестом:
-    в бою это роняло бы вход ровно в момент, когда аккаунт заперт. Считаем,
-    что в базе всё в UTC — мы только UTC туда и пишем.
+    SQLite doesn't store the timezone and returns a date without one. You can't
+    compare such a date with datetime.now(UTC) — Python raises an error. Confirmed
+    by a test: in production this would crash sign-in exactly when the account is
+    locked. We assume everything in the database is UTC — UTC is all we write there.
     """
     if dt is not None and dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
@@ -70,30 +70,30 @@ class LoginResult:
     ok: bool
     user: User | None = None
     needs_totp: bool = False
-    locked_minutes: int = 0  # >0 — аккаунт заперт, столько минут осталось
+    locked_minutes: int = 0  # >0 — account locked, this many minutes left
     error: str = ""
 
 
 def has_any_user(session: Session) -> bool:
-    """Есть ли вообще кто-то. Пусто — программу ещё не настроили."""
+    """Whether anyone exists at all. Empty — the program isn't set up yet."""
     return session.scalar(select(User.id).limit(1)) is not None
 
 
 def check_login(session: Session, email: str, password: str) -> LoginResult:
-    """Проверить почту и пароль. Сессию НЕ создаёт — это делает вход отдельно.
+    """Check email and password. Does NOT create a session — sign-in does that separately.
 
-    Возвращает, что делать дальше: пустить, спросить второй код или отказать.
+    Returns what to do next: let in, ask for the second code, or refuse.
     """
     email = email.strip().lower()
     user = session.scalar(select(User).where(User.email == email))
 
-    # Заперт? Проверяем до пароля: перебирать смысла нет, дверь закрыта.
+    # Locked? We check before the password: no point trying, the door is closed.
     locked = _aware(user.locked_until) if user else None
     if locked and locked > _now():
         left = int((locked - _now()).total_seconds() // 60) + 1
         return LoginResult(ok=False, locked_minutes=left, error="auth.err.locked")
 
-    # Пароль сверяем всегда — и для несуществующей почты тоже, по заглушке.
+    # We always verify the password — even for a nonexistent email, against the placeholder.
     stored = user.password_hash if user else _DUMMY_HASH
     ok = security.verify_password(password, stored)
 
@@ -103,15 +103,15 @@ def check_login(session: Session, email: str, password: str) -> LoginResult:
             if user.failed_logins >= MAX_FAILS:
                 user.locked_until = _now() + timedelta(minutes=LOCK_MINUTES)
                 user.failed_logins = 0
-        # Один и тот же ответ на «нет почты» и «неверный пароль»: не подсказываем
-        # перебору, что почта угадана.
+        # The same response for "no such email" and "wrong password": we don't tip off
+        # the brute-forcer that the email was guessed.
         return LoginResult(ok=False, error="auth.err.bad_credentials")
 
-    # Пароль верный — счётчик неудач обнуляем.
+    # Password correct — reset the failure counter.
     user.failed_logins = 0
     user.locked_until = None
 
-    # Пароль пересчитываем, если настройки argon2 с тех пор ужесточились.
+    # Rehash the password if the argon2 settings have been tightened since.
     if security.password_needs_rehash(user.password_hash):
         user.password_hash = security.hash_password(password)
 
@@ -121,7 +121,7 @@ def check_login(session: Session, email: str, password: str) -> LoginResult:
 
 
 def open_session(session: Session, user: User, request: Request, response: Response) -> None:
-    """Создать сессию и положить куку. Зовётся, когда вход уже подтверждён."""
+    """Create a session and set the cookie. Called once sign-in is confirmed."""
     raw = security.new_token()
     row = UserSession(
         user_id=user.id,
@@ -145,7 +145,7 @@ def open_session(session: Session, user: User, request: Request, response: Respo
 
 
 def current_user(session: Session, request: Request) -> User | None:
-    """Кто сейчас за дверью. None — никто."""
+    """Who's at the door right now. None — nobody."""
     raw = request.cookies.get(COOKIE_NAME)
     if not raw:
         return None
@@ -154,10 +154,10 @@ def current_user(session: Session, request: Request) -> User | None:
     )
     if row is None or row.revoked_at is not None or _aware(row.expires_at) <= _now():
         return None
-    # «Последний раз видели» обновляем не чаще раза в пару минут. Иначе каждый
-    # показ любой страницы становился записью в базу, а SQLite пускает одного
-    # писателя разом — это лишняя запись на ровном месте и лишний повод для
-    # блокировок. Для «где я вошёл» минутная точность и не нужна.
+    # We update "last seen" no more than once every couple of minutes. Otherwise every
+    # render of any page became a write to the database, and SQLite admits only one
+    # writer at a time — that's a needless write for no reason and a needless cause of
+    # locks. For "where am I signed in" minute-level precision isn't needed anyway.
     seen = _aware(row.last_seen_at)
     if seen is None or (_now() - seen) > timedelta(minutes=2):
         row.last_seen_at = _now()
@@ -168,7 +168,7 @@ def current_user(session: Session, request: Request) -> User | None:
 
 
 def close_session(session: Session, request: Request, response: Response) -> None:
-    """Выйти: отозвать эту сессию и убрать куку."""
+    """Sign out: revoke this session and remove the cookie."""
     raw = request.cookies.get(COOKIE_NAME)
     if raw:
         row = session.scalar(
@@ -180,7 +180,7 @@ def close_session(session: Session, request: Request, response: Response) -> Non
 
 
 def revoke_all(session: Session, user: User) -> int:
-    """Выйти на всех устройствах. Возвращает, сколько сессий закрыто."""
+    """Sign out on all devices. Returns how many sessions were closed."""
     rows = session.scalars(
         select(UserSession).where(UserSession.user_id == user.id, UserSession.revoked_at.is_(None))
     ).all()
@@ -189,13 +189,13 @@ def revoke_all(session: Session, user: User) -> int:
     return len(rows)
 
 
-# --- билет между паролем и вторым шагом ---------------------------------
+# --- ticket between the password and the second step --------------------
 #
-# Пароль верный, но включена двухэтапная проверка. Нужно донести «этот человек
-# прошёл пароль» до страницы второго кода, не открывая ещё сессии. Кладём
-# подписанную метку в короткоживущую куку: в базе ничего не храним, а подделать
-# нельзя — подпись на главном ключе. Живёт 5 минут: код ввести успеешь, а
-# забытый на чужом экране билет протухнет сам.
+# The password is correct, but two-step verification is enabled. We need to carry "this
+# user passed the password" to the second-code page without opening a session yet. We put
+# a signed tag into a short-lived cookie: we store nothing in the database, and it can't be
+# forged — the signature is on the secret key. It lives 5 minutes: enough to enter the
+# code, and a ticket left on someone else's screen goes stale on its own.
 
 TOTP_TICKET_COOKIE = "vivatlas_2fa"
 _TICKET_MAX_AGE = 300
@@ -203,7 +203,7 @@ _TICKET_MAX_AGE = 300
 
 def _signer() -> TimestampSigner:
     if not settings.secret_key:
-        raise security.SecretMissing("Не задан SECRET_KEY — второй шаг входа не подписать.")
+        raise security.SecretMissing("SECRET_KEY is not set — can't sign the second sign-in step.")
     return TimestampSigner(settings.secret_key, salt="skill-atlas/2fa-ticket")
 
 
@@ -238,45 +238,46 @@ def clear_totp_ticket(response: Response) -> None:
     response.delete_cookie(TOTP_TICKET_COOKIE, path="/")
 
 
-# --- ссылка на сброс пароля ------------------------------------------------
+# --- password reset link ---------------------------------------------------
 #
-# Ссылка подписана главным ключом, живёт час и не хранится в базе: подделать
-# нельзя, а лишней таблицы под одноразовые токены не заводим. «Одноразовость»
-# держится на отпечатке пароля: в токен зашит отпечаток текущего хеша, и как
-# только пароль сменили (в том числе по этой же ссылке), отпечаток перестаёт
-# совпадать — старая ссылка мертва. Так одна ссылка меняет пароль ровно раз.
+# The link is signed with the secret key, lives an hour and isn't stored in the database:
+# it can't be forged, and we don't create an extra table for one-time tokens. "One-time"
+# rests on the password fingerprint: the token embeds the fingerprint of the current hash,
+# and as soon as the password is changed (including via this same link), the fingerprint no
+# longer matches — the old link is dead. So one link changes the password exactly once.
 
-RESET_MAX_AGE = 3600  # секунд: час на то, чтобы дойти до почты и сменить пароль
+RESET_MAX_AGE = 3600  # seconds: an hour to reach the email and change the password
 
 
 def _reset_serializer() -> URLSafeTimedSerializer:
     if not settings.secret_key:
-        raise security.SecretMissing("Не задан SECRET_KEY — ссылку сброса не подписать.")
+        raise security.SecretMissing("SECRET_KEY is not set — can't sign the reset link.")
     return URLSafeTimedSerializer(settings.secret_key, salt="skill-atlas/password-reset")
 
 
 def _pw_fingerprint(password_hash: str) -> str:
-    """Короткий отпечаток пароля. Не сам хеш — его в ссылку класть незачем;
-    достаточно того, что меняется вместе с паролем и делает ссылку мёртвой."""
+    """A short password fingerprint. Not the hash itself — no need to put that in the link;
+    what suffices is something that changes with the password and makes the link dead."""
     return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
 
 
 def make_reset_token(user: User) -> str:
-    """Подписанный токен для ссылки сброса. Зовётся, когда человек попросил."""
+    """A signed token for the reset link. Called when the user asked for it."""
     return _reset_serializer().dumps({"uid": user.id, "fp": _pw_fingerprint(user.password_hash)})
 
 
 def read_reset_token(session: Session, token: str, max_age: int = RESET_MAX_AGE) -> User | None:
-    """Кому принадлежит ссылка. None — подделка, протухла или уже сработала.
+    """Whom the link belongs to. None — forged, stale, or already used.
 
-    Проверяем всё: подпись, срок, что человек есть и активен, и что пароль с
-    момента выдачи не менялся (отпечаток). Любая осечка — None, без подсказок.
+    We check everything: the signature, the expiry, that the user exists and is active,
+    and that the password hasn't changed since issuance (fingerprint). Any slip — None,
+    with no hints.
     """
     if not token:
         return None
     try:
         data = _reset_serializer().loads(token, max_age=max_age)
-    except BadData:  # подпись, срок или мусор — BadData покрывает всё это
+    except BadData:  # signature, expiry, or garbage — BadData covers all of it
         return None
     if not isinstance(data, dict):
         return None
@@ -292,18 +293,18 @@ def read_reset_token(session: Session, token: str, max_age: int = RESET_MAX_AGE)
     return user
 
 
-# --- приглашения ------------------------------------------------------------
+# --- invitations ------------------------------------------------------------
 #
-# Хозяин зовёт человека ссылкой /join?code=… В базе лежит ХЕШ кода, не сам код
-# (украдут базу — не получат рабочих ссылок), как и у сессий. Ссылка живёт две
-# недели и одноразовая: как приняли, помечаем used_at. Приглашение может быть
-# привязано к почте (тогда на /join почта уже задана) или открытым (email="").
+# The owner invites a user with a /join?code=… link. The database holds the HASH of the
+# code, not the code itself (steal the database and you get no working links), same as with
+# sessions. The link lives two weeks and is one-time: once accepted, we mark used_at. An
+# invitation can be tied to an email (then on /join the email is already set) or open (email="").
 
 INVITE_DAYS = 14
 
 
 def make_invite(session: Session, email: str, created_by: int) -> str:
-    """Завести приглашение и вернуть СЫРОЙ код для ссылки. В базу кладём хеш."""
+    """Create an invitation and return the RAW code for the link. We store the hash."""
     raw = security.new_token()
     session.add(
         Invite(
@@ -317,8 +318,8 @@ def make_invite(session: Session, email: str, created_by: int) -> str:
 
 
 def read_invite(session: Session, code: str) -> Invite | None:
-    """Живое ли приглашение по коду из ссылки. None — подделка, протухло или
-    уже принято."""
+    """Whether the invitation is live by the code from the link. None — forged, stale, or
+    already accepted."""
     if not code:
         return None
     row = session.scalar(select(Invite).where(Invite.code_hash == security.token_hash(code)))
@@ -328,12 +329,12 @@ def read_invite(session: Session, code: str) -> Invite | None:
 
 
 def consume_invite(session: Session, inv: Invite, user: User) -> bool:
-    """Пометить приглашение принятым АТОМАРНО — одноразовость под гонкой.
+    """Mark the invitation accepted ATOMICALLY — one-time-ness under a race.
 
-    Условный UPDATE срабатывает, только пока used_at ещё пусто; rowcount==0 —
-    значит его успели принять параллельным запросом (для ОТКРЫТОГО приглашения,
-    где у каждого своя почта, уникальность users.email второй аккаунт не поймала
-    бы). Тогда заводить аккаунт нельзя — вызывающий откатывает транзакцию."""
+    The conditional UPDATE fires only while used_at is still empty; rowcount==0 means
+    it was accepted by a parallel request first (for an OPEN invitation, where everyone
+    has their own email, the users.email uniqueness wouldn't have caught the second
+    account). Then no account may be created — the caller rolls back the transaction."""
     res = session.execute(
         update(Invite)
         .where(Invite.id == inv.id, Invite.used_at.is_(None))
@@ -343,7 +344,7 @@ def consume_invite(session: Session, inv: Invite, user: User) -> bool:
 
 
 def _client_ip(request: Request) -> str:
-    """Адрес посетителя. За туннелем настоящий адрес приходит заголовком."""
+    """The visitor's address. Behind a tunnel the real address arrives in a header."""
     fwd = request.headers.get("x-forwarded-for", "")
     if fwd:
         return fwd.split(",")[0].strip()[:64]

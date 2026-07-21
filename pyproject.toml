@@ -1,7 +1,7 @@
 [project]
 name = "vivatlas"
 version = "0.1.0"
-description = "Каталог скиллов, агентов и инструментов из Git-репозиториев"
+description = "Catalogue of skills, agents and tools from Git repositories"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
@@ -15,20 +15,20 @@ dependencies = [
     "numpy>=2.0",
     "jinja2>=3.1",
     "mcp>=1.2",
-    # --- дверь ---
-    # argon2 — не bcrypt: bcrypt молча режет пароль на 72 байте, а argon2id
-    # берёт победитель конкурса хешей паролей и настраивается по памяти.
+    # --- door ---
+    # argon2 — not bcrypt: bcrypt silently truncates the password at 72 bytes, while argon2id
+    # is the password-hashing-competition winner and can be tuned by memory.
     "argon2-cffi>=23.1",
-    # Подписанные метки времени для ссылок сброса и cookie. Своё подписывание
-    # тут писать незачем — это ровно то место, где ошибаются.
+    # Signed timestamps for reset links and cookies. No reason to write our own
+    # signing here — this is exactly the place where people get it wrong.
     "itsdangerous>=2.2",
-    # Коды двухэтапной проверки: TOTP по RFC 6238, как в Google Authenticator.
+    # Two-step verification codes: TOTP per RFC 6238, like in Google Authenticator.
     "pyotp>=2.9",
-    # QR для привязки приложения. Рисуем в SVG, поэтому PIL не нужен.
+    # QR for linking the app. We draw it as SVG, so PIL isn't needed.
     "qrcode>=8.0",
-    # Отправка почты, не блокируя сервер.
+    # Sending mail without blocking the server.
     "aiosmtplib>=3.0",
-    # Шифрование чужих токенов в базе.
+    # Encrypting third-party tokens in the database.
     "cryptography>=44.0",
 ]
 
@@ -63,6 +63,6 @@ src = ["src", "tests"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-# Файлы переводов — данные: длинные строки на трёх языках не разбить осмысленно.
+# Translation files are data: long strings in three languages can't be split meaningfully.
 "src/vivatlas/translations.py" = ["E501"]
 "src/vivatlas/translations_bulk.py" = ["E501"]

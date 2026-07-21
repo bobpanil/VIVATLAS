@@ -1,9 +1,9 @@
-"""Поиск: по словам, по смыслу и вместе.
+"""Search: by words, by meaning, and both together.
 
-Два способа дополняют друг друга. Поиск по словам точно находит по названию
-(`brandkit`), но бессилен, если запрос на русском, а инструмент назван
-по-английски. Поиск по смыслу наоборот: понимает "вытащить таблицы из пдф",
-но может промахнуться мимо точного имени. Поэтому по умолчанию — оба.
+The two approaches complement each other. Word search nails an exact name match
+(`brandkit`) but is helpless when the query is in Russian and the tool is named
+in English. Meaning search is the opposite: it understands "pull tables out of a
+pdf" but can miss the exact name. So by default we run both.
 """
 
 import re
@@ -17,8 +17,8 @@ from vivatlas.ai.base import EmbeddingModel
 from vivatlas.embeddings import VectorIndex
 from vivatlas.models import Artifact
 
-# Сглаживание при слиянии двух списков. 60 — общепринятое значение: оно не даёт
-# первому месту одного списка задавить весь другой список.
+# Smoothing when merging two lists. 60 is the standard value: it keeps the top
+# spot of one list from swamping the entire other list.
 RRF_K = 60
 
 
@@ -39,8 +39,8 @@ class Hit:
 
 
 def _clean_query(query: str) -> str:
-    """FTS5 понимает свой язык запросов, и кавычка или скобка из обычного
-    вопроса роняют его с ошибкой. Оставляем слова, остальное выкидываем."""
+    """FTS5 speaks its own query language, and a quote or bracket from an ordinary
+    question crashes it with an error. We keep the words and drop the rest."""
     words = re.findall(r"[\w\-]+", query, flags=re.UNICODE)
     return " OR ".join(f'"{w}"' for w in words if len(w) > 1)
 
@@ -61,8 +61,8 @@ def search_by_words(session: Session, query: str, limit: int = 20) -> list[tuple
         ),
         {"q": cleaned, "lim": limit},
     ).all()
-    # bm25 в SQLite отрицательный, и чем меньше — тем лучше. Переворачиваем,
-    # чтобы больше значило лучше, как везде.
+    # bm25 in SQLite is negative, and lower is better. We flip it so that
+    # higher means better, like everywhere else.
     return [(r[0], -float(r[1])) for r in rows]
 
 
@@ -77,10 +77,10 @@ async def search_by_meaning(
 
 
 def _rrf(ranked_lists: list[list[tuple[int, float]]]) -> dict[int, float]:
-    """Слияние по местам, а не по оценкам.
+    """Merge by rank position, not by score.
 
-    Оценки двух способов несравнимы: bm25 и близость векторов живут в разных
-    шкалах. Поэтому смотрим не на оценку, а на место в списке.
+    The scores of the two approaches aren't comparable: bm25 and vector proximity
+    live on different scales. So we look at the position in the list, not the score.
     """
     scores: dict[int, float] = {}
     for ranked in ranked_lists:
@@ -127,9 +127,9 @@ async def search(
 
         reasons = []
         if artifact_id in words_map:
-            reasons.append("совпали слова")
+            reasons.append("words matched")
         if artifact_id in meaning_map:
-            reasons.append("близко по смыслу")
+            reasons.append("close in meaning")
 
         hits.append(
             Hit(
@@ -147,7 +147,7 @@ async def search(
 
 
 def index_artifact_for_words(session: Session, artifact: Artifact) -> None:
-    """Обновить строку карточки в таблице поиска по словам."""
+    """Refresh the card's row in the word-search table."""
     session.execute(text("DELETE FROM artifacts_fts WHERE rowid = :id"), {"id": artifact.id})
     session.execute(
         text(

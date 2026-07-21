@@ -43,12 +43,12 @@ def catalog(make_session):
             )
         return art
 
-    add("airbnb", "design-lib", "design-kit", 2, [("typography", "назначение")], "in-sync")
+    add("airbnb", "design-lib", "design-kit", 2, [("typography", "purpose")], "in-sync")
     add(
-        "stripe", "design-lib", "design-kit", 40, [("typography", "назначение")], "update-available"
+        "stripe", "design-lib", "design-kit", 40, [("typography", "purpose")], "update-available"
     )
-    add("scanner", "skills-lib", "skill", 5, [("security", "назначение"), ("python", "язык")])
-    add("old-tool", "skills-lib", "skill", 200, [("python", "язык")], "locally-modified")
+    add("scanner", "skills-lib", "skill", 5, [("security", "purpose"), ("python", "language")])
+    add("old-tool", "skills-lib", "skill", 200, [("python", "language")], "locally-modified")
     s.commit()
     return s
 
@@ -57,7 +57,7 @@ def names(session, f):
     return sorted(a.name for a in session.scalars(filters.apply(select(Artifact), f)))
 
 
-# --- по одному признаку ---
+# --- by a single attribute ---
 
 
 def test_no_filters_returns_everything(catalog):
@@ -85,11 +85,11 @@ def test_by_upstream_status(catalog):
     assert names(catalog, filters.Filters(status="update-available")) == ["stripe"]
 
 
-# --- вместе ---
+# --- combined ---
 
 
 def test_filters_combine_as_and_not_or(catalog):
-    # Скилл И на питоне И свежий — только один.
+    # A skill AND in python AND recent — only one.
     f = filters.Filters(type="skill", tag="python", days="7")
     assert names(catalog, f) == ["scanner"]
 
@@ -104,13 +104,13 @@ def test_count_matches_the_list(catalog):
     assert filters.count_matching(catalog, f) == len(names(catalog, f))
 
 
-# --- варианты для показа ---
+# --- options to display ---
 
 
 def test_only_real_tags_are_offered(catalog):
-    # Тег, который никому не поставлен, предлагать нельзя: выбор, который
-    # ничего не находит, только раздражает.
-    catalog.add(Tag(slug="never-used", label="never-used", category="назначение"))
+    # A tag that nobody has been assigned can't be offered: a choice that
+    # finds nothing is just annoying.
+    catalog.add(Tag(slug="never-used", label="never-used", category="purpose"))
     catalog.commit()
 
     groups = filters.tag_groups(catalog)
@@ -121,18 +121,18 @@ def test_only_real_tags_are_offered(catalog):
 
 def test_tag_groups_are_split_by_category(catalog):
     groups = {g.key: [o.value for o in g.options] for g in filters.tag_groups(catalog)}
-    assert "python" in groups["язык"]
-    assert "security" in groups["назначение"]
+    assert "python" in groups["language"]
+    assert "security" in groups["purpose"]
 
 
 def test_status_options_hide_empty_ones(catalog):
     values = {o.value for o in filters.status_options(catalog)}
     assert values == {"in-sync", "update-available", "locally-modified"}
-    assert "diverged" not in values  # такого ни у кого нет
+    assert "diverged" not in values  # nobody has this one
 
 
 def test_status_options_put_actionable_first(catalog):
-    # "Вышла новая версия" — единственное, что требует действия. Оно и первое.
+    # "A new version is out" — the only one that needs action. So it comes first.
     assert filters.status_options(catalog)[0].value == "update-available"
 
 
@@ -141,7 +141,7 @@ def test_counts_are_real(catalog):
     assert types == {"design-kit": 2, "skill": 2}
 
 
-# --- сборка ссылок ---
+# --- building links ---
 
 
 def test_query_drops_one_filter_keeps_others():

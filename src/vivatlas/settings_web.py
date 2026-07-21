@@ -1,7 +1,7 @@
-"""Настройки за замком: пока — двухэтапная проверка.
+"""Settings behind the lock: for now — two-step verification.
 
-Позже сюда добавятся язык, тема, свои репозитории. Страница одна, разделы
-растут.
+Language, theme, and personal repositories will land here later. One page, and
+its sections grow.
 """
 
 import logging
@@ -22,16 +22,16 @@ from vivatlas.db import session_scope
 from vivatlas.models import Avatar, Category, Source, User
 from vivatlas.web import _counts
 
-# Какие хостинги можно подключить своим источником. Работает пока Gitea
-# (Codeberg — тот же Forgejo/Gitea). Остальные сохраняются, а обход добавим по
-# мере готовности провайдеров.
+# Which hosts can be connected as your own source. Only Gitea works so far
+# (Codeberg is the same Forgejo/Gitea). The rest are saved, and we'll add the
+# crawl as the providers become ready.
 SOURCE_KINDS = [
     ("gitea", "Gitea"),
     ("github", "GitHub"),
     ("gitlab", "GitLab"),
     ("bitbucket", "Bitbucket"),
     ("codeberg", "Codeberg"),
-    ("git", "Другой Git"),
+    ("git", "Other Git"),
 ]
 
 log = logging.getLogger(__name__)
@@ -40,8 +40,8 @@ BASE = Path(__file__).parent
 templates = Jinja2Templates(
     directory=str(BASE / "templates"), context_processors=[i18n.template_context]
 )
-# У этого модуля свой env шаблонов — глобалы web.py сюда не попадают, поэтому
-# иконки категорий регистрируем и здесь.
+# This module has its own template env — web.py globals don't reach here, so we
+# register the category icons here too.
 templates.env.globals["caticon"] = caticons.caticon_svg
 router = APIRouter()
 
@@ -51,8 +51,8 @@ def _me(session, request: Request) -> User | None:
 
 
 def _mask_token(enc: str, lang: str = "en") -> str:
-    """Замаскированный токен. Если не расшифровался (сменился ключ) — не роняем
-    страницу, а честно говорим, что нечитаем."""
+    """A masked token. If it won't decrypt (the key changed) — don't crash the
+    page; we honestly say it's unreadable."""
     if not enc:
         return ""
     try:
@@ -62,7 +62,7 @@ def _mask_token(enc: str, lang: str = "en") -> str:
 
 
 def _my_sources(session, user_id: int, lang: str = "en") -> list[dict]:
-    """Свои частные источники. Токен наружу — только замаскированным."""
+    """Your own private sources. The token goes out only masked."""
     rows = session.scalars(
         select(Source).where(Source.owner_user_id == user_id).order_by(Source.created_at)
     ).all()
@@ -88,14 +88,14 @@ def _valid_url(u: str) -> bool:
 def _security_page(
     request: Request, session, me, error: str = "", **msgs
 ) -> HTMLResponse:
-    """Полная страница настроек — с ошибкой/сообщением или без. Одна точка сборки
-    контекста, чтобы они показывались в окне, а не роняли его. msgs — адресные
-    сообщения разделов (account_msg/account_error и т.п.)."""
+    """The full settings page — with an error/message or without. A single point
+    to assemble the context, so they show in the modal rather than crash it. msgs
+    — targeted section messages (account_msg/account_error, etc.)."""
     lang = getattr(request.state, "lang", "en")
-    # Сбрасываем отложенные изменения в БД до чтения: без этого session.get вернёт
-    # только что удалённый (session.delete) аватар из карты идентичности, и после
-    # «Убрать фото»/выбора аватара из набора страница показала бы has_avatar
-    # устаревшим True (кнопка не гасла, галочка на выбранном не вставала).
+    # Flush pending DB changes before reading: without this session.get returns
+    # the just-deleted (session.delete) avatar from the identity map, and after
+    # "Remove photo"/picking a preset avatar the page would show has_avatar as a
+    # stale True (the button wouldn't dim, the checkmark on the pick wouldn't set).
     session.flush()
     has_avatar = session.get(Avatar, me.id) is not None
     return _page(
@@ -133,7 +133,7 @@ def settings_page(request: Request) -> HTMLResponse:
         return _security_page(request, session, me)
 
 
-# --- свой аккаунт: пароль, почта, фото, удаление ---------------------------
+# --- your account: password, email, photo, deletion -----------------------
 
 
 def _require_me(session, request: Request) -> User:
@@ -150,7 +150,7 @@ def change_password(
     new: Annotated[str, Form()] = "",
     confirm: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Сменить свой пароль: сперва подтверждаем текущим, потом проверяем силу."""
+    """Change your password: confirm with the current one first, then check strength."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _require_me(session, request)
@@ -166,9 +166,9 @@ def change_password(
         if key:
             return _security_page(request, session, me, account_error=i18n.translate(key, lang))
         me.password_hash = security.hash_password(new)
-        # Смена пароля выкидывает все сессии (в т.ч. чужую украденную — ради этого
-        # пароль и меняют), а текущему человеку сразу выдаём свежую, чтобы его не
-        # разлогинило. Так же поступает сброс пароля.
+        # Changing the password kicks out all sessions (including a stolen one —
+        # that's the whole reason people change it), and we hand the current user a
+        # fresh one right away so they aren't signed out. Password reset does the same.
         auth.revoke_all(session, me)
         resp = _security_page(
             request, session, me, account_msg=i18n.translate("account.pw_changed", lang)
@@ -184,9 +184,9 @@ def change_email(
     email_confirm: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Сменить свою почту: подтверждаем паролем, приводим к нижнему регистру,
-    бережём уникальность. Новую почту вводят дважды — опечатка в адресе заперла
-    бы снаружи (письма сброса уходили бы не туда)."""
+    """Change your email: confirm with the password, lowercase it, keep it
+    unique. The new email is entered twice — a typo in the address would lock you
+    out (reset emails would go to the wrong place)."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _require_me(session, request)
@@ -219,14 +219,14 @@ def change_email(
 def upload_avatar(
     request: Request, photo: Annotated[UploadFile, File()]
 ) -> HTMLResponse:
-    """Загрузить фото профиля. Приводим к квадратному webp (png/jpeg/gif/bmp —
-    Pillow; svg — headless-Chromium). СИНХРОННЫЙ маршрут намеренно: растеризация
-    svg через sync-Playwright не живёт внутри цикла asyncio."""
+    """Upload a profile photo. We convert to a square webp (png/jpeg/gif/bmp —
+    Pillow; svg — headless Chromium). A SYNCHRONOUS route on purpose: rasterizing
+    svg via sync-Playwright can't live inside the asyncio loop."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _require_me(session, request)
-        # Читаем с потолком в памяти (ещё до Pillow): без ограничителя огромная
-        # загрузка целиком осела бы в оперативке до проверки размера.
+        # Read with an in-memory cap (before Pillow even): without a limiter a
+        # huge upload would settle whole into RAM before the size check.
         data = photo.file.read(avatars.MAX_UPLOAD + 1)
         try:
             webp = avatars.to_webp(data, photo.content_type or "")
@@ -261,8 +261,8 @@ def delete_avatar(request: Request) -> HTMLResponse:
 def set_avatar_preset(
     request: Request, preset: Annotated[str, Form()] = ""
 ) -> HTMLResponse:
-    """Выбрать аватар из набора «бюсты». Загруженное фото берёт верх над набором,
-    поэтому при выборе набора удаляем своё фото — иначе выбор не был бы виден."""
+    """Pick an avatar from the "busts" set. An uploaded photo overrides the set,
+    so when a set avatar is picked we delete the photo — else the pick wouldn't show."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _require_me(session, request)
@@ -282,9 +282,9 @@ def set_avatar_preset(
 
 @router.post("/settings/account/delete", response_class=HTMLResponse)
 def delete_account(request: Request, password: Annotated[str, Form()] = "") -> Response:
-    """Удалить свой аккаунт. Подтверждаем паролем. Последнего владельца не даём
-    удалить (иначе некому управлять). Общие карточки уходят владельцу приложения,
-    личное — с человеком (та же чистка, что у админа)."""
+    """Delete your account. Confirm with the password. We don't let the last
+    owner be deleted (else there's no one to manage). Shared cards go to the app
+    owner, personal ones go with the user (the same cleanup as the admin's)."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _require_me(session, request)
@@ -303,8 +303,8 @@ def delete_account(request: Request, password: Annotated[str, Form()] = "") -> R
                     request, session, me,
                     account_error=i18n.translate("account.err.last_owner", lang),
                 )
-        # Кому передать общие карточки: любому ДЕЙСТВУЮЩЕМУ владельцу, кроме
-        # уходящего — не забаненному, иначе карточки осядут у того, кто не войдёт.
+        # Whom to hand the shared cards to: any ACTIVE owner other than the one
+        # leaving — not banned, else the cards settle with someone who can't sign in.
         heir = session.scalar(
             select(User)
             .where(User.is_owner.is_(True), User.is_active.is_(True), User.id != me.id)
@@ -321,10 +321,10 @@ def delete_account(request: Request, password: Annotated[str, Form()] = "") -> R
 
 @router.get("/avatar/{user_id}")
 def avatar(request: Request, user_id: int) -> Response:
-    """Отдать аватар (webp). За замком: показываем вошедшим (аватар в меню и на
-    карточках). Приоритет: загруженное фото → аватар по умолчанию из набора →
-    404 (шаблон тогда покажет инициалы). Загруженное фото кэшируем коротко,
-    чтобы смена была видна быстро; набор — дольше, он не меняется."""
+    """Serve the avatar (webp). Behind the lock: shown to signed-in users (avatar
+    in the menu and on cards). Priority: uploaded photo → default preset avatar →
+    404 (the template then shows initials). The uploaded photo is cached briefly,
+    so a change shows quickly; the preset — longer, it doesn't change."""
     with session_scope() as session:
         row = session.get(Avatar, user_id)
         if row is not None:
@@ -345,31 +345,31 @@ def avatar(request: Request, user_id: int) -> Response:
         raise HTTPException(404, "no avatar")
 
 
-# --- папки-категории: общие (админские) и личные (у каждого свои) -----------
+# --- category folders: shared (admin) and personal (each user's own) --------
 #
-# Общие (owner пуст) заводит и ведёт только администратор — это общий каталог.
-# Личные (owner задан) заводит и ведёт каждый у себя; чужие личные не видны даже
-# администратору. Права на каждом маршруте считает vivatlas.categories.
+# Shared ones (owner empty) are created and kept only by the admin — the common
+# catalogue. Personal ones (owner set) each user keeps for themselves; others'
+# personal ones aren't visible even to the admin. vivatlas.categories checks rights.
 
 
 def _scope_cond(owner_id: int | None):
-    """SQL-условие «в той же области владения», чтобы имя/позиция считались в
-    пределах общих ИЛИ в пределах личных одного человека."""
+    """The SQL condition "within the same ownership scope", so name/position are
+    counted within the shared set OR within one user's personal set."""
     if owner_id is None:
         return Category.owner_user_id.is_(None)
     return Category.owner_user_id == owner_id
 
 
 def _safe_next(nxt: str) -> str:
-    """Куда вернуться после действия над папкой. Общими папками управляют из
-    админ-панели (next=/admin), личными — из настроек (по умолчанию). Только
-    внутренние адреса, чтобы формой нельзя было увести на чужой сайт."""
+    """Where to return after acting on a folder. Shared folders are managed from
+    the admin panel (next=/admin), personal ones — from settings (the default).
+    Internal addresses only, so a form can't steer you off to another site."""
     return nxt if nxt.startswith("/") and not nxt.startswith("//") else "/settings"
 
 
 def _authorize_category(session, request: Request, cat: Category | None):
-    """Проверить право вести конкретную папку. Возвращает (me). 404 на чужую
-    личную (её существование не подтверждаем), 403 на общую без прав админа."""
+    """Check the right to manage a specific folder. Returns (me). 404 on another's
+    personal one (we don't confirm it exists), 403 on a shared one without admin rights."""
     me = _me(session, request)
     if cat is None or not catperm.can_view(cat, me.id):
         raise HTTPException(404, i18n.msg(request, "err.category_not_found"))
@@ -386,12 +386,12 @@ def category_create(
     scope: Annotated[str, Form()] = "private",
     next: Annotated[str, Form()] = "/settings",
 ) -> Response:
-    """Завести папку. scope=shared — общая (только администратор); иначе личная
-    (у каждого своя). Имя уникально в пределах своей области.
+    """Create a folder. scope=shared — shared (admin only); otherwise personal
+    (each user's own). The name is unique within its own scope.
 
-    Для AJAX (Accept: application/json) возвращаем HTML новой строки — скрипт
-    вставляет её в список сразу, без перезагрузки окна. Без скрипта (или сети) —
-    обычный редирект, страница перерисуется с папкой на месте."""
+    For AJAX (Accept: application/json) we return the HTML of the new row — the
+    script inserts it into the list at once, without reloading the modal. Without
+    the script (or the network) — a plain redirect, the page redraws with the folder in place."""
     dest = _safe_next(next)
     lang = getattr(request.state, "lang", "en")
     wants_json = "application/json" in request.headers.get("accept", "")
@@ -416,7 +416,7 @@ def category_create(
                 )
             return RedirectResponse(dest, status_code=303)
         pos = session.scalar(select(func.max(Category.position)).where(cond)) or 0
-        # Иконку не выбрали — подберём по смыслу названия; заменить можно потом.
+        # No icon chosen — we pick by the meaning of the name; can be replaced later.
         chosen = icon[:32] or caticons.suggest_icon(name)
         cat = Category(
             name=name[:128],
@@ -449,8 +449,8 @@ def category_update(
     icon: Annotated[str, Form()] = "",
     next: Annotated[str, Form()] = "/settings",
 ) -> RedirectResponse:
-    """Переименовать и/или сменить иконку. Только своей области (личная — своя,
-    общая — админ)."""
+    """Rename and/or change the icon. Only within your own scope (personal — your
+    own, shared — admin)."""
     with session_scope() as session:
         cat = session.get(Category, cat_id)
         _authorize_category(session, request, cat)
@@ -474,8 +474,8 @@ def category_move(
     dir: Annotated[str, Form()] = "",
     next: Annotated[str, Form()] = "/settings",
 ) -> RedirectResponse:
-    """Поменять местами с соседом по порядку (вверх/вниз) — в пределах своей
-    области (общие переставляются среди общих, личные — среди своих)."""
+    """Swap places with the neighbour in order (up/down) — within your own scope
+    (shared ones reorder among shared, personal among your own)."""
     with session_scope() as session:
         cat = session.get(Category, cat_id)
         _authorize_category(session, request, cat)
@@ -484,15 +484,15 @@ def category_move(
             .where(_scope_cond(cat.owner_user_id))
             .order_by(Category.position, Category.name)
         ).all()
-        # NB: параметр формы `next` затеняет встроенную next(), поэтому индекс
-        # ищем без неё.
+        # NB: the form parameter `next` shadows the built-in next(), so we find
+        # the index without it.
         matches = [i for i, c in enumerate(cats) if c.id == cat_id]
         idx = matches[0] if matches else None
         if idx is not None:
             swap = idx - 1 if dir == "up" else idx + 1
             if 0 <= swap < len(cats):
-                # Переписываем позиции по порядку, поменяв два места, — надёжнее
-                # чем менять одно значение (позиции могли совпасть или быть 0).
+                # Rewrite positions in order, swapping the two spots — more robust
+                # than changing one value (positions could have collided or been 0).
                 cats[idx], cats[swap] = cats[swap], cats[idx]
                 for i, c in enumerate(cats):
                     c.position = i
@@ -505,9 +505,9 @@ def category_reorder(
     order: Annotated[str, Form()] = "",
     next: Annotated[str, Form()] = "/settings",
 ) -> RedirectResponse:
-    """Порядок папок задаётся перетаскиванием: приходит список id по новому
-    порядку. Переставляем только те, что человек вправе вести (свои личные или,
-    для админа, общие) — чужие в списке молча пропускаем."""
+    """Folder order is set by dragging: a list of ids arrives in the new order.
+    We reorder only those the user is entitled to manage (their own personal or,
+    for the admin, shared) — others in the list we silently skip."""
     with session_scope() as session:
         me = _me(session, request)
         for pos, part in enumerate(order.split(",")):
@@ -526,16 +526,16 @@ def category_delete(
     with session_scope() as session:
         cat = session.get(Category, cat_id)
         _authorize_category(session, request, cat)
-        # Членство в папке (ArtifactCategory) уходит каскадом по ondelete=CASCADE;
-        # сами карточки остаются.
+        # Folder membership (ArtifactCategory) goes by cascade via ondelete=CASCADE;
+        # the cards themselves remain.
         session.delete(cat)
     return RedirectResponse(_safe_next(next), status_code=303)
 
 
-# --- свои репозитории (частная зона) ---------------------------------------
-# У каждого свои источники с токеном. Токен вводит сам человек и только он —
-# программа его не набирает и не подставляет; на сервере он ложится
-# зашифрованным и наружу выходит лишь замаскированным.
+# --- personal repositories (private zone) ----------------------------------
+# Each user has their own token-bearing sources. The token is entered by the
+# user and only them — the program neither types nor fills it; on the server it
+# lands encrypted and goes out only masked.
 
 
 @router.post("/settings/sources", response_class=HTMLResponse)
@@ -550,8 +550,8 @@ def source_create(
         me = _me(session, request)
         kinds = {k for k, _ in SOURCE_KINDS}
         base_url = base_url.strip()
-        # Ошибку показываем В окне, а не роняем его: неверный адрес — обычное
-        # дело, из-за него терять всё окно нельзя.
+        # Show the error IN the modal rather than crash it: a bad address is an
+        # everyday thing, and you can't lose the whole modal over it.
         if kind not in kinds:
             lang = getattr(request.state, "lang", "en")
             return _security_page(
@@ -584,8 +584,8 @@ def source_update(
     base_url: Annotated[str, Form()] = "",
     token: Annotated[str, Form()] = "",
 ) -> Response:
-    """Править свой источник: хостинг, название, адрес, токен. Токен меняем
-    только если вписан новый — пустое поле оставляет прежний."""
+    """Edit your source: host, name, address, token. We change the token only if
+    a new one is entered — an empty field keeps the old one."""
     with session_scope() as session:
         me = _me(session, request)
         src = session.get(Source, source_id)
@@ -613,7 +613,7 @@ def source_delete(request: Request, source_id: int) -> RedirectResponse:
     with session_scope() as session:
         me = _me(session, request)
         src = session.get(Source, source_id)
-        # Удалить можно только свой источник — и только общий трогать нельзя.
+        # You can delete only your own source — and a shared one must not be touched.
         if src is not None and src.owner_user_id == me.id:
             session.delete(src)
     return RedirectResponse("/settings", status_code=303)
@@ -621,22 +621,22 @@ def source_delete(request: Request, source_id: int) -> RedirectResponse:
 
 @router.post("/settings/sources/{source_id}/scan", response_class=HTMLResponse)
 async def source_scan(request: Request, source_id: int) -> Response:
-    """Обойти свой источник и собрать карточки в частную зону. Быструю часть
-    (список репозиториев) делаем сразу — ошибку доступа/адреса показываем прямо
-    в окне. Долгий обход (скачать и описать каждый) уходит в фон, а на главной
-    появляется полоса прогресса."""
+    """Crawl your source and gather cards into the private zone. The fast part
+    (the repository list) we do at once — an access/address error is shown right
+    in the modal. The long crawl (download and describe each) goes to the
+    background, and a progress bar appears on the home page."""
     from vivatlas.web import launch_user_scan, precheck_user_scan, scan_progress
 
     user_id = getattr(request.state, "user_id", None)
 
-    # Уже идёт скан — не запускаем второй, просто ведём на главную к полосе.
+    # A scan is already running — don't launch a second, just send to the home page bar.
     prog = scan_progress(user_id)
     if prog and prog.get("state") == "running":
         return RedirectResponse("/", status_code=303)
 
-    # Только мгновенные проверки (без сети): ошибку сразу в окне. Сам обход,
-    # включая получение списка репозиториев, уходит в фон — кнопка отвечает
-    # немедленно, а прогресс видно полосой на главной.
+    # Instant checks only (no network): an error goes straight to the modal. The
+    # crawl itself, including fetching the repository list, goes to the background
+    # — the button responds immediately, and progress shows as a bar on the home page.
     error_key, source_name = precheck_user_scan(user_id, source_id)
     if error_key:
         with session_scope() as session:
@@ -646,7 +646,7 @@ async def source_scan(request: Request, source_id: int) -> Response:
     return RedirectResponse("/", status_code=303)
 
 
-# --- включение: показать QR ------------------------------------------------
+# --- enabling: show the QR -------------------------------------------------
 
 
 @router.post("/settings/2fa/start", response_class=HTMLResponse)
@@ -656,9 +656,9 @@ def totp_start(request: Request) -> HTMLResponse:
         if me.totp_enabled_at:
             return RedirectResponse("/settings", status_code=303)
 
-        # Секрет уже сохраняем (зашифрованным), но проверку НЕ включаем: пока
-        # человек не введёт код, мы не знаем, что приложение и правда привязано.
-        # Включить раньше — запереть себя снаружи от собственного аккаунта.
+        # We already save the secret (encrypted), but we DON'T enable the check:
+        # until the user enters a code, we don't know the app is really linked.
+        # Enabling earlier means locking yourself out of your own account.
         secret = twofactor.new_secret()
         me.totp_secret_enc = security.encrypt_secret(secret)
         session.flush()
@@ -669,11 +669,11 @@ def totp_start(request: Request) -> HTMLResponse:
             session,
             "qr",
             qr=Markup(twofactor.qr_svg(uri)),
-            secret=secret,  # показываем и вручную: не у всех сканер под рукой
+            secret=secret,  # show it manually too: not everyone has a scanner handy
         )
 
 
-# --- включение: подтвердить кодом -----------------------------------------
+# --- enabling: confirm with a code ----------------------------------------
 
 
 @router.post("/settings/2fa/confirm", response_class=HTMLResponse)
@@ -695,31 +695,31 @@ def totp_confirm(request: Request, code: Annotated[str, Form()] = "") -> HTMLRes
                 error=i18n.msg(request, "settings.2fa.err.bad_code_clock"),
             )
 
-        # Код верный — приложение привязано. Включаем и сразу выдаём коды
-        # восстановления: без них потеря телефона запирает снаружи навсегда.
+        # The code is right — the app is linked. We enable it and hand out backup
+        # codes at once: without them, losing the phone locks you out forever.
         me.totp_enabled_at = datetime.now(UTC)
         codes = twofactor.make_backup_codes(session, me)
         user_id = me.id
 
-        # Делаем запись прочной ПРЯМО СЕЙЧАС, до того как что-то рисуем: если
-        # включение не переживёт этот момент, человек не должен увидеть коды,
-        # которых в базе нет.
+        # Make the write durable RIGHT NOW, before we render anything: if the
+        # enabling doesn't survive this moment, the user must not see codes that
+        # aren't in the database.
         session.commit()
 
-        # Самопроверка отдельной сессией: правда ли включение легло в базу.
-        # Была жалоба, что после сохранения кодов проверка отключалась — эта
-        # строчка в журнале скажет точно, дошла запись или откатилась.
+        # A self-check in a separate session: did the enabling really land in the
+        # database. There was a complaint that the check turned off after saving
+        # codes — this log line will say for sure whether the write landed or rolled back.
         with session_scope() as check:
             stuck = check.get(User, user_id)
             if stuck and stuck.totp_enabled_at is not None:
-                log.info("2FA включена и записана: пользователь %s", user_id)
+                log.info("2FA enabled and recorded: user %s", user_id)
             else:
-                log.error("2FA НЕ записалась после подтверждения: пользователь %s", user_id)
+                log.error("2FA did NOT get recorded after confirmation: user %s", user_id)
 
         return _page(request, session, "codes", codes=codes, fresh=True)
 
 
-# --- коды восстановления заново --------------------------------------------
+# --- backup codes again ----------------------------------------------------
 
 
 @router.post("/settings/2fa/backup", response_class=HTMLResponse)
@@ -729,8 +729,8 @@ def backup_regen(request: Request, code: Annotated[str, Form()] = "") -> HTMLRes
         if not me.totp_enabled_at:
             return RedirectResponse("/settings", status_code=303)
 
-        # Перевыпуск кодов — за кодом из приложения: иначе всякий, кто на минуту
-        # сел за открытый экран, распечатает себе новый набор ключей.
+        # Reissuing codes takes a code from the app: otherwise anyone who sits at
+        # an open screen for a minute prints themselves a new set of keys.
         if not twofactor.verify_totp(me, code):
             return _security_page(
                 request, session, me,
@@ -740,7 +740,7 @@ def backup_regen(request: Request, code: Annotated[str, Form()] = "") -> HTMLRes
         return _page(request, session, "codes", codes=codes, fresh=False)
 
 
-# --- выключение ------------------------------------------------------------
+# --- disabling -------------------------------------------------------------
 
 
 @router.post("/settings/2fa/disable", response_class=HTMLResponse)
@@ -750,8 +750,8 @@ def totp_disable(request: Request, password: Annotated[str, Form()] = "") -> HTM
         if not me.totp_enabled_at:
             return RedirectResponse("/settings", status_code=303)
 
-        # Выключение — за паролем: снимать вторую дверь должен тот, кто знает
-        # первую, а не тот, кто просто оказался за чужим экраном.
+        # Disabling takes the password: removing the second door should be done by
+        # someone who knows the first, not someone who just ended up at another's screen.
         if not security.verify_password(password, me.password_hash):
             return _security_page(
                 request, session, me,

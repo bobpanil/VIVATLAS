@@ -3,17 +3,17 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    {# Тёмной темы у набора PostHog нет — система кремовая по замыслу. Честнее
-       так и сказать браузеру, чем подстраиваться под тему телефона выдумкой. #}
+    {# The PostHog kit has no dark theme — the design is cream by intent. It's
+       more honest to tell the browser so than to fake matching the phone theme. #}
     <meta name="color-scheme" content="light">
-    {# Цвет строки состояния на телефоне — под верхнюю полосу, а она тёмная. #}
+    {# Status bar colour on phones — matches the top bar, and that bar is dark. #}
     <meta name="theme-color" content="#04060d">
     <title>{% block title %}VIVATLAS{% endblock %}</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="stylesheet" href="/static/app.css">
-    {# Тема применяется до отрисовки, чтобы не было вспышки светлого. Выбор
-       личный, живёт на устройстве (localStorage), как и размер карточек. #}
+    {# The theme is applied before paint so there's no flash of light. The choice
+       is personal, living on the device (localStorage), like the card size. #}
     <script>
     (function () {
         function resolve(t) {
@@ -25,21 +25,21 @@
             var eff = resolve(t);
             if (eff === 'dark' || eff === 'oled') { document.documentElement.setAttribute('data-theme', eff); }
             else { document.documentElement.removeAttribute('data-theme'); }
-            // Сырой режим (light/dark/oled/auto) — по нему CSS выбирает значок темы
-            // в сайдбаре. Ставим до отрисовки, чтобы значок не мигал.
+            // Raw mode (light/dark/oled/auto) — CSS uses it to pick the theme icon
+            // in the sidebar. Set before paint so the icon doesn't flicker.
             document.documentElement.setAttribute('data-thememode', t);
         }
-        try { applyTheme(localStorage.getItem('vivatlas-theme') || 'light'); } catch (e) { /* приватный режим */ }
-        // Смена темы в модалке настроек (другое окно того же origin) — подхватить
-        // здесь же, чтобы каталог за модалкой перекрасился сразу.
+        try { applyTheme(localStorage.getItem('vivatlas-theme') || 'light'); } catch (e) { /* private mode */ }
+        // Theme change in the settings modal (another window of the same origin) —
+        // catch it here too, so the catalogue behind the modal recolours at once.
         window.addEventListener('storage', function (e) {
             if (e.key === 'vivatlas-theme') applyTheme(e.newValue || 'light');
         });
-        // Открыто для переключателя темы в сайдбаре.
+        // Exposed for the theme switcher in the sidebar.
         window.applyVivTheme = applyTheme;
-        // Размер карточек — тоже до отрисовки: иначе сетка на каждом переходе
-        // анимировалась бы от размера по умолчанию к сохранённому (карточки
-        // «прыгали» крупные→мелкие). Ставим сразу, до первой отрисовки.
+        // Card size — also before paint: otherwise on every navigation the grid
+        // would animate from the default size to the saved one (cards "jumping"
+        // large→small). Set it right away, before the first paint.
         try {
             var cols = localStorage.getItem('vivatlas-cols');
             if (cols) {
@@ -47,34 +47,34 @@
                 var sc = Math.max(0.72, Math.min(1.3, 5 / (parseInt(cols, 10) + 1)));
                 document.documentElement.style.setProperty('--card-scale', sc.toFixed(3));
             }
-        } catch (e) { /* приватный режим */ }
-        // Свёрнута ли боковая панель — до отрисовки, чтобы не мигало.
+        } catch (e) { /* private mode */ }
+        // Whether the sidebar is collapsed — before paint, so nothing flickers.
         try {
             if (localStorage.getItem('vivatlas-side') === 'collapsed') {
                 document.documentElement.classList.add('side-collapsed');
             }
-        } catch (e) { /* приватный режим */ }
+        } catch (e) { /* private mode */ }
     })();
     </script>
 </head>
 <body>
-    {# Если обычная страница (каталог, карточка) открылась внутри окна-рамки —
-       например, после импорта «Тащить», который уводит на карточку, — вынесем
-       её адрес на всю вкладку и закроем наложение. #}
+    {# If an ordinary page (catalogue, card) opened inside the framed window —
+       e.g. after the "Drag" import, which leads to a card — hoist its address
+       to the whole tab and close the overlay. #}
     <script>
     if (window.self !== window.top) {
         try {
             if (window.parent && window.parent.absorbModalNav) {
                 window.parent.absorbModalNav(window.location.href);
             }
-        } catch (e) { /* чужая рамка — не наше дело */ }
+        } catch (e) { /* someone else's frame — none of our business */ }
     }
     </script>
 
     <a class="skip" href="#main">{{ t('skip.content') }}</a>
 
-    {# Выдвижная панель на галочке, а не на скрипте: панель — это навигация,
-       и она обязана работать, даже если скрипт не загрузился. #}
+    {# The slide-out panel runs on a checkbox, not a script: the panel is
+       navigation, and it must work even if the script didn't load. #}
     <input type="checkbox" id="navt" class="navt">
 
     <header class="topbar">
@@ -84,8 +84,8 @@
             </svg>
             <span class="vh-text">{{ t('nav.menu') }}</span>
         </label>
-        {# Тот же логотип, что в панели. Отдельная текстовая надпись рядом была
-           бы повтором: слова SKILL ATLAS есть в самой картинке. #}
+        {# The same logo as in the panel. A separate text label alongside would
+           be a repeat: the words SKILL ATLAS are already in the image itself. #}
         <a class="logo logo-sm" href="/">
             <img src="/static/logo-dark.webp" width="640" height="197" alt="VIVATLAS">
         </a>
@@ -95,10 +95,10 @@
     <label class="scrim" for="navt" aria-hidden="true"></label>
 
     <aside class="side">
-        {# Логотип закреплён вверху панели — при прокрутке разделов и папок не
-           уезжает. Прокручивается только средняя часть (.side-scroll); низ
-           (аккаунт, помощь/тема, «свернуть») прижат к низу. #}
-        {# Логотип столбиком по центру: значок, слово, девиз. #}
+        {# The logo is pinned to the top of the panel — it doesn't scroll away
+           when the sections and folders scroll. Only the middle part (.side-scroll)
+           scrolls; the bottom (account, help/theme, "collapse") sticks to the base. #}
+        {# The logo stacked and centred: icon, word, tagline. #}
         <a class="logo" href="/">
             <img class="logo-mark" src="/static/logo-mark.webp" width="166" height="220"
                  alt="{{ t('logo.home_alt') }}">
@@ -108,21 +108,21 @@
             <span>Organize</span><i>·</i><span>Connect</span><i>·</i><span>Empower</span>
         </div>
 
-        {# Сепаратор и большой отступ: разделы отодвинуты вниз, чтобы визуально
-           отделиться от логотипа. Кнопка «Добавить» переехала вниз панели. #}
+        {# Separator and a large gap: the sections are pushed down to visually
+           separate from the logo. The "Add" button moved to the bottom of the panel. #}
         <hr class="side-sep">
 
-        {# Прокручивается только эта часть — разделы и папки. #}
+        {# Only this part scrolls — the sections and folders. #}
         <div class="side-scroll">
         <nav class="side-nav" aria-label="{{ t('nav.sections') }}">
-            {# Верхнеуровневые виды: весь каталог, черновики, изменения. Папки —
-               отдельной секцией ниже. Типы — пилюлями в шапке, не здесь. #}
+            {# Top-level views: the whole catalogue, drafts, changes. Folders are
+               a separate section below. Types are pills in the header, not here. #}
             <a class="side-item{% if nav == 'all' and not active_cat and not active_draft and not f.fav %} on{% endif %}" href="/"
                title="{{ t('nav.catalog') }}">
                 {{ icons.ic('catalogue') }}<span>{{ t('nav.catalog') }}</span><b>{{ counts.artifacts }}</b>
             </a>
-            {# Избранное — между каталогом и черновиками. Своё у каждого; счётчик из
-               counts.favorites. Активно, когда открыт вид /?fav=1. #}
+            {# Favourites — between the catalogue and drafts. Per-user; count from
+               counts.favorites. Active when the /?fav=1 view is open. #}
             <a class="side-item{% if f.fav %} on{% endif %}" href="/?fav=1"
                title="{{ t('nav.favorites') }}">
                 {{ icons.ic('star') }}<span>{{ t('nav.favorites') }}</span><b>{{ counts.favorites }}</b>
@@ -136,9 +136,9 @@
                 {{ icons.ic('review') }}<span>{{ t('nav.changes') }}</span>
             </a>
 
-            {# Папки — своей секцией: сперва общие (с меткой «общая»), затем личные.
-               Перетаскивание карточки на папку добавляет её туда; общие принимают
-               бросок только от администратора (data-nodrop у остальных). #}
+            {# Folders as their own section: shared first (with the "shared" tag),
+               then personal. Dragging a card onto a folder adds it there; shared
+               folders accept a drop only from an admin (data-nodrop on the rest). #}
             <p class="side-sub-head side-folders-head">{{ t('side.folders_head') }}</p>
             {% if categories %}
             <div class="cat-list" id="cat-list">
@@ -160,12 +160,13 @@
         {% block sidebar %}{% endblock %}
         </div>{# /.side-scroll #}
 
-        {# Низ панели: аккаунт (значок, почта, счётчики; по нажатию — меню),
-           затем иконки «Помощь»/«Тема» и «Свернуть». Всё под одной чертой,
-           прижато к низу — прокрутка списка папок его не трогает. #}
+        {# Bottom of the panel: account (icon, email, counters; tap for a menu),
+           then the "Help"/"Theme" and "Collapse" icons. All under one line,
+           pinned to the base — scrolling the folder list doesn't touch it. #}
         <div class="side-user">
-            {# Единственная жёлтая кнопка — главное действие, внизу панели, под
-               папками. На странице добавления её нет: там жёлтая — кнопка записи. #}
+            {# The only yellow button — the main action, at the bottom of the panel,
+               below the folders. It's absent on the add page: there the yellow one
+               is the save button. #}
             {% if nav != 'add' %}
             <a class="cta side-cta" href="/add" data-modal title="{{ t('nav.add_tool') }}"><span class="side-cta-plus" aria-hidden="true">+</span><span class="side-cta-text">{{ t('nav.add_tool') }}</span></a>
             {% endif %}
@@ -204,28 +205,28 @@
                    title="{{ t('nav.help') }}" aria-label="{{ t('nav.help') }}">{{ icons.ic('help') }}</a>
                 {% endif %}
 
-                {# Тема — иконка, по нажатию выпадает список (вверх). Выбор живёт на
-                   устройстве, применяется сразу (см. скрипт). #}
+                {# Theme — an icon; tapping drops a list (upwards). The choice lives
+                   on the device, applied at once (see the script). #}
                 <div class="side-theme" id="side-theme">
-                    {# Без title (значит, без нашей подсказки): обратная связь у этой
-                       кнопки — вылетающая плашка режима, дублировать её подсказкой
-                       незачем. aria-label остаётся для скринридеров. #}
+                    {# No title (so no tooltip of ours): the feedback for this button
+                       is the flying-out mode chip, no point duplicating it with a
+                       tooltip. aria-label stays for screen readers. #}
                     <button class="side-icon side-theme-btn" id="side-theme-btn" type="button"
                             aria-label="{{ t('theme.label') }}">
-                        {# Значок зависит от режима — показывается тот, что совпал с
-                           html[data-thememode] (см. css). #}
+                        {# The icon depends on the mode — the one matching
+                           html[data-thememode] is shown (see css). #}
                         <span class="theme-ic" data-mode="light">{{ icons.ic('theme-light') }}</span>
                         <span class="theme-ic" data-mode="dark">{{ icons.ic('theme-dark') }}</span>
                         <span class="theme-ic" data-mode="oled">{{ icons.ic('theme-oled') }}</span>
                         <span class="theme-ic" data-mode="auto">{{ icons.ic('theme-auto') }}</span>
                     </button>
-                    {# По нажатию режим переключается по кругу; жёлтая плашка
-                       вылетает и называет выбранный режим (см. скрипт). #}
+                    {# Tapping cycles the mode round; a yellow chip flies out and
+                       names the chosen mode (see the script). #}
                     <span class="side-theme-pill" id="side-theme-pill" role="status" aria-live="polite"></span>
                 </div>
 
-                {# Свернуть панель в колонку значков (на компьютере). Внизу, чтобы
-                   не спорить с логотипом. Состояние помнится на устройстве. #}
+                {# Collapse the panel into a column of icons (on desktop). At the
+                   bottom, so it doesn't clash with the logo. State remembered on the device. #}
                 <button class="side-icon side-collapse" type="button" aria-pressed="false"
                         aria-label="{{ t('side.collapse_aria') }}" title="{{ t('side.collapse_aria') }}">
                     <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 6 8l4 4"/></svg>
@@ -234,16 +235,16 @@
         </div>
     </aside>
 
-    {# Аккаунт переехал вниз боковой панели (значок + почта + счётчики), поэтому
-       отдельной аватарки в углу больше нет. #}
+    {# The account moved to the bottom of the sidebar (icon + email + counters),
+       so there's no longer a separate avatar in the corner. #}
 
     <main class="main" id="main">
         {% block content %}{% endblock %}
     </main>
 
-    {# Наложение: окно поверх каталога. Модалка грузится в рамку над затемняющим
-       слоем — каталог остаётся виден сзади. Ссылки помечены data-modal; без
-       скрипта они просто открывают ту же модалку отдельной страницей. #}
+    {# Overlay: a window over the catalogue. The modal loads into a frame above a
+       dimming layer — the catalogue stays visible behind. Links are marked
+       data-modal; without the script they just open the same modal as a separate page. #}
     <div class="modalhost" id="modalhost" aria-hidden="true">
         <div class="modalhost-scrim" id="modalhost-scrim"></div>
         <iframe class="modalframe" id="modalframe" title="{{ t('modal.window_title') }}" src="about:blank"></iframe>
@@ -255,12 +256,12 @@
         var frame = document.getElementById('modalframe');
         var scrim = document.getElementById('modalhost-scrim');
         if (!host || !frame) return;
-        if (window.self !== window.top) return;   // сами внутри рамки — не наш случай
+        if (window.self !== window.top) return;   // we're inside a frame — not our case
 
         var root = document.documentElement;
 
-        // Блокируем прокрутку каталога, но резервируем место под исчезающую
-        // полосу прокрутки: иначе поле карточек дёргается при открытии/закрытии.
+        // Lock the catalogue's scroll, but reserve space for the disappearing
+        // scrollbar: otherwise the card field jumps on open/close.
         function lock() {
             var sw = window.innerWidth - root.clientWidth;
             if (sw > 0) { root.style.paddingRight = sw + 'px'; }
@@ -271,8 +272,8 @@
             root.style.paddingRight = '';
         }
 
-        // Открытие/закрытие — простое переключение видимости, без истории.
-        // История давала гонки, из-за которых «Закрыть» иногда не срабатывал.
+        // Open/close — a simple visibility toggle, no history. History caused
+        // races that sometimes made "Close" fail to fire.
         window.openModalHost = function (url) {
             frame.src = url;
             host.classList.add('open');
@@ -287,14 +288,14 @@
             if (opts && opts.navigate) { location.href = opts.navigate; }
         };
 
-        // Каталог/карточка, открывшиеся внутри рамки, выносят себя наружу.
+        // A catalogue/card opened inside the frame hoists itself out.
         window.absorbModalNav = function (url) { window.closeModalHost({ navigate: url }); };
 
-        // Клик по помеченной ссылке — открыть в наложении, а не переходить.
+        // Click on a marked link — open in the overlay, don't navigate.
         document.addEventListener('click', function (e) {
             var a = e.target.closest ? e.target.closest('a[data-modal]') : null;
             if (!a) return;
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // новая вкладка — не мешаем
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // new tab — don't interfere
             e.preventDefault();
             window.openModalHost(a.getAttribute('href'));
         });
@@ -304,9 +305,9 @@
     </script>
 
     <script>
-    // Тема в сайдбаре: нажатие ПЕРЕКЛЮЧАЕТ режим по кругу (без меню). Выбор живёт
-    // на устройстве (localStorage), применяется сразу; жёлтая плашка вылетает и
-    // называет выбранный режим на секунду.
+    // Theme in the sidebar: a tap CYCLES the mode round (no menu). The choice lives
+    // on the device (localStorage), applied at once; a yellow chip flies out and
+    // names the chosen mode for a second.
     (function () {
         var btn = document.getElementById('side-theme-btn');
         var pill = document.getElementById('side-theme-pill');
@@ -322,7 +323,7 @@
         var hideTimer = null;
         function flyPill(mode) {
             pill.textContent = LABELS[mode] || mode;
-            // Перезапуск анимации: снять класс, форсировать reflow, вернуть.
+            // Restart the animation: remove the class, force reflow, add it back.
             pill.classList.remove('show');
             void pill.offsetWidth;
             pill.classList.add('show');
@@ -332,7 +333,7 @@
         btn.addEventListener('click', function () {
             var i = MODES.indexOf(cur());
             var next = MODES[(i + 1) % MODES.length];
-            try { localStorage.setItem('vivatlas-theme', next); } catch (e) { /* приватный режим */ }
+            try { localStorage.setItem('vivatlas-theme', next); } catch (e) { /* private mode */ }
             if (window.applyVivTheme) { window.applyVivTheme(next); }
             flyPill(next);
         });
@@ -341,21 +342,21 @@
 
     {% if request.state.user_name %}
     <script>
-    // Меню аккаунта внизу панели: настройки, админка, выход. Выпадает вверх;
-    // закрывается по клику вне и по Esc.
+    // Account menu at the bottom of the panel: settings, admin, sign-out. Drops
+    // upwards; closes on click-outside and on Esc.
     (function () {
         var btn = document.getElementById('side-acct-btn');
         var pop = document.getElementById('side-acct-menu');
         if (!btn || !pop) return;
         function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
-        // Без stopPropagation: клик долетает до document, где обработчик темы
-        // закроет её меню — иначе оба меню висели бы одновременно.
+        // No stopPropagation: the click reaches document, where the theme handler
+        // closes its menu — otherwise both menus would hang open at once.
         btn.addEventListener('click', function () {
             pop.hidden = !pop.hidden;
             btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
         });
-        // Выбор пункта (Настройки/Админка — data-modal; Выход — форма) закрывает
-        // меню, чтобы оно не осталось раскрытым за модалкой.
+        // Choosing an item (Settings/Admin — data-modal; Sign-out — a form) closes
+        // the menu, so it doesn't stay open behind the modal.
         pop.addEventListener('click', function (e) {
             if (e.target.closest && e.target.closest('a, button')) close();
         });
@@ -370,12 +371,12 @@
     {% endif %}
 
     <script>
-    // Свернуть/развернуть боковую панель (на компьютере). Состояние — на
-    // documentElement, чтобы восстанавливаться до отрисовки (см. голову).
+    // Collapse/expand the sidebar (on desktop). State lives on documentElement,
+    // so it restores before paint (see the head).
     (function () {
-        // Сворачивание в узкую колонку значков (на компьютере). Панель остаётся
-        // на виду и рабочей, поэтому inert/aria-hidden не нужны — прячем только
-        // подписи (см. css). Одна кнопка-переключатель туда-обратно.
+        // Collapse into a narrow column of icons (on desktop). The panel stays
+        // in view and working, so inert/aria-hidden aren't needed — we hide only
+        // the labels (see css). One toggle button, there and back.
         var btn = document.querySelector('.side-collapse');
         function sync() {
             if (btn) btn.setAttribute('aria-pressed',

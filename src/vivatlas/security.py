@@ -1,20 +1,20 @@
-"""Хеши, ключи, шифрование. Одно место на всю программу.
+"""Hashes, keys, encryption. One place for the whole program.
 
-Здесь собрано всё, где легко ошибиться незаметно. Правила, которые тут
-соблюдаются, стоит знать:
+This gathers everything where it's easy to make a silent mistake. The rules
+followed here are worth knowing:
 
-  - пароль не хранится нигде. Только хеш argon2id. Мы сами не можем узнать
-    пароль пользователя — и это правильно;
-  - argon2id, а не bcrypt: bcrypt молча обрезает пароль на 72 байте. Длинная
-    парольная фраза с ним превращается в свои первые 72 байта, и человек об
-    этом не узнаёт;
-  - сравнение секретов — только постоянное по времени. Обычное == выходит из
-    цикла на первом несовпавшем байте, и по времени ответа можно подбирать
-    секрет посимвольно;
-  - в базе лежат хеши ключей сессий, а не сами ключи. Украдут базу — не
-    получат готовых пропусков;
-  - чужие токены (Gitea, GitHub) шифруются. Их у нас не свои, и терять их
-    чужой ошибкой нельзя.
+  - the password is never stored anywhere. Only the argon2id hash. We ourselves
+    can't recover a user's password — and that's how it should be;
+  - argon2id, not bcrypt: bcrypt silently truncates the password at 72 bytes. A
+    long passphrase becomes just its first 72 bytes with it, and the user never
+    finds out;
+  - comparing secrets — only in constant time. A plain == breaks out of the
+    loop on the first mismatched byte, and the response timing lets you guess a
+    secret character by character;
+  - the database holds hashes of session keys, not the keys themselves. Steal
+    the database and you don't get ready-made passes;
+  - other people's tokens (Gitea, GitHub) are encrypted. They aren't ours, and
+    losing them to our own mistake isn't acceptable.
 """
 
 import base64
@@ -32,12 +32,12 @@ from vivatlas.config import settings
 
 
 class SecretMissing(RuntimeError):
-    """Нет главного ключа. Без него дверь не запирается."""
+    """No secret key. Without it the door won't lock."""
 
 
-# Настройки argon2id. Значения не с потолка: это рекомендация OWASP на 2024 —
-# 19 МБ памяти, 2 прохода. Память тут главное: она делает перебор на видеокартах
-# дорогим, а именно ими и перебирают.
+# argon2id settings. The values aren't arbitrary: this is the OWASP 2024
+# recommendation — 19 MB of memory, 2 passes. Memory is the key here: it makes
+# brute-forcing on GPUs expensive, and GPUs are exactly what's used for it.
 _hasher = PasswordHasher(
     time_cost=2,
     memory_cost=19 * 1024,
@@ -50,11 +50,11 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    """Подходит ли пароль. Никаких исключений наружу — только да или нет.
+    """Whether the password matches. No exceptions escape — only yes or no.
 
-    UnicodeEncodeError тут не для красоты. Испорченный хеш с кириллицей внутри
-    заставляет argon2 падать при попытке привести его к ascii — а это не
-    «ошибка сервера», это просто «такой хеш нам не подходит». Поймано тестом.
+    The UnicodeEncodeError here isn't for show. A corrupted hash with Cyrillic
+    inside makes argon2 crash when it tries to coerce it to ascii — and that's
+    not a "server error", it's simply "that hash doesn't match". Covered by a test.
     """
     try:
         _hasher.verify(stored_hash, password)
@@ -70,7 +70,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
 
 
 def password_needs_rehash(stored_hash: str) -> bool:
-    """Хеш посчитан по старым настройкам — стоит пересчитать при входе."""
+    """The hash was computed with old settings — worth recomputing at sign-in."""
     try:
         return _hasher.check_needs_rehash(stored_hash)
     except InvalidHashError:
@@ -78,12 +78,12 @@ def password_needs_rehash(stored_hash: str) -> bool:
 
 
 def check_password_strength(password: str) -> str:
-    """Пустая строка — годится. Иначе КЛЮЧ причины (переводится на месте показа):
-    бизнес-логика не должна знать язык интерфейса.
+    """Empty string — it's fine. Otherwise a reason KEY (translated at the point
+    of display): business logic shouldn't know the interface language.
 
-    Правил намеренно мало. Требования вида «заглавная, цифра и звёздочка»
-    выгоняют людей в Password1! — короткий и предсказуемый. Длина решает
-    больше, поэтому спрашиваем только её.
+    The rules are deliberately few. Requirements like "uppercase, digit and
+    asterisk" push people into Password1! — short and predictable. Length
+    decides more, so we ask only about it.
     """
     if len(password) < 12:
         return "err.pw_short"
@@ -95,8 +95,8 @@ def check_password_strength(password: str) -> str:
     return ""
 
 
-# Не список на миллион, а те, что подбирают первыми. Полноценная проверка по
-# утечкам — отдельная задача и отдельная зависимость.
+# Not a million-entry list, just the ones tried first. A full check against
+# breach data is a separate task and a separate dependency.
 _COMMON = {
     "password",
     "password1",
@@ -118,8 +118,6 @@ _COMMON = {
     "sunshine",
     "princess",
     "football",
-    "пароль",
-    "йцукен",
     "qwertyuiop",
     "1qaz2wsx",
     "zaq12wsx",
@@ -131,52 +129,54 @@ _COMMON = {
 }
 
 
-# --- ключи сессий и приглашений -------------------------------------------
+# --- session and invitation keys -------------------------------------------
 
 
 def new_token(nbytes: int = 32) -> str:
-    """Случайный ключ. secrets, а не random: random предсказуем по своей сути."""
+    """A random key. secrets, not random: random is predictable by its very nature."""
     return secrets.token_urlsafe(nbytes)
 
 
 def token_hash(token: str) -> str:
-    """Хеш ключа для базы.
+    """Hash of the key for the database.
 
-    Здесь sha256 без соли — и это не оплошность. Соль нужна против словарей,
-    а ключ сессии это 32 случайных байта: словаря на них не бывает. Зато
-    хеш без соли можно искать в базе одним запросом по индексу.
+    sha256 without salt here — and that's not an oversight. Salt is needed
+    against dictionaries, but a session key is 32 random bytes: there's no
+    dictionary for them. On the other hand, an unsalted hash can be looked up
+    in the database with a single indexed query.
     """
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def same_secret(a: str, b: str) -> bool:
-    """Сравнение секретов за постоянное время."""
+    """Compare secrets in constant time."""
     return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
 
 
-# --- коды восстановления ---------------------------------------------------
+# --- backup codes ---------------------------------------------------------
 
 
 def new_backup_code() -> str:
-    """Код на случай потери телефона.
+    """A code for when the phone is lost.
 
-    Вид «4f7c-2a91-b3de»: группами, чтобы человек мог переписать на бумагу и
-    не сойти с ума. Алфавит шестнадцатеричный — в нём нет пар вроде O и 0,
-    которые невозможно различить в рукописи.
+    Shaped like "4f7c-2a91-b3de": in groups, so the user can copy it onto paper
+    and not lose their mind. The alphabet is hexadecimal — it has no pairs like
+    O and 0 that are impossible to tell apart in handwriting.
     """
     raw = secrets.token_hex(6)
     return f"{raw[:4]}-{raw[4:8]}-{raw[8:12]}"
 
 
 def normalize_backup_code(code: str) -> str:
-    """Человек введёт как получится: с пробелами, без дефисов, заглавными."""
+    """The user will enter it however they like: with spaces, no dashes, uppercase."""
     return "".join(ch for ch in code.lower() if ch.isalnum())
 
 
 def hash_backup_code(code: str) -> str:
-    """Коды восстановления — те же пароли, значит argon2.
+    """Backup codes are just passwords, so argon2.
 
-    Их всего 10 и они короткие: sha256 по ним перебирается за секунды.
+    There are only 10 of them and they're short: sha256 over them is brute-forced
+    in seconds.
     """
     return _hasher.hash(normalize_backup_code(code))
 
@@ -185,20 +185,21 @@ def verify_backup_code(code: str, stored_hash: str) -> bool:
     return verify_password(normalize_backup_code(code), stored_hash)
 
 
-# --- шифрование чужих токенов ----------------------------------------------
+# --- encryption of other people's tokens -----------------------------------
 
 
 def _fernet() -> Fernet:
-    """Ключ шифрования выводится из главного ключа, а не хранится отдельно.
+    """The encryption key is derived from the secret key, not stored separately.
 
-    Так у человека один секрет в .env вместо двух, и нет соблазна положить
-    второй рядом с базой. HKDF с меткой: если завтра понадобится шифровать
-    что-то ещё, метка даст другой ключ из того же секрета.
+    That way the user has one secret in .env instead of two, and no temptation
+    to put the second one next to the database. HKDF with a label: if tomorrow
+    we need to encrypt something else, the label yields a different key from the
+    same secret.
     """
     if not settings.secret_key:
         raise SecretMissing(
-            "Не задан SECRET_KEY. Получить: vivatlas secret — и вписать в .env.\n"
-            "Без него нельзя ни запереть дверь, ни зашифровать чужие токены."
+            "SECRET_KEY is not set. Get one: vivatlas secret — and put it in .env.\n"
+            "Without it you can neither lock the door nor encrypt others' tokens."
         )
     key = HKDF(
         algorithm=hashes.SHA256(),
@@ -210,18 +211,18 @@ def _fernet() -> Fernet:
 
 
 def encrypt_secret(plain: str) -> str:
-    """Зашифровать чужой токен для базы."""
+    """Encrypt someone else's token for the database."""
     if not plain:
         return ""
     return _fernet().encrypt(plain.encode("utf-8")).decode("ascii")
 
 
 def decrypt_secret(blob: str) -> str:
-    """Расшифровать. Не поддалось — пусто, а не исключение наверх.
+    """Decrypt. Didn't work out — empty, not an exception upward.
 
-    Не поддаётся обычно по одной причине: сменили SECRET_KEY. Тогда старые
-    токены не прочитать никогда, и правильный ответ — «токена нет, впишите
-    заново», а не падение всей страницы.
+    It usually fails for one reason: SECRET_KEY was changed. Then the old tokens
+    can never be read again, and the right answer is "no token, enter it again",
+    not crashing the whole page.
     """
     if not blob:
         return ""
@@ -232,11 +233,11 @@ def decrypt_secret(blob: str) -> str:
 
 
 def mask_secret(plain: str) -> str:
-    """Как показать токен, не показав его.
+    """How to show a token without showing it.
 
-    Первые и последние знаки нужны, чтобы человек узнал свой токен среди
-    нескольких. Середина не показывается никогда — ни на странице, ни в ответе
-    сервера.
+    The first and last characters are there so the user can recognize their
+    token among several. The middle is never shown — not on the page, not in the
+    server response.
     """
     if not plain:
         return ""
@@ -246,6 +247,6 @@ def mask_secret(plain: str) -> str:
 
 
 def require_secret() -> None:
-    """Проверить главный ключ. Зовётся при запуске, чтобы узнать о беде
-    заранее, а не в момент, когда человек жмёт «Войти»."""
+    """Check the secret key. Called at startup to learn of trouble ahead of time,
+    not at the moment the user clicks "Sign in"."""
     _fernet()

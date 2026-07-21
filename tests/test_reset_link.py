@@ -1,4 +1,4 @@
-"""Ссылка в письме о сбросе не должна собираться из чужого Host-заголовка."""
+"""The password-reset email link must not be built from a foreign Host header."""
 import types
 
 import pytest
@@ -16,7 +16,7 @@ def session(make_session):
 
 @pytest.fixture(autouse=True)
 def _secret(monkeypatch):
-    monkeypatch.setattr(settings, "secret_key", "ключ-для-тестов-двери-длинный")
+    monkeypatch.setattr(settings, "secret_key", "long-secret-key-for-door-tests")
 
 
 def _req(host, base):
@@ -29,7 +29,7 @@ def test_is_local_host():
     assert auth_web._is_local_host("192.168.1.5")
     assert auth_web._is_local_host("10.0.0.3")
     assert not auth_web._is_local_host("evil.attacker.example")
-    assert not auth_web._is_local_host("8.8.8.8")  # публичный адрес — не свой
+    assert not auth_web._is_local_host("8.8.8.8")  # public address — not our own
     assert not auth_web._is_local_host("")
 
 
@@ -45,7 +45,7 @@ def test_local_host_fallback_when_no_site_url(session):
 
 
 def test_foreign_host_refused_when_no_site_url(session):
-    # Ключевой случай: site_url не задан, Host подделан на чужой домен —
-    # ссылку не собираем вовсе, иначе это reset poisoning.
+    # Key case: site_url is not set, Host is spoofed to a foreign domain —
+    # don't build the link at all, otherwise it's reset poisoning.
     req = _req("evil.attacker.example", "http://evil.attacker.example/")
     assert auth_web._reset_link_base(session, req) is None

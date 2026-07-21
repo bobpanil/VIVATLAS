@@ -1,17 +1,17 @@
-"""Строки интерфейса на трёх языках: en (источник), ru, he.
+"""Interface strings in three languages: en (source), ru, he.
 
-Ключи — по разделам через точку. Английский обязателен (он же запасной), русский
-и иврит — по возможности. Плейсхолдеры в фигурных скобках подставляются через
-str.format: t("foot.counts", cards=10, tags=3).
+Keys are grouped by section with dots. English is required (it's also the
+fallback); Russian and Hebrew where possible. Placeholders in curly braces are
+substituted via str.format: t("foot.counts", cards=10, tags=3).
 
-Иврит справа налево — направление ставит i18n/шаблон через dir, сам текст тут
-обычный. Пополняется по мере перевода шаблонов.
+Hebrew is right-to-left — direction is set by i18n/template via dir, the text
+itself here is plain. Grows as templates get translated.
 """
 
 CATALOG: dict[str, dict[str, str]] = {
-    # --- языки/переключатель --------------------------------------------------
+    # --- languages/switcher ---------------------------------------------------
     "lang.label": {"en": "Language", "ru": "Язык", "he": "שפה"},
-    # --- общий каркас (base.html) ---------------------------------------------
+    # --- shared shell (base.html) ---------------------------------------------
     "nav.menu": {"en": "Menu", "ru": "Меню", "he": "תפריט"},
     "nav.add": {"en": "Add", "ru": "Добавить", "he": "הוספה"},
     "nav.add_tool": {"en": "Add tool", "ru": "Добавить инструмент", "he": "הוספת כלי"},
@@ -45,14 +45,14 @@ CATALOG: dict[str, dict[str, str]] = {
     "account.aria": {"en": "Account: {name}", "ru": "Аккаунт: {name}", "he": "חשבון: {name}"},
     "account.type_admin": {"en": "Administrator", "ru": "Администратор", "he": "מנהל"},
     "account.type_member": {"en": "Member", "ru": "Участник", "he": "חבר"},
-    # --- тема -----------------------------------------------------------------
+    # --- theme ----------------------------------------------------------------
     "theme.label": {"en": "Theme", "ru": "Тема", "he": "ערכת נושא"},
     "theme.menu_aria": {"en": "Colour theme", "ru": "Тема оформления", "he": "ערכת צבעים"},
     "theme.light": {"en": "Light", "ru": "Светлая", "he": "בהיר"},
     "theme.dark": {"en": "Dark", "ru": "Тёмная", "he": "כהה"},
     "theme.oled": {"en": "OLED", "ru": "OLED", "he": "OLED"},
     "theme.system": {"en": "System", "ru": "Как в системе", "he": "כמו במערכת"},
-    # --- вход/дверь (auth.html) ----------------------------------------------
+    # --- sign-in/door (auth.html) ---------------------------------------------
     "auth.email": {"en": "Email", "ru": "Почта", "he": "דוא\"ל"},
     "auth.password": {"en": "Password", "ru": "Пароль", "he": "סיסמה"},
     "auth.password_again": {"en": "Password again", "ru": "Пароль ещё раз", "he": "הסיסמה שוב"},
@@ -141,7 +141,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "הושלם. היכנסו עם הסיסמה החדשה.",
     },
     "auth.reset_done.link": {"en": "Sign in", "ru": "Войти", "he": "כניסה"},
-    # --- строки из inline-JS + мелкие пропуски (правятся руками, не фан-аутом) --
+    # --- strings from inline-JS + small gaps (edited by hand, not fan-out) -----
     "common.yes": {"en": "Yes", "ru": "Да", "he": "כן"},
     "common.no": {"en": "No", "ru": "Нет", "he": "לא"},
     "common.cancel": {"en": "Cancel", "ru": "Отмена", "he": "ביטול"},
@@ -168,7 +168,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "VivAtlas — לדף הבית",
     },
     "modal.window_title": {"en": "Window", "ru": "Окно", "he": "חלון"},
-    # --- ярлыки типов (были web.TYPE_NAMES) -----------------------------------
+    # --- type labels (were web.TYPE_NAMES) ------------------------------------
     "type.design-kit": {"en": "Design kit", "ru": "дизайн-набор", "he": "ערכת עיצוב"},
     "type.claude-skill": {"en": "Claude skill", "ru": "скилл Claude", "he": "מיומנות Claude"},
     "type.skill": {"en": "Skill", "ru": "скилл", "he": "מיומנות"},
@@ -179,23 +179,23 @@ CATALOG: dict[str, dict[str, str]] = {
     "type.project": {"en": "Project", "ru": "проект", "he": "פרויקט"},
     "type.draft": {"en": "Draft", "ru": "черновик", "he": "טיוטה"},
     "type.unknown": {"en": "Unrecognized", "ru": "не опознан", "he": "לא זוהה"},
-    # --- основание распознавания (были web.BASIS_NAMES) -----------------------
+    # --- recognition basis (were web.BASIS_NAMES) -----------------------------
     "basis.documentation": {"en": "stated in the description", "ru": "прямо сказано в описании", "he": "נאמר במפורש בתיאור"},
     "basis.tags": {"en": "inferred from tags", "ru": "выведено по тегам", "he": "הוסק מהתגיות"},
     "basis.usage": {"en": "from usage history", "ru": "по истории использования", "he": "לפי היסטוריית השימוש"},
     "basis.ai-inference": {"en": "guessed by meaning", "ru": "догадка по смыслу", "he": "ניחוש לפי המשמעות"},
-    # --- состояние источника (были upstream.STATUS_NAMES) --------------------
+    # --- source state (were upstream.STATUS_NAMES) ----------------------------
     "status.in-sync": {"en": "matches the source", "ru": "совпадает с источником", "he": "תואם למקור"},
     "status.update-available": {"en": "new version available", "ru": "вышла новая версия", "he": "יצאה גרסה חדשה"},
     "status.locally-modified": {"en": "you edited it — can't update", "ru": "вы правили — обновлять нельзя", "he": "ערכת — אי אפשר לעדכן"},
     "status.diverged": {"en": "diverged on both sides", "ru": "разошлось с обеих сторон", "he": "התפצל משני הצדדים"},
     "status.unknown": {"en": "nothing to compare with", "ru": "сравнить не с чем", "he": "אין עם מה להשוות"},
-    # --- вид изменения (были changes.KIND_NAMES; марки — нейтральны) ----------
+    # --- change kind (were changes.KIND_NAMES; marks are neutral) -------------
     "kind.added": {"en": "appeared", "ru": "появилось", "he": "נוסף"},
     "kind.updated": {"en": "changed", "ru": "изменилось", "he": "השתנה"},
     "kind.removed": {"en": "gone", "ru": "пропало", "he": "הוסר"},
     "kind.renamed": {"en": "renamed", "ru": "переименовано", "he": "שמו שונה"},
-    # --- направления (purposes.py; ключ англ., ярлык был русским) -------------
+    # --- purposes (purposes.py; key is English, label was Russian) ------------
     "purpose.security": {"en": "security", "ru": "безопасность", "he": "אבטחה"},
     "purpose.accessibility": {"en": "accessibility", "ru": "доступность", "he": "נגישות"},
     "purpose.performance": {"en": "performance", "ru": "скорость", "he": "ביצועים"},
@@ -205,19 +205,19 @@ CATALOG: dict[str, dict[str, str]] = {
     "purpose.automation": {"en": "automation", "ru": "автоматизация", "he": "אוטומציה"},
     "purpose.design": {"en": "design", "ru": "оформление", "he": "עיצוב"},
     "purpose.unknown": {"en": "undetermined", "ru": "не определено", "he": "לא נקבע"},
-    # --- периоды обновления (filters.PERIODS) --------------------------------
+    # --- update periods (filters.PERIODS) -------------------------------------
     "period.7": {"en": "past week", "ru": "за неделю", "he": "בשבוע האחרון"},
     "period.30": {"en": "past month", "ru": "за месяц", "he": "בחודש האחרון"},
     "period.90": {"en": "past three months", "ru": "за три месяца", "he": "בשלושת החודשים האחרונים"},
-    # --- категории тегов (filters.CATEGORY_ORDER; ключ — русское слово) -------
-    "tagcat.назначение": {"en": "Purpose", "ru": "назначение", "he": "מטרה"},
-    "tagcat.платформа": {"en": "Platform", "ru": "платформа", "he": "פלטפורמה"},
-    "tagcat.язык": {"en": "Language", "ru": "язык", "he": "שפה"},
-    "tagcat.формат": {"en": "Format", "ru": "формат", "he": "פורמט"},
-    "tagcat.запуск": {"en": "Runtime", "ru": "запуск", "he": "הרצה"},
-    "tagcat.тип": {"en": "Type", "ru": "тип", "he": "סוג"},
-    "tagcat.прочее": {"en": "Other", "ru": "прочее", "he": "אחר"},
-    # --- сообщения об ошибках входа/пароля (функции возвращают ключи) ---------
+    # --- tag categories (filters.CATEGORY_ORDER; key is the canonical slug) ----
+    "tagcat.purpose": {"en": "Purpose", "ru": "назначение", "he": "מטרה"},
+    "tagcat.platform": {"en": "Platform", "ru": "платформа", "he": "פלטפורמה"},
+    "tagcat.language": {"en": "Language", "ru": "язык", "he": "שפה"},
+    "tagcat.format": {"en": "Format", "ru": "формат", "he": "פורמט"},
+    "tagcat.runtime": {"en": "Runtime", "ru": "запуск", "he": "הרצה"},
+    "tagcat.type": {"en": "Type", "ru": "тип", "he": "סוג"},
+    "tagcat.other": {"en": "Other", "ru": "прочее", "he": "אחר"},
+    # --- sign-in/password error messages (functions return keys) --------------
     "auth.err.bad_credentials": {
         "en": "Invalid email or password.",
         "ru": "Неверная почта или пароль.",
@@ -258,7 +258,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Такой пароль стоит в списках для перебора первым.",
         "he": "סיסמה כזו נמצאת ראשונה ברשימות הפריצה.",
     },
-    # --- уведомления форм (админка/настройки) --------------------------------
+    # --- form notifications (admin/settings) ----------------------------------
     "admin.smtp.saved": {
         "en": "Mail settings saved.",
         "ru": "Настройки почты сохранены.",
@@ -284,7 +284,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Адрес должен начинаться с http:// или https:// — проверьте ссылку.",
         "he": "הכתובת חייבת להתחיל ב-http:// או https:// — בדקו את הקישור.",
     },
-    # --- отказы доступа и «не найдено» (HTTPException.detail) ------------------
+    # --- access denials and "not found" (HTTPException.detail) ----------------
     "err.login_required": {"en": "Please sign in.", "ru": "нужно войти", "he": "יש להתחבר."},
     "err.artifact_not_found": {
         "en": "Item not found.",
@@ -341,7 +341,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "это последний владелец — не выключить",
         "he": "זהו הבעלים האחרון — אי אפשר להשבית.",
     },
-    # --- скан источника (прекcheck и фон) -------------------------------------
+    # --- source scan (precheck and background) --------------------------------
     "scan.err.source_not_found": {
         "en": "Source not found.",
         "ru": "Источник не найден.",
@@ -367,7 +367,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Токен стал нечитаем.",
         "he": "האסימון הפך לבלתי קריא.",
     },
-    # --- добавление инструмента (шаги add) ------------------------------------
+    # --- adding a tool (add steps) --------------------------------------------
     "add.err.file_too_big": {
         "en": "The file is larger than {mb} MB — the model won't accept it.",
         "ru": "Файл больше {mb} МБ — модель такой не примет.",
@@ -393,7 +393,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Нет GITEA_TOKEN — писать нечем.",
         "he": "אין GITEA_TOKEN — אין במה לכתוב.",
     },
-    # --- настройки: статус токена и 2FA ---------------------------------------
+    # --- settings: token status and 2FA ---------------------------------------
     "settings.token_unreadable": {
         "en": "unreadable — enter it again",
         "ru": "нечитаем — впишите заново",
@@ -414,7 +414,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Пароль неверный — проверка не выключена.",
         "he": "סיסמה שגויה — האימות לא כובה.",
     },
-    # --- админ-панель: ярлыки общих ключей ------------------------------------
+    # --- admin panel: shared-key labels ---------------------------------------
     "admin.key.gitea_url": {"en": "Gitea address", "ru": "Адрес Gitea", "he": "כתובת Gitea"},
     "admin.key.gitea_token": {"en": "Gitea token", "ru": "Токен Gitea", "he": "אסימון Gitea"},
     "admin.key.github_token": {"en": "GitHub token", "ru": "Токен GitHub", "he": "אסימון GitHub"},
@@ -429,7 +429,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Модель поиска",
         "he": "מודל החיפוש",
     },
-    # --- папки-категории: общие и личные -------------------------------------
+    # --- category folders: shared and private ---------------------------------
     "err.category_not_found": {
         "en": "Folder not found.",
         "ru": "папка не найдена",
@@ -502,7 +502,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Не удалось положить в папку.",
         "he": "לא ניתן להוסיף לתיקייה.",
     },
-    # --- управление людьми (регистрация, приглашения, удаление) ---------------
+    # --- managing users (registration, invitations, deletion) -----------------
     "auth.err.email_taken": {
         "en": "That email is already registered.",
         "ru": "Эта почта уже занята.",
@@ -631,7 +631,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Удалить {name}? Личные карточки и папки удалятся; общие перейдут к вам.",
         "he": "למחוק את {name}? הפריטים והתיקיות הפרטיים יימחקו; המשותפים יעברו אליכם.",
     },
-    # --- письмо-приглашение ---------------------------------------------------
+    # --- invitation email -----------------------------------------------------
     "email.invite.subject": {
         "en": "You're invited to VivAtlas",
         "ru": "Приглашение в VivAtlas",
@@ -692,7 +692,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Отправлено из VivAtlas.",
         "he": "נשלח מ-VivAtlas.",
     },
-    # --- разделы настроек (вкладки) ------------------------------------------
+    # --- settings sections (tabs) ---------------------------------------------
     "settings.tab_account": {"en": "Account", "ru": "Аккаунт", "he": "חשבון"},
     "settings.tab_appearance": {"en": "Appearance", "ru": "Вид", "he": "מראה"},
     "settings.tab_folders": {"en": "Folders", "ru": "Папки", "he": "תיקיות"},
@@ -704,7 +704,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Папка с таким именем уже есть.",
         "he": "כבר קיימת תיקייה בשם הזה.",
     },
-    # --- аккаунт -------------------------------------------------------------
+    # --- account --------------------------------------------------------------
     "account.photo_title": {"en": "Profile photo", "ru": "Фото профиля", "he": "תמונת פרופיל"},
     "account.photo_hint": {
         "en": "PNG, JPEG, GIF, BMP or SVG — converted to WebP, cropped square.",
@@ -797,7 +797,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Вы последний владелец — себя удалить нельзя.",
         "he": "אתם הבעלים האחרון — אי אפשר למחוק את עצמכם.",
     },
-    # --- аватары (ошибки конвертации) ----------------------------------------
+    # --- avatars (conversion errors) ------------------------------------------
     "avatar.err.empty": {"en": "No file was sent.", "ru": "Файл не выбран.", "he": "לא נשלח קובץ."},
     "avatar.err.too_big": {
         "en": "Image is too large (8 MB max).",
@@ -819,7 +819,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Не удалось отрисовать SVG.",
         "he": "לא ניתן לעבד את ה-SVG.",
     },
-    # --- админ: конфигурация -------------------------------------------------
+    # --- admin: configuration -------------------------------------------------
     "admin.config.title": {
         "en": "AI", "ru": "ИИ", "he": "AI",
     },
@@ -847,8 +847,8 @@ CATALOG: dict[str, dict[str, str]] = {
     "admin.tab_ai": {"en": "AI", "ru": "ИИ", "he": "AI"},
 }
 
-# Массовые переводы остальных шаблонов лежат отдельным сгенерированным файлом
-# (по одному агенту на шаблон). Подмешиваем их, если он есть.
+# Bulk translations for the remaining templates live in a separate generated
+# file (one agent per template). We merge them in if it exists.
 try:
     from vivatlas.translations_bulk import BULK
 

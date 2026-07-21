@@ -1,4 +1,4 @@
-"""Подключение к базе."""
+"""Database connection."""
 
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -13,14 +13,14 @@ engine = create_engine(settings.database_url, future=True)
 
 @event.listens_for(engine, "connect")
 def _sqlite_pragmas(dbapi_connection, _record) -> None:
-    """WAL позволяет читать во время сканирования, не дожидаясь его конца."""
+    """WAL lets us read during a scan without waiting for it to finish."""
     if settings.database_url.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
-        # Ждать освобождения базы, а не падать с «database is locked». SQLite
-        # пускает одного писателя разом; при двух серверах на одном файле без
-        # ожидания второй писатель сразу получал бы отказ. 5 секунд с запасом.
+        # Wait for the database to free up instead of crashing with "database is
+        # locked". SQLite allows one writer at a time; with two servers on one file
+        # and no waiting, the second writer would be rejected outright. 5 seconds, with margin.
         cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 

@@ -6,12 +6,12 @@
     <meta name="color-scheme" content="light">
     <title>{% block subject %}VIVATLAS{% endblock %}</title>
 </head>
-{# Почтовые клиенты не читают внешние стили и режут <style> в <head>, поэтому
-   всё оформление — инлайном. Раскладка на таблицах: это единственное, что
-   одинаково рисуют и Gmail, и Outlook. #}
+{# Mail clients ignore external styles and strip <style> in <head>, so
+   all styling is inline. Table-based layout: it's the only thing
+   that both Gmail and Outlook render the same way. #}
 <body style="margin:0; padding:0; background:#f2f2f0; color:#14161c;
              font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-    {# Прехедер: строка-превью в списке писем. Прячем от самого письма. #}
+    {# Preheader: preview line in the inbox list. Hidden from the email itself. #}
     <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
         {% block preheader %}VIVATLAS{% endblock %}
     </div>
@@ -22,7 +22,7 @@
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                    style="max-width:520px; background:#ffffff; border-radius:14px;
                           overflow:hidden; border:1px solid #e3e3df;">
-                {# Шапка: тёмная полоса с именем — тот же тёмный, что у топбара. #}
+                {# Header: dark bar with the name — the same dark as the topbar. #}
                 <tr><td style="background:#04060d; padding:22px 28px;">
                     <span style="color:#ffffff; font-size:20px; font-weight:700;
                                  letter-spacing:0.5px;">VIVATLAS</span>

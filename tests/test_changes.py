@@ -61,7 +61,7 @@ def kinds(session) -> list[str]:
     return [c.kind for c in session.scalars(select(Change).order_by(Change.id))]
 
 
-# --- сканирование ---
+# --- scanning ---
 
 
 async def test_new_repo_is_recorded_as_added(session):
@@ -83,7 +83,7 @@ async def test_second_scan_records_nothing_new(session):
     await scan_source(session, provider, source)
     session.commit()
 
-    assert kinds(session) == ["added"], "повторное сканирование выдумало событие"
+    assert kinds(session) == ["added"], "a repeat scan invented an event"
 
 
 async def test_disappeared_repo_is_recorded_as_removed(session):
@@ -115,7 +115,7 @@ async def test_rename_is_recorded_with_old_name(session):
     assert renamed.title == "skills-lib/new-name"
 
 
-# --- сборка карточек ---
+# --- building cards ---
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ async def test_new_card_is_recorded(session, repo_row):
 
 
 async def test_rebuild_without_content_change_records_nothing(session, repo_row):
-    # Самое важное: --force не должен плодить фальшивые "изменилось".
+    # Most important: --force must not spawn fake "changed" events.
     provider = FakeProvider()
     await index_repository(session, provider, None, repo_row)
     session.commit()
@@ -151,7 +151,7 @@ async def test_rebuild_without_content_change_records_nothing(session, repo_row)
         await index_repository(session, provider, None, repo_row, force=True)
         session.commit()
 
-    assert kinds(session) == ["added"], "пересборка выдумала изменения"
+    assert kinds(session) == ["added"], "a rebuild invented changes"
 
 
 async def test_real_content_change_is_recorded(session, repo_row):
@@ -178,10 +178,10 @@ async def test_type_change_is_mentioned(session, repo_row):
     session.commit()
 
     upd = session.scalar(select(Change).where(Change.kind == "updated"))
-    assert "тип сменился" in upd.details
+    assert "type changed" in upd.details
 
 
-# --- протухшее ---
+# --- stale ---
 
 
 def _artifact_aged(session, days: int, name: str = "old", archived: bool = False):
@@ -227,7 +227,7 @@ def test_stale_sorted_oldest_first(session):
 def test_archived_is_mentioned_in_reason(session):
     _artifact_aged(session, days=400, name="archived-one", archived=True)
     items = changes.stale(session)
-    assert "заархивирован" in items[0].reason
+    assert "archived" in items[0].reason
 
 
 def test_gone_repos_are_not_stale_they_are_gone(session):

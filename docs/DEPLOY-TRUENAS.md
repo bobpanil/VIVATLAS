@@ -9,34 +9,39 @@ Docker under the hood and can install a "Custom App" from a Compose file.
 
 ---
 
-## 1. Build the image
+## 1. Get the image
 
-TrueNAS installs images, it doesn't build them, so build `vivatlas:latest` first.
-Because the repo is private, the simplest path is to build **on the NAS itself**
-over SSH — no registry required.
+GitHub Actions (`.github/workflows/docker.yml`) builds the image on every push to
+`main` and publishes it to the GitHub Container Registry (GHCR). You just pull it —
+no building on the NAS:
+
+```
+ghcr.io/bobpanil/vivatlas:latest
+```
+
+Because the repo is private, that package is private too, so do **one of these once**:
+
+- **Make the package public (simplest).** On GitHub: your profile → **Packages** →
+  `vivatlas` → **Package settings** → **Change visibility** → **Public**. Then
+  TrueNAS pulls it with no login.
+- **Or keep it private and authenticate on TrueNAS.** Create a PAT with the
+  `read:packages` scope, then in TrueNAS **Apps → (⋮) → Manage Container Images →
+  Add**: registry `ghcr.io`, username `bobpanil`, password = that PAT.
+
+To update later: push to `main` (or run the workflow manually from the repo's
+**Actions** tab), wait for the build, then **Pull image** / restart the app on TrueNAS.
+
+<details>
+<summary>Alternative: build it yourself on the NAS (no registry)</summary>
 
 ```sh
 # SSH into TrueNAS as an admin user, then:
-sudo docker build -t vivatlas:latest "https://<YOUR_GITHUB_TOKEN>@github.com/bobpanil/vivatlas.git#main"
+sudo docker build -t ghcr.io/bobpanil/vivatlas:latest "https://<YOUR_GITHUB_TOKEN>@github.com/bobpanil/vivatlas.git#main"
 ```
 
 `docker build <git-url>` clones the repo and builds its root `Dockerfile`. The
 `.dockerignore` keeps `secrets.md`, `.env`, and any local database out of the image.
-
-<details>
-<summary>Alternative: build elsewhere and push to a registry</summary>
-
-On any machine with Docker (e.g. your Windows box with Docker Desktop):
-
-```sh
-git clone https://github.com/bobpanil/vivatlas.git && cd vivatlas
-docker build -t ghcr.io/bobpanil/vivatlas:latest .
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u bobpanil --password-stdin
-docker push ghcr.io/bobpanil/vivatlas:latest
-```
-
-Then use that full image name in step 3, and add the registry credentials under
-TrueNAS **Apps → Discover → (gear) → Manage Container Images** so the pull works.
+If you build locally, set `pull_policy: never` in the compose so it uses the local image.
 </details>
 
 ---
@@ -61,8 +66,8 @@ TrueNAS UI → **Apps → Discover Apps → Custom App → Install via YAML**, a
 ```yaml
 services:
   vivatlas:
-    image: vivatlas:latest
-    pull_policy: never          # use the image we built locally; don't try a registry
+    image: ghcr.io/bobpanil/vivatlas:latest
+    pull_policy: always         # pull the CI-published image from GHCR
     restart: unless-stopped
     ports:
       - "8710:8710"             # http://<truenas-ip>:8710  (change host port if needed)
@@ -82,8 +87,8 @@ services:
 Save. TrueNAS starts the container; the entrypoint runs `init-db` automatically,
 then launches the server on port 8710.
 
-> If TrueNAS insists on pulling and errors on `vivatlas:latest`, confirm the image
-> exists with `sudo docker images | grep vivatlas` and that `pull_policy: never` is set.
+> If the pull fails with "denied"/"unauthorized", the GHCR package is still private —
+> make it public or add the `read:packages` credential (see step 1).
 
 ---
 
@@ -115,13 +120,11 @@ ever removes demo cards — never anything you add yourself.
 
 ## 6. Updating to a new version
 
-```sh
-sudo docker build -t vivatlas:latest "https://<TOKEN>@github.com/bobpanil/vivatlas.git#main"
-```
-
-Then in the app's page choose **Restart** (or **Stop** → **Start**). On start the
-entrypoint runs `init-db`, which adds any new database columns before serving — so
-upgrades don't break on an older database.
+Push to `main` (or trigger the workflow from the repo's **Actions** tab). Once the
+GitHub Actions build finishes publishing the new `:latest` image, on TrueNAS use the
+app's **Pull image** (or **Update**), then **Restart**. On start the entrypoint runs
+`init-db`, which adds any new database columns before serving — so upgrades don't
+break on an older database.
 
 ---
 

@@ -1,11 +1,11 @@
-/* Свой выпадающий список вместо системного <select>.
+/* Custom dropdown instead of the native <select>.
  *
- * Прогрессивное улучшение: настоящий <select> остаётся в форме (значение
- * отправляется, работает без скрипта), а поверх строится своя кнопка + список.
- * Список выносится в <body> (position:fixed) — иначе прокручиваемая модалка его
- * обрезала бы. Доступно с клавиатуры: стрелки/Home/End/Enter/Esc, набор по
- * буквам, aria-activedescendant. Значение синхронизируется в select + событие
- * change (чтобы существующие onchange-обработчики, напр. смена языка, срабатывали).
+ * Progressive enhancement: the real <select> stays in the form (its value is
+ * submitted, works without JS), and a custom button + list is built on top.
+ * The list is moved into <body> (position:fixed) — otherwise a scrollable modal
+ * would clip it. Keyboard-accessible: arrows/Home/End/Enter/Esc, type-ahead,
+ * aria-activedescendant. The value is synced back to the select + a change
+ * event (so existing onchange handlers, e.g. language switch, still fire).
  */
 (function () {
     'use strict';
@@ -15,10 +15,10 @@
     function enhance(select) {
         if (select.getAttribute('data-dd')) return;
         select.setAttribute('data-dd', '1');
-        // Скрытый <select> Chrome всё равно проверяет на required и молча не даёт
-        // отправить форму (сообщение показать негде). Снимаем required с него и
-        // проверяем сами при отправке — а без скрипта select виден и required
-        // работает как обычно.
+        // A hidden <select> is still validated for required by Chrome, which
+        // silently blocks form submission (nowhere to show the message). We drop
+        // required from it and check ourselves on submit — while without JS the
+        // select is visible and required works as usual.
         if (select.required) { select.dataset.ddRequired = '1'; select.required = false; }
         var uid = 'dd' + (++seq);
 
@@ -30,17 +30,18 @@
         select.tabIndex = -1;
         select.setAttribute('aria-hidden', 'true');
 
-        // Подпись поля (напр. «Язык») — держим отдельно: имя кнопки собираем из
-        // неё И текущего значения, иначе скринридер называл бы только поле и
-        // молчал о выбранном («Язык», без «English»).
+        // Field label (e.g. "Language") — kept separately: the button name is
+        // built from it AND the current value, otherwise a screen reader would
+        // announce only the field and stay silent about the choice ("Language",
+        // without "English").
         var fieldLabel = select.getAttribute('aria-label') || '';
 
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dd-btn';
         btn.id = uid + '-btn';
-        // role=combobox (а не просто button): только на нём валиден
-        // aria-activedescendant при навигации стрелками по списку.
+        // role=combobox (not just button): aria-activedescendant during arrow
+        // navigation over the list is only valid on it.
         btn.setAttribute('role', 'combobox');
         btn.setAttribute('aria-haspopup', 'listbox');
         btn.setAttribute('aria-expanded', 'false');
@@ -57,8 +58,8 @@
         if (select.getAttribute('aria-label')) list.setAttribute('aria-label', select.getAttribute('aria-label'));
         list.hidden = true;
         btn.setAttribute('aria-controls', list.id);
-        // Список вынесен в <body>, поэтому логически «привязываем» его к кнопке
-        // (aria-owns) — тогда aria-activedescendant на опции разрешается.
+        // The list lives in <body>, so we logically "attach" it to the button
+        // (aria-owns) — then aria-activedescendant on an option resolves.
         btn.setAttribute('aria-owns', list.id);
 
         var opts = [];
@@ -83,9 +84,9 @@
             var val = o ? o.textContent : '';
             label.textContent = val;
             var d = o && o.getAttribute('dir'); label.dir = d || '';
-            // Имя кнопки = «Поле, значение», чтобы значение звучало и в свёрнутом
-            // виде. Если подписи поля нет или она совпала со значением (напр.
-            // плейсхолдер «Добавить в папку») — не повторяем.
+            // Button name = "Field, value", so the value is announced even when
+            // collapsed. If the field label is missing or equals the value (e.g.
+            // the placeholder "Add to folder") — don't repeat it.
             var name = (fieldLabel && val && fieldLabel !== val)
                 ? fieldLabel + ', ' + val
                 : (val || fieldLabel);
@@ -106,8 +107,8 @@
             btn.setAttribute('aria-activedescendant', opts[active].id);
             opts[active].scrollIntoView({ block: 'nearest' });
         }
-        // Следующая доступная опция в направлении step, начиная от from
-        // (включительно). Отключённые (aria-disabled) пропускаем.
+        // Next available option in the step direction, starting from `from`
+        // (inclusive). Disabled ones (aria-disabled) are skipped.
         function seek(from, step) {
             for (var i = from; i >= 0 && i < opts.length; i += step) {
                 if (enabled(i)) return i;
@@ -117,7 +118,7 @@
         function position() {
             var r = btn.getBoundingClientRect();
             list.style.minWidth = r.width + 'px';
-            // В RTL прижимаем правый край к кнопке и растём влево, иначе — левый.
+            // In RTL pin the right edge to the button and grow leftward, otherwise the left edge.
             var rtl = getComputedStyle(btn).direction === 'rtl';
             if (rtl) {
                 list.style.right = (window.innerWidth - r.right) + 'px';
@@ -128,9 +129,9 @@
             }
             var below = window.innerHeight - r.bottom;
             var above = r.top;
-            // Раскрываем вверх, только если снизу не помещается, а сверху места
-            // больше. maxHeight — по реально доступной высоте (без завышенного
-            // порога), чтобы список не уезжал за край на низком экране.
+            // Open upward only if it doesn't fit below and there's more room
+            // above. maxHeight follows the actually available height (no inflated
+            // threshold), so the list doesn't run off the edge on a short screen.
             if (below < list.scrollHeight && above > below) {
                 list.style.top = 'auto';
                 list.style.bottom = (window.innerHeight - r.top + 4) + 'px';
@@ -151,8 +152,8 @@
                 list.hidden = false;
                 position();
                 btn.setAttribute('aria-expanded', 'true');
-                // Начинаем с выбранной опции; если она отключена (плейсхолдер) —
-                // с первой доступной.
+                // Start from the selected option; if it's disabled (placeholder) —
+                // from the first available one.
                 var start = seek(select.selectedIndex >= 0 ? select.selectedIndex : 0, 1);
                 setActive(start >= 0 ? start : seek(0, 1));
                 document.addEventListener('scroll', reposition, true);
@@ -199,8 +200,8 @@
             else if (e.key === 'Home') { e.preventDefault(); nxt = seek(0, 1); if (nxt >= 0) setActive(nxt); }
             else if (e.key === 'End') { e.preventDefault(); nxt = seek(opts.length - 1, -1); if (nxt >= 0) setActive(nxt); }
             else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
-            // Esc гасим здесь же (stopPropagation), иначе он всплывёт к модалке и
-            // закроет её целиком, а не только список.
+            // Swallow Esc right here (stopPropagation), otherwise it bubbles up
+            // to the modal and closes it entirely, not just the list.
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); api.close(); }
             else if (e.key === 'Tab') { api.close(); }
             else if (e.key.length === 1) {
@@ -229,9 +230,9 @@
         openApi.close();
     }
 
-    // Скрытый <select> (display:none) браузер не проверяет на required, поэтому
-    // сами повторяем это: не даём отправить форму, пока в обязательном списке
-    // ничего не выбрано, — открываем его вместо ошибки на сервере.
+    // The browser doesn't validate a hidden <select> (display:none) for required,
+    // so we replicate it ourselves: block form submission while a required list
+    // has nothing selected — opening it instead of a server-side error.
     function guardSubmit(e) {
         var form = e.target;
         if (!form || !form.querySelectorAll) return;
@@ -257,7 +258,7 @@
     } else {
         init();
     }
-    // На случай динамически добавленных select (напр. будущие формы).
+    // In case of dynamically added selects (e.g. future forms).
     window.enhanceDropdowns = function (root) {
         (root || document).querySelectorAll('select:not([data-dd])').forEach(enhance);
     };

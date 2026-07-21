@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "scripts" / "mock_repos.json"
 TARGET = 200
 
-# Тематические запросы — под каталог «навыки, агенты, инструменты». Берём
-# заметные (по звёздам) публичные репозитории из разных углов темы.
+# Themed queries — for the "skills, agents, tools" catalogue. We pull
+# notable (by stars) public repositories from different corners of the topic.
 QUERIES = [
     "topic:mcp",
     "topic:model-context-protocol",
@@ -97,7 +97,7 @@ def main() -> int:
                 }
                 fresh += 1
             print(f"  {q!r}: +{fresh} (total {len(seen)})")
-            # Search API: щадим лимит (авторизованно 30/мин).
+            # Search API: go easy on the rate limit (30/min when authenticated).
             time.sleep(2)
 
     repos = list(seen.values())[:TARGET]

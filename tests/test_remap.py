@@ -6,7 +6,7 @@ def test_leaf_of_a_folder():
 
 
 def test_leaf_skips_the_anchor_file():
-    # Путь ведёт к файлу — папка инструмента над ним, а не сам файл.
+    # The path points to a file — the tool's folder is above it, not the file itself.
     assert _leaf("design-md/airbnb/DESIGN.md") == "airbnb"
     assert _leaf("skills/last30days/SKILL.md") == "last30days"
 
@@ -16,7 +16,7 @@ def test_leaf_of_empty_is_empty():
 
 
 def test_lone_source_becomes_owner_repo():
-    # Один инструмент = один репозиторий: имя как на GitHub, без хвоста.
+    # One tool = one repository: the name as on GitHub, without a suffix.
     assert target_for("mvanhorn/last30days-skill", "skills/last30days/SKILL.md", False) == (
         "mvanhorn",
         "last30days-skill",
@@ -28,7 +28,7 @@ def test_owner_case_preserved():
 
 
 def test_shared_source_carries_the_folder():
-    # 74 набора из одного awesome-design-md должны разойтись.
+    # 74 sets from a single awesome-design-md should split apart.
     a = target_for("VoltAgent/awesome-design-md", "design-md/airbnb/DESIGN.md", True)
     b = target_for("VoltAgent/awesome-design-md", "design-md/apple/DESIGN.md", True)
     assert a == ("VoltAgent", "awesome-design-md-airbnb")

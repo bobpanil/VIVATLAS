@@ -1,11 +1,11 @@
-"""Притащить инструмент по ссылке.
+"""Pull in a tool by URL.
 
-Смысл затеи: если притащили мы, то источник известен по построению. Не надо
-его искать в README и угадывать — мы сами его записали. Отметка baseline
-получается идеальной: в момент импорта копия и оригинал совпадают заведомо.
+The point: if we pulled it in, the source is known by construction. No need to
+hunt for it in the README and guess — we recorded it ourselves. The baseline
+mark comes out perfect: at import time the copy and the original match by design.
 
-Порядок работы всегда один: разобрать ссылку -> показать план -> дождаться
-подтверждения -> выполнить. Без подтверждения ничего не создаётся.
+The workflow is always the same: parse the URL -> show the plan -> wait for
+confirmation -> execute. Nothing is created without confirmation.
 """
 
 import logging
@@ -18,19 +18,19 @@ log = logging.getLogger(__name__)
 
 _UA = "Mozilla/5.0 (compatible; SkillAtlas/0.1)"
 
-# Ограничиваем по весу, а не по числу файлов: настоящий скилл может состоять
-# из сотни мелких файлов (mvanhorn/last30days-skill — 121 файл), и отвергать
-# его за количество неправильно. Потолок высокий, потому что он защищает
-# только от явной ошибки — ссылки на чужой монорепозиторий (49 МБ).
+# We cap by weight, not by file count: a real skill may be made up of a hundred
+# small files (mvanhorn/last30days-skill — 121 files), and rejecting it over the
+# count is wrong. The ceiling is high because it only guards against an obvious
+# mistake — a link to someone else's monorepo (49 MB).
 MAX_FILES = 500
 MAX_TOTAL_BYTES = 25_000_000
 
 
 _SKIP_DIRS = (".git/", "node_modules/", ".github/workflows/")
 
-# Gitea допускает в имени репозитория и владельца буквы, цифры, дефис, точку и
-# подчёркивание. Остальное заменяем на дефис, а не выбрасываем: иначе
-# «foo/bar» и «foo bar» слились бы в одно имя.
+# Gitea allows letters, digits, hyphen, dot and underscore in repository and
+# owner names. Everything else we replace with a hyphen rather than dropping it:
+# otherwise "foo/bar" and "foo bar" would merge into a single name.
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -45,13 +45,13 @@ class ImportError_(RuntimeError):
 
 @dataclass
 class ImportSource:
-    """Что именно просят притащить."""
+    """What exactly is being asked to pull in."""
 
     kind: str  # repo | folder | file
     owner: str
     repo: str
-    ref: str = ""  # ветка, пусто = по умолчанию
-    path: str = ""  # папка или файл внутри репозитория
+    ref: str = ""  # branch, empty = default
+    path: str = ""  # folder or file inside the repository
 
     @property
     def full_repo(self) -> str:
@@ -59,7 +59,7 @@ class ImportSource:
 
     @property
     def leaf(self) -> str:
-        """Последняя часть пути — имя папки или файла инструмента."""
+        """The last part of the path — the tool's folder or file name."""
         if self.kind == "repo":
             return ""
         tail = self.path.rstrip("/").rsplit("/", 1)[-1]
@@ -69,23 +69,24 @@ class ImportSource:
 
     @property
     def mirror_owner(self) -> str:
-        """Владелец у нас = владелец на GitHub. Всегда.
+        """Our owner = the owner on GitHub. Always.
 
-        Так из адреса Gitea читается адрес GitHub, и источник карточки виден
-        прямо в пути: git.../mvanhorn/last30days-skill ← github.com/mvanhorn/...
+        This way the GitHub address reads off the Gitea address, and the card's
+        source is visible right in the path: git.../mvanhorn/last30days-skill
+        ← github.com/mvanhorn/...
         """
         return _safe_name(self.owner)
 
     @property
     def mirror_name(self) -> str:
-        """Имя у нас по адресу на GitHub.
+        """Our name follows the GitHub address.
 
-        Целый репозиторий → его имя как есть.
-        Подпапка монорепы → «репозиторий-папка»: 74 набора из одного
-        awesome-design-md разошлись бы по одному адресу, а так каждый свой —
-        awesome-design-md-airbnb, awesome-design-md-apple. Заодно исчезает
-        столкновение: чужой airbnb приедет под своего владельца и не встретится
-        с этим никогда.
+        Whole repository → its name as-is.
+        Monorepo subfolder → "repository-folder": 74 sets from a single
+        awesome-design-md would land at one address, but this way each gets its own —
+        awesome-design-md-airbnb, awesome-design-md-apple. It also removes the
+        collision: someone else's airbnb arrives under its own owner and never
+        meets this one.
         """
         if self.kind == "repo":
             return _safe_name(self.repo)
@@ -98,10 +99,10 @@ class ImportSource:
 
 @dataclass
 class ImportFile:
-    path: str  # путь у нас
+    path: str  # our path
     content: bytes
-    upstream_path: str  # путь у источника
-    sha: str  # слепок git — сразу годится в отметку
+    upstream_path: str  # path at the source
+    sha: str  # git snapshot — usable straight away as the baseline mark
 
 
 @dataclass
@@ -122,16 +123,17 @@ class ImportPlan:
         return f"https://github.com/{self.source.full_repo}.git"
 
 
-# Файлы, по которым видно "здесь лежит отдельный инструмент".
+# Files that signal "a standalone tool lives here".
 _ANCHOR_NAMES = ("skill.md", "design.md", "mcp.json", "plugin.json", "agents.md")
 
 
 def find_tool_folders(blobs: list[dict]) -> list[str]:
-    """Папки внутри репозитория, похожие на отдельные инструменты.
+    """Folders inside the repository that look like standalone tools.
 
-    Нужно, когда ссылку дали на весь репозиторий, а инструмент внутри. Так
-    устроен mvanhorn/last30days-skill: 400 файлов, а скилл в skills/last30days/.
-    Вместо бесполезного отказа показываем, что человек, вероятно, имел в виду.
+    Needed when the link points at the whole repository but the tool is inside.
+    That's how mvanhorn/last30days-skill is built: 400 files, but the skill is
+    in skills/last30days/.
+    Instead of a useless rejection we show what the user probably meant.
     """
     folders: list[str] = []
     for entry in blobs:
@@ -146,7 +148,7 @@ def find_tool_folders(blobs: list[dict]) -> list[str]:
     return folders
 
 
-# --- разбор ссылки ---
+# --- URL parsing ---
 
 _GITHUB = re.compile(
     r"^https?://(?:www\.)?github\.com/(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+?)(?:\.git)?"
@@ -159,8 +161,8 @@ _RAW = re.compile(
 
 
 def parse_url(url: str) -> ImportSource:
-    """Разобрать ссылку на GitHub. Другие хостинги пока не умеем — и говорим
-    об этом прямо, а не притворяемся."""
+    """Parse a GitHub URL. We don't handle other hosts yet — and we say so
+    plainly instead of pretending."""
     url = url.strip()
 
     m = _RAW.match(url)
@@ -172,7 +174,8 @@ def parse_url(url: str) -> ImportSource:
     m = _GITHUB.match(url)
     if not m:
         raise ImportError_(
-            f"Не разобрал ссылку: {url}\nПока умею только github.com и raw.githubusercontent.com."
+            f"Couldn't parse the URL: {url}\n"
+            "For now I only handle github.com and raw.githubusercontent.com."
         )
 
     kind_marker = m["kind"]
@@ -182,13 +185,13 @@ def parse_url(url: str) -> ImportSource:
         return ImportSource(kind="repo", owner=m["owner"], repo=m["repo"])
     if kind_marker == "blob":
         return ImportSource(kind="file", owner=m["owner"], repo=m["repo"], ref=m["ref"], path=path)
-    # tree без пути — это просто ветка, то есть весь репозиторий
+    # tree without a path is just a branch, i.e. the whole repository
     if not path:
         return ImportSource(kind="repo", owner=m["owner"], repo=m["repo"], ref=m["ref"])
     return ImportSource(kind="folder", owner=m["owner"], repo=m["repo"], ref=m["ref"], path=path)
 
 
-# --- скачивание с GitHub ---
+# --- downloading from GitHub ---
 
 
 class GitHubFetcher:
@@ -203,20 +206,20 @@ class GitHubFetcher:
     async def repo_info(self, source: ImportSource) -> dict:
         r = await self._client.get(f"/repos/{source.full_repo}")
         if r.status_code == 404:
-            raise ImportError_(f"Нет такого репозитория: {source.full_repo}")
+            raise ImportError_(f"No such repository: {source.full_repo}")
         r.raise_for_status()
         return r.json()
 
     async def fetch(self, source: ImportSource) -> tuple[list[ImportFile], list[str]]:
-        """Файлы источника. Возвращает (файлы, предупреждения)."""
+        """The source's files. Returns (files, warnings)."""
         info = await self.repo_info(source)
         ref = source.ref or info["default_branch"]
         warnings: list[str] = []
 
         if info.get("archived"):
-            warnings.append("репозиторий заархивирован — обновлений больше не будет")
+            warnings.append("the repository is archived — there will be no more updates")
         if info.get("private"):
-            raise ImportError_("репозиторий приватный — не тащим")
+            raise ImportError_("the repository is private — we won't pull it in")
 
         r = await self._client.get(
             f"/repos/{source.full_repo}/git/trees/{ref}", params={"recursive": "1"}
@@ -224,7 +227,9 @@ class GitHubFetcher:
         r.raise_for_status()
         tree = r.json()
         if tree.get("truncated"):
-            warnings.append("список файлов обрезан гитхабом — возможно, взяли не всё")
+            warnings.append(
+                "the file list was truncated by GitHub — we may not have taken everything"
+            )
 
         blobs = [t for t in tree.get("tree", []) if t["type"] == "blob"]
 
@@ -236,36 +241,36 @@ class GitHubFetcher:
             wanted = [t for t in blobs if t["path"].startswith(prefix)]
             strip = prefix
             if not wanted:
-                raise ImportError_(f"В {source.full_repo} нет папки {source.path}")
+                raise ImportError_(f"{source.full_repo} has no folder {source.path}")
         else:
             wanted = [t for t in blobs if t["path"] == source.path]
             strip = source.path.rsplit("/", 1)[0] + "/" if "/" in source.path else ""
             if not wanted:
-                raise ImportError_(f"В {source.full_repo} нет файла {source.path}")
+                raise ImportError_(f"{source.full_repo} has no file {source.path}")
 
         wanted = [t for t in wanted if not any(s in t["path"] for s in _SKIP_DIRS)]
 
         weight = sum(t.get("size", 0) for t in wanted)
         if weight > MAX_TOTAL_BYTES or len(wanted) > MAX_FILES:
-            # Не просто отказать, а подсказать. Настоящий случай:
-            # mvanhorn/last30days-skill — 400 файлов, но сам скилл лежит в
-            # skills/last30days/. Репозиторий не равен инструменту.
+            # Don't just reject — give a hint. A real case:
+            # mvanhorn/last30days-skill — 400 files, but the skill itself lives in
+            # skills/last30days/. A repository isn't the same as a tool.
             hints = find_tool_folders(blobs)
             message = (
-                f"Файлов {len(wanted)}, весом {weight / 1024 / 1024:.1f} МБ. "
-                f"Похоже, это целый проект, а не один инструмент."
+                f"{len(wanted)} files, {weight / 1024 / 1024:.1f} MB total. "
+                f"Looks like a whole project, not a single tool."
             )
             if hints:
-                message += "\n\nВот что внутри похоже на отдельные инструменты:"
+                message += "\n\nHere's what inside looks like standalone tools:"
                 for h in hints[:6]:
                     message += f"\n  https://github.com/{source.full_repo}/tree/{ref}/{h}"
             else:
-                message += "\n\nЕсли нужен весь репозиторий целиком — тащите зеркалом."
+                message += "\n\nIf you need the whole repository as-is — pull it in as a mirror."
             raise ImportError_(message)
 
-        # Содержимое качаем одним архивом, а не файлами по одному: у
-        # last30days-skill в папке 121 файл — это был бы 121 запрос, и лимиты
-        # гитхаба кончились бы на первом же импорте.
+        # We download the contents as a single archive, not file by file: the
+        # last30days-skill folder has 121 files — that would be 121 requests, and
+        # GitHub's rate limits would run out on the very first import.
         contents = await self._download_tarball(source, ref)
 
         files: list[ImportFile] = []
@@ -281,23 +286,23 @@ class GitHubFetcher:
                     path=local,
                     content=content,
                     upstream_path=entry["path"],
-                    sha=entry["sha"],  # слепок из дерева — годится в отметку
+                    sha=entry["sha"],  # snapshot from the tree — usable as the baseline mark
                 )
             )
 
         if excluded:
-            # Это не ошибка, а замысел автора. В .gitattributes помечают
-            # export-ignore то, что не нужно для работы: тесты, документацию,
-            # картинки. У mvanhorn/last30days-skill так исключены 14 МБ демо.
-            # Важно: Claude Code при установке скачивает ровно этот же архив,
-            # значит архив и есть канонический вид инструмента.
+            # This isn't an error but the author's intent. In .gitattributes they mark
+            # export-ignore on what isn't needed to run: tests, documentation,
+            # images. That's how mvanhorn/last30days-skill excludes 14 MB of demos.
+            # Important: on install Claude Code downloads exactly this same archive,
+            # so the archive is the canonical form of the tool.
             weight_mb = sum(e.get("size", 0) for e in excluded) / 1024 / 1024
             folders = sorted({e["path"].split("/")[-2] for e in excluded if "/" in e["path"]})
             warnings.append(
-                f"автор исключил из архива {len(excluded)} файлов "
-                f"({weight_mb:.1f} МБ, папки: {', '.join(folders[:4])}) — "
-                f"пометил их в .gitattributes как ненужные для работы. "
-                f"Claude Code при установке получает ровно этот же архив."
+                f"the author excluded {len(excluded)} files from the archive "
+                f"({weight_mb:.1f} MB, folders: {', '.join(folders[:4])}) — "
+                f"marked them in .gitattributes as not needed to run. "
+                f"On install Claude Code receives exactly this same archive."
             )
 
         return files, warnings
@@ -316,7 +321,7 @@ class GitHubFetcher:
             for member in tar:
                 if not member.isfile():
                     continue
-                # архив завёрнут в одну папку вида owner-repo-sha/
+                # the archive is wrapped in a single folder like owner-repo-sha/
                 parts = member.name.split("/", 1)
                 if len(parts) != 2:
                     continue
@@ -329,7 +334,7 @@ class GitHubFetcher:
         await self._client.aclose()
 
 
-# --- план ---
+# --- plan ---
 
 
 async def plan_import(
@@ -343,11 +348,11 @@ async def plan_import(
 
     if method == "mirror" and source.kind != "repo":
         raise ImportError_(
-            "Зеркало умеет только целый репозиторий. Папку или файл можно только скопировать."
+            "A mirror only works on a whole repository. A folder or file can only be copied."
         )
 
-    # Не указали куда — кладём по правилу: путь как на GitHub. Человек может
-    # переопределить, но по умолчанию адрес Gitea повторяет адрес источника.
+    # If no target was given, we place it by rule: the path as on GitHub. The user
+    # can override it, but by default the Gitea address mirrors the source address.
     files, warnings = await fetcher.fetch(source)
     plan = ImportPlan(
         source=source,
@@ -359,6 +364,6 @@ async def plan_import(
     )
 
     if not any(f.path.lower() in ("skill.md", "design.md", "readme.md") for f in files):
-        plan.warnings.append("нет ни SKILL.md, ни README.md — тип определится плохо")
+        plan.warnings.append("no SKILL.md and no README.md — the type will be hard to determine")
 
     return plan

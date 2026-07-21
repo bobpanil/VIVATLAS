@@ -1,4 +1,4 @@
-"""Реестр провайдеров."""
+"""Provider registry."""
 
 from vivatlas.config import settings
 from vivatlas.providers.base import GitProvider, RepoRef
@@ -18,4 +18,4 @@ def build_provider(kind: str = "gitea") -> GitProvider:
         from vivatlas.providers.github import GitHubProvider
 
         return GitHubProvider()
-    raise ValueError(f"Неизвестный провайдер: {kind}")
+    raise ValueError(f"Unknown provider: {kind}")

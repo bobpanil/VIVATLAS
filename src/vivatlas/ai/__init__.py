@@ -1,4 +1,4 @@
-"""Реестр моделей."""
+"""Model registry."""
 
 from vivatlas.ai.base import EmbeddingModel, TextModel
 from vivatlas.ai.google import GoogleEmbeddingModel, GoogleTextModel

@@ -12,14 +12,14 @@ def session(make_session):
 
 @pytest.fixture(autouse=True)
 def _secret(monkeypatch):
-    monkeypatch.setattr(settings, "secret_key", "ключ-для-тестов-двери-длинный")
+    monkeypatch.setattr(settings, "secret_key", "key-for-tests-door-long")
 
 
-# --- сырой доступ ---
+# --- raw access ---
 
 
 def test_get_default_when_absent(session):
-    assert rs.get(session, "нет-такого", "по-умолчанию") == "по-умолчанию"
+    assert rs.get(session, "no-such-key", "default-value") == "default-value"
 
 
 def test_set_then_get(session):
@@ -41,7 +41,7 @@ def test_bool_roundtrip(session):
 
 
 def test_int_default_on_garbage(session):
-    rs.set(session, "port", "не число")
+    rs.set(session, "port", "not a number")
     assert rs.get_int(session, "port", 587) == 587
 
 
@@ -65,7 +65,7 @@ def _save(session, **over):
         username="user",
         from_addr="from@example.com",
         from_name="VivAtlas",
-        password="секрет-пароль-почты",
+        password="secret-mail-password",
     )
     base.update(over)
     rs.save_smtp(session, **base)
@@ -75,20 +75,20 @@ def test_smtp_password_encrypted_at_rest(session):
     _save(session)
     stored = rs.get(session, rs.SMTP_PASSWORD_ENC)
     assert stored
-    assert "секрет-пароль-почты" not in stored  # в базе только шифртекст
-    assert rs.get_smtp(session).password == "секрет-пароль-почты"
+    assert "secret-mail-password" not in stored  # only ciphertext in the database
+    assert rs.get_smtp(session).password == "secret-mail-password"
 
 
 def test_smtp_blank_password_keeps_previous(session):
-    _save(session, password="первый-пароль")
-    _save(session, host="smtp.other.com", password=None)  # меняем всё, кроме пароля
+    _save(session, password="first-password")
+    _save(session, host="smtp.other.com", password=None)  # change everything except the password
     cfg = rs.get_smtp(session)
-    assert cfg.password == "первый-пароль"
+    assert cfg.password == "first-password"
     assert cfg.host == "smtp.other.com"
 
 
 def test_smtp_security_sanitized(session):
-    _save(session, security_mode="ерунда")
+    _save(session, security_mode="garbage")
     assert rs.get_smtp(session).security == "starttls"
 
 
@@ -98,7 +98,7 @@ def test_is_configured_needs_host_and_from(session):
         session, host="h", port=25, security_mode="none",
         username="", from_addr="", from_name="", password=None,
     )
-    assert rs.get_smtp(session).is_configured is False  # нет обратного адреса
+    assert rs.get_smtp(session).is_configured is False  # no return address
     rs.save_smtp(
         session, host="h", port=25, security_mode="none",
         username="", from_addr="from@x", from_name="", password=None,
@@ -115,7 +115,7 @@ def test_effective_from_falls_back_to_username(session):
 
 
 def test_password_mask_hides_middle(session):
-    _save(session, password="очень-секретный-пароль")
+    _save(session, password="very-secret-password")
     mask = rs.smtp_password_mask(session)
-    assert "очень-секретный-пароль" not in mask
+    assert "very-secret-password" not in mask
     assert "•" in mask

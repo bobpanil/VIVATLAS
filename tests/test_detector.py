@@ -7,11 +7,11 @@ def d(files: dict[str, bytes]):
     return detect(read_archive(make_tar(files)))
 
 
-# --- реальные формы из живой Gitea ---
+# --- real shapes from live Gitea ---
 
 
 def test_design_lib_repo():
-    # Так устроены все 74 репозитория design-lib.
+    # This is how all 74 design-lib repositories are structured.
     r = d({"DESIGN.md": b"# Airbnb\nBrand colors", "README.md": b"x", "preview.svg": b"<svg/>"})
     assert r.artifact_type == "design-kit"
     assert r.anchor_path == "DESIGN.md"
@@ -20,7 +20,7 @@ def test_design_lib_repo():
 
 
 def test_single_file_skill():
-    # skills-lib/brandkit — ровно один файл.
+    # skills-lib/brandkit — exactly one file.
     r = d({"SKILL.md": b"# Brandkit\nGenerates brand kits"})
     assert r.artifact_type == "skill"
     assert r.anchor_path == "SKILL.md"
@@ -32,20 +32,20 @@ def test_skill_mentioning_claude_is_marked_as_claude_skill():
 
 
 def test_python_project():
-    # skills-lib/avenir-ux — проект на 51 файл.
+    # skills-lib/avenir-ux — a 51-file project.
     r = d({"pyproject.toml": b"[project]", "README.md": b"# Avenir", "src/a/__init__.py": b""})
     assert r.artifact_type == "project"
     assert r.anchor_path == "README.md"
 
 
 def test_docs_only_repo_is_unknown_not_guessed():
-    # crgr-security-scanners — документация и CI, опорного файла нет.
+    # crgr-security-scanners — docs and CI, no anchor file.
     r = d({"README.md": b"# Scanners", "SECURITY_SCANNERS_INSTALL.md": b"install"})
     assert r.artifact_type == "unknown"
-    assert r.confidence < 0.5  # честно признаёмся, что не уверены
+    assert r.confidence < 0.5  # honestly admit we're not sure
 
 
-# --- приоритеты и края ---
+# --- priorities and edge cases ---
 
 
 def test_skill_md_wins_over_project_markers():
@@ -82,9 +82,9 @@ def test_reasons_are_recorded():
 
 
 def test_docs_are_found_even_without_readme():
-    # Реальный случай: skills-lib/crgr-security-scanners. Ни SKILL.md, ни
-    # README.md — но документация есть, просто названа иначе. Раньше карточка
-    # выходила пустой и по смыслу не искалась.
+    # Real case: skills-lib/crgr-security-scanners. Neither SKILL.md nor
+    # README.md — but documentation exists, just named differently. Previously the card
+    # came out empty and couldn't be found by meaning.
     r = d(
         {
             "SECURITY_SCANNERS_INSTALL.md": b"# Security scanners\nSemgrep, gitleaks, CodeQL",

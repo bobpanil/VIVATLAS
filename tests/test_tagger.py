@@ -36,8 +36,8 @@ def session():
                 repository_id=repo.id,
                 name="brandkit",
                 artifact_type="claude-skill",
-                summary_normal="Собирает бренд-наборы",
-                summary_technical="Использует токены",
+                summary_normal="Assembles brand kits",
+                summary_technical="Uses tokens",
                 file_paths=json.dumps(["SKILL.md", "src/main.py", "pyproject.toml"]),
             )
         )
@@ -66,15 +66,15 @@ class FakeModel:
     async def aclose(self): ...
 
 
-# --- правила ---
+# --- rules ---
 
 
 def test_derives_tags_from_files_and_type(session):
     art = session.scalar(select(Artifact))
     slugs = {s for s, _c, _conf in derive_tags(art)}
-    assert "python" in slugs  # из pyproject.toml и .py
-    assert "claude" in slugs  # из типа claude-skill
-    assert "skills-lib" in slugs  # владелец
+    assert "python" in slugs  # from pyproject.toml and .py
+    assert "claude" in slugs  # from the claude-skill type
+    assert "skills-lib" in slugs  # owner
 
 
 def test_derive_is_deterministic(session):
@@ -82,7 +82,7 @@ def test_derive_is_deterministic(session):
     assert sorted(derive_tags(art)) == sorted(derive_tags(art))
 
 
-# --- ГЛАВНОЕ: удалённый тег не возвращается ---
+# --- KEY: a removed tag never comes back ---
 
 
 async def test_deleted_auto_tag_never_comes_back(session):
@@ -92,27 +92,27 @@ async def test_deleted_auto_tag_never_comes_back(session):
     session.commit()
     assert "python" in tags_of(session, art.id)
 
-    # Пользователь говорит: это не питон.
-    remove_tag(session, art.id, "python", reason="не питон")
+    # User says: this isn't python.
+    remove_tag(session, art.id, "python", reason="not python")
     session.commit()
     assert "python" not in tags_of(session, art.id)
 
-    # Пересканировали ещё дважды — тег обязан остаться удалённым.
+    # Re-scanned twice more — the tag must stay removed.
     await tag_artifact(session, art, model=None)
     session.commit()
     await tag_artifact(session, art, model=None)
     session.commit()
 
-    assert "python" not in tags_of(session, art.id), "удалённый тег вернулся"
+    assert "python" not in tags_of(session, art.id), "the removed tag came back"
 
 
 async def test_suppression_also_blocks_ai_tags(session):
-    # Запрет обязан действовать на теги от модели, а не только на правила.
+    # The suppression must also apply to model tags, not just to rules.
     art = session.scalar(select(Artifact))
-    remove_tag(session, art.id, "pdf", reason="нет тут pdf")
+    remove_tag(session, art.id, "pdf", reason="no pdf here")
     session.commit()
 
-    model = FakeModel([{"slug": "pdf", "category": "формат", "confidence": 0.99}])
+    model = FakeModel([{"slug": "pdf", "category": "format", "confidence": 0.99}])
     await tag_artifact(session, art, model=model)
     session.commit()
 
@@ -124,20 +124,20 @@ def test_suppression_record_is_created(session):
     add_manual_tag(session, art.id, "python")
     session.commit()
 
-    remove_tag(session, art.id, "python", reason="ошибка")
+    remove_tag(session, art.id, "python", reason="mistake")
     session.commit()
 
     ban = session.scalar(select(TagSuppression).where(TagSuppression.artifact_id == art.id))
     assert ban is not None
-    assert ban.reason == "ошибка"
+    assert ban.reason == "mistake"
 
 
-# --- ручное главнее ---
+# --- manual wins ---
 
 
 async def test_manual_tag_is_not_overwritten_by_auto(session):
     art = session.scalar(select(Artifact))
-    add_manual_tag(session, art.id, "python", category="язык")
+    add_manual_tag(session, art.id, "python", category="language")
     session.commit()
 
     await tag_artifact(session, art, model=None)
@@ -146,13 +146,13 @@ async def test_manual_tag_is_not_overwritten_by_auto(session):
     link = session.scalar(
         select(ArtifactTag).join(Tag).where(ArtifactTag.artifact_id == art.id, Tag.slug == "python")
     )
-    assert link.source == "manual"  # не перезаписан на derived
+    assert link.source == "manual"  # not overwritten to derived
     assert link.confidence == 1.0
     assert link.manually_confirmed is True
 
 
 def test_manual_tag_lifts_suppression(session):
-    # Передумал: сначала удалил, потом поставил руками. Запрет должен сняться.
+    # Changed my mind: removed it first, then set it by hand. The suppression must lift.
     art = session.scalar(select(Artifact))
     remove_tag(session, art.id, "python")
     session.commit()
@@ -166,7 +166,7 @@ def test_manual_tag_lifts_suppression(session):
     )
 
 
-# --- порог ---
+# --- threshold ---
 
 
 def test_weak_tags_are_not_applied(session):
@@ -174,7 +174,7 @@ def test_weak_tags_are_not_applied(session):
     applied, rejected, weak = apply_tags(
         session,
         art,
-        [("uncertain", "прочее", 0.3), ("sure", "прочее", 0.9)],
+        [("uncertain", "other", 0.3), ("sure", "other", 0.9)],
         source="ai",
         origin="test",
     )
@@ -186,16 +186,16 @@ def test_weak_tags_are_not_applied(session):
     assert "uncertain" not in tags_of(session, art.id)
 
 
-# --- теги от модели ---
+# --- model tags ---
 
 
 async def test_ai_tags_with_bad_slugs_are_dropped(session):
     art = session.scalar(select(Artifact))
     model = FakeModel(
         [
-            {"slug": "Хороший Тег С Пробелами", "category": "прочее", "confidence": 0.9},
-            {"slug": "table-extraction", "category": "назначение", "confidence": 0.9},
-            {"slug": "", "category": "прочее", "confidence": 0.9},
+            {"slug": "Good Tag With Spaces", "category": "other", "confidence": 0.9},
+            {"slug": "table-extraction", "category": "purpose", "confidence": 0.9},
+            {"slug": "", "category": "other", "confidence": 0.9},
         ]
     )
     await tag_artifact(session, art, model=model)
@@ -208,7 +208,7 @@ async def test_ai_tags_with_bad_slugs_are_dropped(session):
 
 async def test_tag_source_is_recorded(session):
     art = session.scalar(select(Artifact))
-    model = FakeModel([{"slug": "brand-colors", "category": "назначение", "confidence": 0.9}])
+    model = FakeModel([{"slug": "brand-colors", "category": "purpose", "confidence": 0.9}])
     await tag_artifact(session, art, model=model)
     session.commit()
 
@@ -218,4 +218,4 @@ async def test_tag_source_is_recorded(session):
 
     link = session.scalar(select(ArtifactTag).join(Tag).where(Tag.slug == "claude"))
     assert link.source == "derived"
-    assert link.origin == "правило"
+    assert link.origin == "rule"

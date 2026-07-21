@@ -4,7 +4,7 @@
 {% block title %}{{ t('nav.settings') }} — VIVATLAS{% endblock %}
 {% block modal_title %}{% if step == 'qr' %}{{ t('settings.link_app_title') }}{% elif step == 'codes' %}{% if fresh %}{{ t('settings.twofa_enabled_title') }}{% else %}{{ t('settings.new_backup_codes') }}{% endif %}{% else %}{{ t('nav.settings') }}{% endif %}{% endblock %}
 {% block modal_help %}{{ t('settings.modal_help') }}{% endblock %}
-{# Настройки не закрываются по клику вне окна — только «Выйти»/«Сохранить». #}
+{# Settings don't close on an outside click — only "Exit"/"Save" do. #}
 {% block body_class %}lock-scrim{% endblock %}
 
 {% block modal_body %}
@@ -30,7 +30,7 @@
 
     <div class="box wide">
         {{ sechead(t('account.photo_title'), t('account.photo_hint')) }}
-        {# Загрузка слева, готовый набор аватаров — справа от неё. #}
+        {# Upload on the left, the preset avatar set to the right of it. #}
         <div class="avatar-layout">
         <div class="avatar-edit">
             <span class="avatar-preview">
@@ -40,16 +40,16 @@
                 <input type="file" name="photo" id="photofile" class="vh" required
                        accept="image/png,image/jpeg,image/gif,image/bmp,image/svg+xml,.png,.jpg,.jpeg,.gif,.bmp,.svg">
                 <label for="photofile" class="btn-secondary">{{ t('account.photo_upload') }}</label>
-                {# «Убрать фото» всегда на месте, справа от загрузки; серая и
-                   некликабельная, пока не загружено своё фото — у аватара из
-                   набора убирать нечего (это и есть фон по умолчанию). #}
+                {# "Remove photo" always stays in place, right of the upload; grey and
+                   unclickable until a custom photo is uploaded — a preset
+                   avatar has nothing to remove (it is the default background). #}
                 <button type="submit" class="btn-secondary" formaction="/settings/account/photo/delete"
                         formnovalidate{% if not has_avatar %} disabled{% endif %}>{{ t('account.photo_remove') }}</button>
             </form>
         </div>
 
-        {# Готовый набор аватаров. Выбор удаляет своё фото (иначе фото перекрыло бы
-           выбор — см. set_avatar_preset). Активный отмечен, если фото не загружено. #}
+        {# Preset avatar set. Picking one deletes the custom photo (otherwise the photo would
+           override the choice — see set_avatar_preset). Active one is marked when no photo is uploaded. #}
         {% if avatar_presets %}
         <div class="avatar-presets">
             <p class="legend">{{ t('account.avatar_pick') }}</p>
@@ -75,7 +75,7 @@
         <form method="post" action="/settings/account/email">
             <label class="fld"><span>{{ t('account.new_email') }}</span>
                 <input type="email" name="email" value="{{ me.email }}" autocomplete="email" required></label>
-            {# Новую почту вводят дважды: опечатка в адресе заперла бы снаружи. #}
+            {# The new email is entered twice: a typo in the address would lock you out. #}
             <label class="fld"><span>{{ t('account.confirm_email') }}</span>
                 <input type="email" name="email_confirm" autocomplete="off" required></label>
             <label class="fld"><span>{{ t('account.current_password') }}</span>
@@ -97,7 +97,7 @@
         </form>
     </div>
 
-    {# Двухэтапная проверка — переехала сюда из бывшей вкладки «Безопасность». #}
+    {# Two-step verification — moved here from the former "Security" tab. #}
     <div class="box wide">
         {{ sechead(t('settings.twofa_title'), t('settings.twofa_tip')) }}
         {% if totp_on %}
@@ -122,7 +122,7 @@
         {% endif %}
     </div>
 
-    {# Язык интерфейса — переехал сюда из бывшей вкладки «Вид» (тему убрали). #}
+    {# Interface language — moved here from the former "Appearance" tab (theme was removed). #}
     <div class="box">
         {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
         <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
@@ -135,8 +135,8 @@
 </section>
 
 <section class="setpanel" data-panel="folders" hidden>
-{# Личные папки — у каждого свои. Общими папками управляет администратор из
-   админ-панели («Папки»), здесь их нет. #}
+{# Personal folders — each user has their own. Shared folders are managed by the admin from
+   the admin panel ("Folders"), they are not here. #}
 <div class="box wide">
     {{ sechead(t('settings.my_categories_title'), t('settings.my_categories_tip')) }}
     {{ cm.cat_manage(categories | selectattr('owned') | list, 'private', 'catmine', t('settings.new_category_placeholder'), '/settings') }}
@@ -150,8 +150,8 @@
     {% if my_sources %}
     <ul class="src-manage">
         {% for s in my_sources %}
-        {# После настройки — свёрнутая строка: имя + полный адрес + «Изменить» /
-           «Удалить». «Изменить» разворачивает форму правки под строкой. #}
+        {# After setup — a collapsed row: name + full address + "Edit" /
+           "Delete". "Edit" expands the edit form below the row. #}
         <li class="src-row">
             <div class="src-summary">
                 <div class="src-summary-text">
@@ -164,7 +164,7 @@
                     <button type="submit" class="btn-secondary btn-danger">{{ t('settings.delete') }}</button>
                 </form>
             </div>
-            {# Токен пустой — прежний остаётся; вписали новый — заменится. #}
+            {# Empty token — the previous one stays; enter a new one — it gets replaced. #}
             <form method="post" action="/settings/sources/{{ s.id }}/update" class="src-edit" hidden>
                 <div class="src-edit-top">
                     <select name="kind" aria-label="{{ t('settings.hosting_aria') }}">
@@ -210,8 +210,8 @@
 </div>
 </section>
 
-{# Удаление аккаунта — своя вкладка: необратимое действие держим отдельно от
-   повседневных настроек, чтобы на него не наткнуться случайно. #}
+{# Account deletion — its own tab: an irreversible action kept apart from
+   everyday settings so you don't stumble into it by accident. #}
 <section class="setpanel" data-panel="delete" hidden>
 <div class="box wide">
     {{ sechead(t('account.danger_title'), t('account.danger_hint')) }}
@@ -225,8 +225,8 @@
 
 {% endif %}
 
-{# Диалог подтверждения — маленькая модалка в том же стиле: шапка с вопросом,
-   футер с кнопками по краям (отмена слева, действие справа). #}
+{# Confirmation dialog — a small modal in the same style: header with the question,
+   footer with buttons at the edges (cancel on the left, action on the right). #}
 <div class="confirm" id="confirm" hidden>
     <div class="confirm-scrim" id="confirm-scrim"></div>
     <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
@@ -270,9 +270,9 @@
     {% elif step == 'codes' %}
     <a class="cta" href="/settings">{{ t('settings.saved_next') }}</a>
     {% else %}
-    {# Разделы сохраняются каждый своей кнопкой (иконка, «Завести», «Подключить»,
-       ✓). Внизу — общее подтверждение через диалог (см. скрипт). Без скрипта
-       ссылки просто закрывают окно. #}
+    {# Sections are each saved by their own button (icon, "Create", "Connect",
+       ✓). Below — a shared confirmation via the dialog (see script). Without the script
+       the links just close the modal. #}
     <a class="btn-secondary foot-left" href="/" id="settings-exit" data-confirm>{{ t('settings.close') }}</a>
     <a class="cta" href="/" id="settings-save" data-confirm>{{ t('settings.save') }}</a>
     {% endif %}
@@ -281,18 +281,18 @@
 
 {% block scripts %}
 <script>
-// (Вкладки — общий код в modal_base.html: роли, aria, стрелки/Home/End.)
+// (Tabs — shared code in modal_base.html: roles, aria, arrows/Home/End.)
 
-// Язык — выпадающим списком: смена уводит на серверный /lang/... .
+// Language — via a dropdown: changing it navigates to the server-side /lang/... .
 (function () {
     var sel = document.querySelector('.lang-select[data-lang-nav]');
     if (sel) sel.addEventListener('change', function () { if (sel.value) location.href = sel.value; });
 })();
 
-// Загрузка фото происходит по выбору файла: отдельной кнопки «отправить» в форме
-// нет («Загрузить фото» — это метка, открывающая диалог; «Убрать фото» шлёт на
-// удаление). requestSubmit без указания кнопки шлёт на action формы (загрузку),
-// а не на formaction «Убрать».
+// Photo upload happens on file selection: there is no separate "submit" button in the
+// form ("Upload photo" is a label that opens the dialog; "Remove photo" submits to
+// deletion). requestSubmit with no button specified submits to the form's action (upload),
+// not to the "Remove" formaction.
 (function () {
     var f = document.getElementById('photofile');
     if (!f) return;
@@ -301,14 +301,14 @@
     });
 })();
 
-// Подтверждение опасных действий (удаление аккаунта/источника) — текст из
-// data-confirm, приходит уже раскодированным, исполнения нет.
+// Confirming dangerous actions (deleting account/source) — text from
+// data-confirm, arrives already decoded, no execution.
 document.addEventListener('submit', function (e) {
     var msg = e.target && e.target.getAttribute ? e.target.getAttribute('data-confirm') : null;
     if (msg && !confirm(msg)) e.preventDefault();
 });
 
-// «Изменить» у источника — разворачивает форму правки под свёрнутой строкой.
+// "Edit" on a source — expands the edit form below the collapsed row.
 document.addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('.src-edit-btn') : null;
     if (!btn) return;
@@ -319,9 +319,9 @@ document.addEventListener('click', function (e) {
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 });
 
-// Кнопка «Сканировать» — мгновенная реакция на клик: пока идёт переход на
-// главную (там появится полоса прогресса), сама кнопка крутит спиннер и пишет
-// «Сканирую…». Форму не блокируем — она отправляется как обычно.
+// The "Scan" button — instant response to the click: while the navigation to the
+// home page is underway (a progress bar will appear there), the button itself spins a spinner and shows
+// "Scanning…". We don't block the form — it submits as usual.
 document.addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('.src-scan') : null;
     if (!btn || btn.classList.contains('scanning')) return;
@@ -329,17 +329,17 @@ document.addEventListener('click', function (e) {
     btn.textContent = {{ t('settings.js_scanning') | tojson }};
 });
 
-// (Сворачивание разделов убрано: вкладки уже дают по одному разделу за раз, а
-// свёрнутый раздел делал вкладку пустой.)
+// (Section collapsing removed: tabs already show one section at a time, and
+// a collapsed section left the tab empty.)
 
-// (Тема убрана из настроек — переключатель темы остаётся в сайдбаре внизу.)
+// (Theme removed from settings — the theme toggle stays in the sidebar at the bottom.)
 
-// (Иконки папок и порядок перетаскиванием — общий код в /static/catmanage.js,
-// подключён в modal_base.html: тот же на настройки и админ-панель.)
+// (Folder icons and drag-to-reorder — shared code in /static/catmanage.js,
+// included in modal_base.html: the same for settings and the admin panel.)
 
-// Уточняющий вопрос при выходе/сохранении — по центру модалки. Разделы и так
-// сохраняются своими кнопками, поэтому обе ветки закрывают окно; вопрос —
-// чтобы не выйти случайно, не подтвердив.
+// Clarifying question on exit/save — centered in the modal. Sections are already
+// saved by their own buttons, so both branches close the modal; the question —
+// so you don't exit by accident without confirming.
 (function () {
     var box = document.getElementById('confirm');
     if (!box) return;

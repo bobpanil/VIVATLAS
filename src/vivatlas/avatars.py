@@ -1,24 +1,24 @@
-"""Аватары: приводим любую загруженную картинку к квадратному webp.
+"""Avatars: normalise any uploaded image to a square webp.
 
-Растровые (png/jpeg/gif/bmp) — через Pillow. SVG — рендерим headless-Chromium
-(Playwright): на Windows нет нативного Cairo, а Chromium уже есть и берёт любой
-SVG. EXIF снимаем — не тащим геометку со снимка телефона.
+Raster (png/jpeg/gif/bmp) — via Pillow. SVG — rendered with headless Chromium
+(Playwright): Windows has no native Cairo, but Chromium is already there and
+handles any SVG. We strip EXIF — no dragging a geotag along from a phone photo.
 """
 
 import base64
 import io
 
-SIZE = 256  # квадрат стороны, px
-MAX_UPLOAD = 8 * 1024 * 1024  # 8 МБ на вход (сырых байт) — аватар столько не весит
-# Потолок по РАСКОДИРОВАННЫМ пикселям и стороне: маленький, но сильно сжатый
-# файл (сплошной цвет 13000×13000) весит сотни КБ, а в память разворачивается
-# в сотни МБ. Проверяем размер из заголовка ДО полной раскодировки.
-MAX_PIXELS = 50_000_000  # ~50 Мп: телефонное фото проходит, «бомба» — нет
+SIZE = 256  # square side, px
+MAX_UPLOAD = 8 * 1024 * 1024  # 8 MB of input (raw bytes) — an avatar never weighs that much
+# Cap on DECODED pixels and side length: a small but heavily compressed file
+# (solid colour 13000×13000) weighs hundreds of KB, yet expands in memory to
+# hundreds of MB. We check the size from the header BEFORE full decoding.
+MAX_PIXELS = 50_000_000  # ~50 MP: a phone photo passes, a "bomb" doesn't
 MAX_SIDE = 12000
 
 
 class AvatarError(Exception):
-    """Не смогли принять картинку. Текст — ключ для перевода у вызывающего."""
+    """Couldn't accept the image. The text is a translation key for the caller."""
 
 
 def _is_svg(data: bytes) -> bool:
@@ -27,7 +27,7 @@ def _is_svg(data: bytes) -> bool:
 
 
 def to_webp(data: bytes, content_type: str = "") -> bytes:
-    """Байты загрузки → байты webp 256×256. AvatarError, если не картинка."""
+    """Upload bytes → 256×256 webp bytes. AvatarError if it's not an image."""
     if not data:
         raise AvatarError("avatar.err.empty")
     if len(data) > MAX_UPLOAD:
@@ -40,22 +40,22 @@ def to_webp(data: bytes, content_type: str = "") -> bytes:
 def _raster_to_webp(data: bytes) -> bytes:
     from PIL import Image, ImageOps
 
-    # Подстраховка на уровне Pillow: выше 2× этого он сам бросит DecompressionBomb.
+    # Safety net at the Pillow level: above 2× this it throws DecompressionBomb itself.
     Image.MAX_IMAGE_PIXELS = MAX_PIXELS
     try:
         im = Image.open(io.BytesIO(data))
-        # Размер берём из заголовка (open ленив) и режем ДО load(): так «бомба»
-        # не успевает развернуться в память.
+        # Take the size from the header (open is lazy) and bail BEFORE load(): that
+        # way the "bomb" never gets to expand in memory.
         if im.size[0] * im.size[1] > MAX_PIXELS or max(im.size) > MAX_SIDE:
             raise AvatarError("avatar.err.too_big")
         im.load()
     except AvatarError:
         raise
-    except Exception as e:  # noqa: BLE001 — любой сбой = «не картинка»
+    except Exception as e:  # noqa: BLE001 — any failure = "not an image"
         raise AvatarError("avatar.err.unreadable") from e
-    im = ImageOps.exif_transpose(im)  # снять поворот с телефона
+    im = ImageOps.exif_transpose(im)  # undo the phone's rotation
     im = im.convert("RGBA") if im.mode in ("RGBA", "LA", "P") else im.convert("RGB")
-    # Квадрат по центру, без искажения пропорций.
+    # Centred square, without distorting the proportions.
     im = ImageOps.fit(im, (SIZE, SIZE), method=Image.Resampling.LANCZOS)
     out = io.BytesIO()
     im.save(out, format="WEBP", quality=82, method=6)
@@ -63,9 +63,9 @@ def _raster_to_webp(data: bytes) -> bytes:
 
 
 def _svg_to_png(data: bytes) -> bytes:
-    """SVG → PNG через headless-Chromium. Ленивый импорт Playwright: растровые
-    загрузки его не трогают. Зовётся только из СИНХРОННОГО маршрута (иначе
-    sync_playwright падает внутри работающего цикла asyncio)."""
+    """SVG → PNG via headless Chromium. Lazy import of Playwright: raster uploads
+    don't touch it. Called only from the SYNCHRONOUS route (otherwise
+    sync_playwright crashes inside a running asyncio loop)."""
     try:
         from playwright.sync_api import sync_playwright
     except Exception as e:  # noqa: BLE001

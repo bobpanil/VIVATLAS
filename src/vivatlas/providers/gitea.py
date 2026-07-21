@@ -9,21 +9,21 @@ from vivatlas.providers.base import RepoRef
 
 log = logging.getLogger(__name__)
 
-# Инстанс отвечает 403 на запросы без узнаваемого User-Agent — проверено на
-# живой Gitea. Без этого заголовка не работает ни один запрос.
+# The instance answers 403 to requests without a recognizable User-Agent — verified on
+# a live Gitea. Without this header not a single request works.
 _USER_AGENT = "Mozilla/5.0 (compatible; SkillAtlas/0.1)"
 
-_PAGE_SIZE = 50  # потолок Gitea, больше запрашивать бесполезно
+_PAGE_SIZE = 50  # Gitea's ceiling, asking for more is pointless
 
 
 class GiteaProvider:
     name = "gitea"
 
     def __init__(self, base_url: str, token: str = "", timeout: float = 30.0) -> None:
-        # Корень Gitea — только схема и хост. Путь в адресе (напр. /boris) — это
-        # ссылка на профиль, а не часть API: приклеивать её к /api/v1 нельзя,
-        # иначе .../boris/api/v1/… даёт 404. Отбрасываем путь — достаточно
-        # корневой ссылки на инстанс.
+        # The Gitea root is only scheme and host. A path in the URL (e.g. /boris) is a
+        # profile link, not part of the API: it cannot be glued onto /api/v1,
+        # otherwise .../boris/api/v1/… gives a 404. We drop the path — the root
+        # instance URL is enough.
         parts = urlsplit(base_url.rstrip("/"))
         self.api_root = f"{parts.scheme}://{parts.netloc}"
         self.base_url = self.api_root
@@ -38,11 +38,11 @@ class GiteaProvider:
         )
 
     async def list_repositories(self) -> list[RepoRef]:
-        # /repos/search с токеном отдаёт всё, что токен видит: публичные
-        # репозитории всего инстанса плюс приватные, к которым есть доступ, — по
-        # всем пользователям и организациям сразу. Имя в адресе не требуется,
-        # хватает корневой ссылки. Что из этого попадёт в общую зону, а что нет,
-        # решает scan_source через include_private; здесь мы только перечисляем.
+        # /repos/search with a token returns everything the token can see: public
+        # repositories across the whole instance plus private ones it has access to — for
+        # all users and organizations at once. A name in the URL is not required,
+        # the root link is enough. What of this ends up in the shared zone and what does not
+        # is decided by scan_source via include_private; here we only enumerate.
         repos: list[RepoRef] = []
         page = 1
         while True:
@@ -72,10 +72,10 @@ class GiteaProvider:
         return response.content
 
     async def blob_shas(self, repo: RepoRef, ref: str) -> dict[str, str]:
-        """Слепки всех файлов: путь -> sha. Одним запросом.
+        """Hashes of every file: path -> sha. In a single request.
 
-        Слепок git считается от содержимого, поэтому одинаковый файл здесь и на
-        GitHub даёт одинаковый sha — сравнивать можно напрямую, ничего не качая.
+        A git hash is computed from the content, so the same file here and on
+        GitHub gives the same sha — you can compare directly, without downloading anything.
         """
         response = await self._client.get(
             f"/repos/{repo.owner}/{repo.name}/git/trees/{ref}",
@@ -84,13 +84,13 @@ class GiteaProvider:
         response.raise_for_status()
         data = response.json()
         if data.get("truncated"):
-            log.warning("%s: список файлов обрезан, часть путей не увидим", repo.full_name)
+            log.warning("%s: file list truncated, some paths will be missed", repo.full_name)
         return {t["path"]: t["sha"] for t in data.get("tree", []) if t["type"] == "blob"}
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    # --- запись. Требует токена и вызывается только после подтверждения. ---
+    # --- write. Requires a token and is only called after confirmation. ---
 
     async def repo_exists(self, owner: str, name: str) -> bool:
         response = await self._client.get(f"/repos/{owner}/{name}")
@@ -100,14 +100,14 @@ class GiteaProvider:
         return True
 
     async def create_repo(self, owner: str, name: str, description: str = "") -> dict:
-        """Создать репозиторий в организации.
+        """Create a repository in an organization.
 
-        Создание — единственная запись, которая ничего не может испортить:
-        до неё репозитория не было. Поэтому проверяем заранее, что имя
-        свободно, и отказываемся, если занято, вместо перезаписи.
+        Creation is the only write that cannot break anything:
+        before it there was no repository. So we check in advance that the name
+        is free, and refuse if it is taken, instead of overwriting.
         """
         if await self.repo_exists(owner, name):
-            raise RuntimeError(f"{owner}/{name} уже существует — не перезаписываю")
+            raise RuntimeError(f"{owner}/{name} already exists — refusing to overwrite")
 
         response = await self._client.post(
             f"/orgs/{owner}/repos",
@@ -148,16 +148,16 @@ class GiteaProvider:
         sha: str,
         branch: str = "main",
     ) -> dict:
-        """Заменить содержимое файла, который уже есть.
+        """Replace the contents of a file that already exists.
 
-        Слепок старого файла обязателен. Это не формальность: Gitea сверит его
-        с тем, что лежит на самом деле, и откажет, если файл успели поправить
-        после нашей проверки. Иначе мы бы молча затёрли чужую правку.
+        The hash of the old file is mandatory. This is not a formality: Gitea checks it
+        against what is actually there, and refuses if the file was edited
+        after our check. Otherwise we would silently overwrite someone else's edit.
         """
         import base64
 
         if not sha:
-            raise RuntimeError("нечем заменять: не знаем слепок старого файла")
+            raise RuntimeError("nothing to replace: the old file's hash is unknown")
         response = await self._client.put(
             f"/repos/{owner}/{name}/contents/{path}",
             json={
@@ -171,7 +171,7 @@ class GiteaProvider:
         return response.json()
 
     async def delete_repo(self, owner: str, name: str) -> None:
-        """Только для отката неудачного импорта. Больше нигде не зовётся."""
+        """Only for rolling back a failed import. Not called anywhere else."""
         response = await self._client.delete(f"/repos/{owner}/{name}")
         response.raise_for_status()
 
@@ -183,10 +183,10 @@ class GiteaProvider:
         return True
 
     async def create_org(self, org: str) -> dict:
-        """Организация под владельца с GitHub.
+        """An organization for a GitHub owner.
 
-        Идемпотентно: если уже есть — возвращаем её, а не падаем. Перенос
-        может продолжиться после сбоя, и половина организаций уже создана.
+        Idempotent: if it already exists — we return it rather than crashing. A migration
+        may resume after a failure, with half the organizations already created.
         """
         if await self.org_exists(org):
             response = await self._client.get(f"/orgs/{org}")
@@ -197,17 +197,17 @@ class GiteaProvider:
         return response.json()
 
     async def rename_repo(self, owner: str, name: str, new_name: str) -> None:
-        """Сменить имя в пределах того же владельца."""
+        """Rename within the same owner."""
         if name == new_name:
             return
         response = await self._client.patch(f"/repos/{owner}/{name}", json={"name": new_name})
         response.raise_for_status()
 
     async def transfer_repo(self, owner: str, name: str, new_owner: str) -> None:
-        """Передать репозиторий другому владельцу, имя сохраняя.
+        """Transfer a repository to another owner, keeping the name.
 
-        Токен админский — передача проходит сразу, без подтверждения со
-        стороны получателя. 202 значит «принято».
+        The token is an admin one — the transfer goes through immediately, without confirmation
+        from the recipient. 202 means "accepted".
         """
         if owner == new_owner:
             return
@@ -224,7 +224,7 @@ def _to_repo_ref(item: dict) -> RepoRef:
         owner=item["owner"]["login"],
         name=item["name"],
         default_branch=item.get("default_branch") or "main",
-        is_private=bool(item.get("private", True)),  # неизвестно — считаем приватным
+        is_private=bool(item.get("private", True)),  # unknown — treat as private
         is_archived=bool(item.get("archived", False)),
         is_empty=bool(item.get("empty", False)),
         html_url=item.get("html_url", ""),

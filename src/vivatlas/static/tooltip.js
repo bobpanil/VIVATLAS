@@ -1,26 +1,28 @@
-/* Свои подсказки вместо системных: перехватываем hover/фокус на элементах с
- * title, прячем родной тултип (снимаем title сразу) и показываем свою плашку —
- * НО с задержкой, как у системной, чтобы не мельтешила при простом проведении
- * мышью. Без скрипта остаётся обычный системный тултип (прогрессивное улучшение).
- * Одна плашка на документ, выносится в <body> (position:fixed).
+/* Custom tooltips instead of the system ones: we intercept hover/focus on
+ * elements with title, hide the native tooltip (strip title immediately) and
+ * show our own chip — BUT with a delay, like the system one, so it doesn't
+ * flicker on a simple mouse pass. Without the script the ordinary system
+ * tooltip remains (progressive enhancement).
+ * One chip per document, moved into <body> (position:fixed).
  */
 (function () {
     'use strict';
-    var DELAY = 500;   // мс до появления — как у системной подсказки
+    var DELAY = 500;   // ms before it appears — like the system tooltip
 
     var tip = document.createElement('div');
     tip.className = 'tip';
     tip.setAttribute('role', 'tooltip');
     tip.hidden = true;
 
-    var cur = null;    // элемент, у которого сейчас снят title
+    var cur = null;    // element whose title is currently stripped
     var text = '';
     var timer = null;
 
-    // Если элемент с подсказкой убрали из DOM во время наведения (напр. значок
-    // папки исчезает после переноса карточки), ни mouseleave, ни blur не придут —
-    // подсказка зависла бы. Следим за удалением и сами закрываемся. Наблюдатель
-    // включаем только на время показа (begin→end), чтобы не жечь ресурсы.
+    // If an element with a tooltip is removed from the DOM while hovered (e.g.
+    // the folder icon disappears after a card is moved), neither mouseleave nor
+    // blur will fire — the tooltip would get stuck. We watch for removal and
+    // close ourselves. We enable the observer only while showing (begin→end),
+    // so as not to burn resources.
     var obs = null;
     if (typeof MutationObserver !== 'undefined') {
         obs = new MutationObserver(function () { if (cur && !cur.isConnected) end(); });
@@ -38,14 +40,14 @@
         var t = tip.getBoundingClientRect();
         var left = r.left + r.width / 2 - t.width / 2;
         left = Math.max(8, Math.min(left, window.innerWidth - t.width - 8));
-        var top = r.top - t.height - 8;          // над элементом
-        if (top < 4) top = r.bottom + 8;         // не влезло — под ним
+        var top = r.top - t.height - 8;          // above the element
+        if (top < 4) top = r.bottom + 8;         // didn't fit — below it
         tip.style.left = Math.round(left) + 'px';
         tip.style.top = Math.round(top) + 'px';
     }
 
-    // Начать наведение: сразу снимаем title (гасим системную подсказку), а свою
-    // показываем только спустя DELAY. Уйдут раньше — таймер отменится в end().
+    // Start hover: strip title immediately (kill the system tooltip), and show
+    // ours only after DELAY. If they leave earlier — the timer is cancelled in end().
     function begin(el) {
         if (el === cur) return;
         end();
@@ -73,7 +75,7 @@
         if (timer) { clearTimeout(timer); timer = null; }
         if (obs) obs.disconnect();
         if (cur) {
-            // Вернуть title только живому элементу (удалённому — незачем).
+            // Restore title only to a live element (no point for a removed one).
             if (text && cur.isConnected) cur.setAttribute('title', text);
             cur.removeEventListener('mouseleave', end);
             cur.removeEventListener('blur', end);
@@ -88,14 +90,14 @@
         var el = e.target.closest ? e.target.closest('[title]') : null;
         if (el) begin(el);
     });
-    // Клавиатурный фокус — да (с той же задержкой), мышиный клик — нет.
+    // Keyboard focus — yes (with the same delay), mouse click — no.
     document.addEventListener('focusin', function (e) {
         var el = e.target.closest ? e.target.closest('[title]') : null;
         if (!el) return;
-        try { if (!el.matches(':focus-visible')) return; } catch (x) { /* нет поддержки — покажем */ }
+        try { if (!el.matches(':focus-visible')) return; } catch (x) { /* no support — show it */ }
         begin(el);
     });
-    // Любой клик/нажатие/прокрутка прячет (и отменяет отложенный показ).
+    // Any click/press/scroll hides it (and cancels the pending show).
     document.addEventListener('mousedown', end, true);
     document.addEventListener('click', end, true);
     window.addEventListener('scroll', end, true);

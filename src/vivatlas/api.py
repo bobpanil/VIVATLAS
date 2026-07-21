@@ -27,10 +27,10 @@ from vivatlas.web import router as web_router
 
 log = logging.getLogger(__name__)
 
-# Ежедневный фоновый обход подключённых источников: новые репозитории приходят
-# карточками и помечаются «новинкой». Проверяем раз в час, обходим не чаще
-# суток. Метка last_auto_scan_at служит и замком между двумя серверами (8710 и
-# 8711): кто первым её проставит, тот и обходит.
+# Daily background crawl of connected sources: new repositories arrive as
+# cards and get flagged "new". We check once an hour, crawl no more than once
+# a day. The last_auto_scan_at marker also acts as a lock between two servers
+# (8710 and 8711): whoever sets it first does the crawl.
 _AUTOSCAN_EVERY = timedelta(hours=24)
 _AUTOSCAN_CHECK_SECONDS = 3600
 _AUTOSCAN_WARMUP_SECONDS = 300
@@ -50,8 +50,8 @@ async def _autoscan_pass() -> None:
             )
         ).all()
         for sid, uid in rows:
-            # Забираем источник атомарно: ставим свежую метку только если всё
-            # ещё пора. Второй сервер увидит нулевой rowcount и пропустит.
+            # Claim the source atomically: set a fresh marker only if it's
+            # still due. The other server sees a zero rowcount and skips it.
             res = session.execute(
                 update(Source).where(Source.id == sid, due).values(last_auto_scan_at=now)
             )
@@ -60,42 +60,42 @@ async def _autoscan_pass() -> None:
         session.commit()
     for uid, sid in claimed:
         try:
-            await _run_user_scan(uid, sid, progress=None)  # тихо, без полосы
+            await _run_user_scan(uid, sid, progress=None)  # quietly, no progress bar
         except Exception:
-            log.exception("авто-скан источника %s не удался", sid)
+            log.exception("auto-scan of source %s failed", sid)
 
 
 async def _autoscan_loop() -> None:
-    await asyncio.sleep(_AUTOSCAN_WARMUP_SECONDS)  # не грузим сам старт
+    await asyncio.sleep(_AUTOSCAN_WARMUP_SECONDS)  # don't burden startup itself
     while True:
         try:
             await _autoscan_pass()
         except asyncio.CancelledError:
             raise
         except Exception:
-            log.exception("авто-скан: проход не удался")
+            log.exception("auto-scan: pass failed")
         await asyncio.sleep(_AUTOSCAN_CHECK_SECONDS)
 
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
-    # Без главного ключа дверь не запереть: на нём держатся подписи (2FA, ссылки
-    # сброса) и шифрование чужих токенов. CLI `serve` это проверяет, но запуск
-    # прямо по ASGI-объекту (uvicorn vivatlas.api:app) шёл бы мимо проверки и
-    # поднимал бы наполовину незапертую программу. Падаем на старте, а не на
-    # первом сбросе пароля.
+    # Without the secret key the door won't lock: it backs the signatures (2FA,
+    # reset links) and the encryption of other users' tokens. The CLI `serve`
+    # checks this, but launching straight from the ASGI object
+    # (uvicorn vivatlas.api:app) would skip the check and bring up a half-
+    # unlocked program. Fail at startup, not on the first password reset.
     security.require_secret()
-    # Догнать схему БД до текущего кода прямо на старте — то же, что делает
-    # `init-db`. Иначе поднятый на старой базе новый код падал бы на недостающих
-    # столбцах (так и случилось с avatar_preset). Идемпотентно: на актуальной
-    # базе — 0 шагов. НЕ глушим ошибку: сломанную миграцию надо видеть при
-    # запуске, а не ловить на первом запросе.
+    # Catch the DB schema up to the current code right at startup — the same as
+    # `init-db` does. Otherwise new code on an old database would fail on missing
+    # columns (which is what happened with avatar_preset). Idempotent: on an up-
+    # to-date database — 0 steps. Do NOT swallow the error: a broken migration
+    # should be seen at startup, not caught on the first request.
     from vivatlas.migrate import ensure_schema
 
     for step in ensure_schema():
-        log.info("схема БД: %s", step)
-    # Наложить правки конфигурации из админки поверх .env, чтобы после
-    # перезапуска действовали сохранённые токены/модели, а не только из файла.
+        log.info("DB schema: %s", step)
+    # Apply config edits from the admin panel on top of .env so that after a
+    # restart the saved tokens/models take effect, not just those from the file.
     with contextlib.suppress(Exception):
         from vivatlas import runtime_settings
         from vivatlas.db import session_scope
@@ -113,8 +113,8 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(title="VivAtlas", version="0.1.0", lifespan=_lifespan)
 
-# Пути, открытые без входа. Всё остальное — за замком. Список короткий
-# намеренно: что не здесь, то закрыто, а не наоборот.
+# Paths open without sign-in. Everything else is behind the lock. The list is
+# short deliberately: whatever isn't here is closed, not the other way round.
 _OPEN_PREFIXES = (
     "/static/", "/login", "/setup", "/logout", "/forgot", "/reset", "/register", "/join",
     "/lang/", "/mcp-server",
@@ -124,13 +124,13 @@ _OPEN_EXACT = {"/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa"}
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
-    """Замок на всё. Не вошёл — на страницу входа, а не внутрь.
+    """Lock on everything. Not signed in — off to the sign-in page, not inside.
 
-    MCP-сервер пока открыт: ChatGPT ходит без куки, ему нужен отдельный токен —
-    это следующий шаг. Помечено, чтобы не забыть: за туннелем это дыра.
+    The MCP server is open for now: ChatGPT comes without a cookie and needs its
+    own token — that's the next step. Flagged so we don't forget: behind a tunnel it's a hole.
     """
-    # Язык — для всех страниц, включая открытые (вход, сброс): по нему шаблон
-    # ставит lang/dir и подставляет строки. Ставим до проверки замка.
+    # Language — for all pages, including open ones (sign-in, reset): from it the
+    # template sets lang/dir and substitutes strings. Set it before the lock check.
     request.state.lang = i18n.lang_from_request(request)
     request.state.dir = i18n.dir_for(request.state.lang)
 
@@ -142,14 +142,14 @@ async def require_login(request: Request, call_next):
         user = auth.current_user(session, request)
         setup_needed = not auth.has_any_user(session)
         if user is not None:
-            # Кладём простыми значениями, а не объект: сессия сейчас закроется,
-            # и объект стал бы отвязанным. Шаблонам этого хватает.
+            # Store as plain values, not the object: the session is about to close
+            # and the object would become detached. This is enough for templates.
             request.state.user_id = user.id
             name = user.display_name or user.email
             request.state.user_name = name
             request.state.user_email = user.email
             request.state.is_owner = user.is_owner
-            # Инициалы для аватарки: по первым буквам слов имени, максимум две.
+            # Initials for the avatar: from the first letters of the name's words, max two.
             parts = [p for p in name.replace(".", " ").split() if p]
             request.state.user_initials = (
                 "".join(p[0] for p in parts[:2]).upper() or name[0].upper()
@@ -158,24 +158,24 @@ async def require_login(request: Request, call_next):
     if user is not None:
         return await call_next(request)
 
-    # Программу ещё не настроили — веди к заведению хозяина.
+    # The program isn't set up yet — lead to creating the owner.
     if setup_needed:
         return RedirectResponse("/setup", status_code=303)
 
-    # Для страниц — на вход, запомнив, куда шли. Для API — честный 401, а не
-    # переадресация: программа-клиент должна получить отказ, а не HTML.
+    # For pages — to sign-in, remembering where we were headed. For the API — an
+    # honest 401, not a redirect: a client program should get a rejection, not HTML.
     if path.startswith("/api/"):
-        return JSONResponse({"detail": "Нужно войти"}, status_code=401)
+        return JSONResponse({"detail": "Sign-in required"}, status_code=401)
     nxt = f"?next={path}" if path != "/" else ""
     return RedirectResponse(f"/login{nxt}", status_code=303)
 
 
 class _RevalidatingStatic(StaticFiles):
-    """Статика с обязательной ревалидацией. Без Cache-Control браузер кэширует
-    app.css/js «по эвристике» и после правок показывает старую вёрстку (человек
-    видит гарь, которой в коде уже нет). no-cache = «храни, но каждый раз
-    спрашивай сервер»: с ETag это дешёвый 304, если файл не менялся, и свежая
-    отдача, если менялся. Так старый CSS больше не залипает."""
+    """Static files with mandatory revalidation. Without Cache-Control the browser
+    caches app.css/js "by heuristic" and after edits shows the old layout (the user
+    sees cruft that's no longer in the code). no-cache = "keep it, but ask the
+    server every time": with an ETag that's a cheap 304 if the file hasn't changed,
+    and a fresh response if it has. That way old CSS no longer sticks."""
 
     async def get_response(self, path, scope):
         response = await super().get_response(path, scope)
@@ -189,8 +189,8 @@ app.include_router(settings_router)
 app.include_router(admin_router)
 app.include_router(web_router)
 
-# MCP для ChatGPT. Отдельным приложением: у него свой жизненный цикл, и
-# смешивать его с обычными страницами нельзя.
+# MCP for ChatGPT. As a separate application: it has its own lifecycle, and
+# mixing it with the regular pages isn't allowed.
 app.mount("/mcp-server", mcp_http_app())
 
 
@@ -248,7 +248,7 @@ def get_artifact(request: Request, artifact_id: int) -> dict:
         a = session.get(Artifact, artifact_id)
         if a is None:
             raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
-        # Видно, если карточка общая или этот человек — её владелец.
+        # Visible if the card is shared or this user is its owner.
         mine = a.owner_user_id is not None and a.owner_user_id == user_id
         if not (a.shared or mine):
             raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
@@ -287,7 +287,7 @@ async def search_endpoint(
             user_id = getattr(request.state, "user_id", None)
             visible = set(session.scalars(flt.visible_ids(user_id)))
             hits = await do_search(session, q, model, mode=mode, limit=limit, artifact_type=type)
-            # Зона: чужое частное не отдаём даже через API.
+            # Zone: we don't hand out others' private items even via the API.
             hits = [h for h in hits if h.artifact_id in visible]
             return {
                 "query": q,
@@ -312,9 +312,9 @@ async def search_endpoint(
 
 
 def _visible_or_404(session, artifact_id: int, user_id: int | None, lang: str = "en") -> Artifact:
-    """Карточка, если этот человек вправе её видеть; иначе 404 (не 403 —
-    незачем подтверждать, что чужая личная существует). Та же граница зон, что
-    в visible_ids/get_artifact — теги не должны быть дырой мимо неё."""
+    """The card, if this user is entitled to see it; otherwise 404 (not 403 —
+    no need to confirm that someone else's private one exists). The same zone
+    boundary as in visible_ids/get_artifact — tags mustn't be a hole around it."""
     a = session.get(Artifact, artifact_id)
     mine = a is not None and a.owner_user_id is not None and a.owner_user_id == user_id
     if a is None or not (a.shared or mine):
@@ -368,7 +368,7 @@ def add_tag_endpoint(request: Request, artifact_id: int, slug: str) -> dict:
 
 @app.delete("/api/artifacts/{artifact_id}/tags/{slug}")
 def remove_tag_endpoint(request: Request, artifact_id: int, slug: str, reason: str = "") -> dict:
-    """Удаляет тег и запрещает его возвращение при следующем сканировании."""
+    """Removes the tag and prevents its return on the next scan."""
     with session_scope() as session:
         _visible_or_404(
             session,

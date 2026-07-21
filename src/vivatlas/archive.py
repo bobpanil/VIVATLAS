@@ -1,15 +1,15 @@
-"""Чтение архива репозитория.
+"""Reading a repository archive.
 
-Архив разбирается в памяти и выбрасывается. На диск ничего не распаковывается:
-это и быстрее, и снимает вопрос о вредоносных путях внутри архива.
+The archive is parsed in memory and discarded. Nothing is unpacked to disk:
+this is both faster and removes any concern about malicious paths inside the archive.
 """
 
 import io
 import tarfile
 from dataclasses import dataclass
 
-# Файлы с секретами не читаем никогда — вдруг кто-то закоммитил такое в
-# открытый репозиторий. Проверяется по имени файла, а не по содержимому.
+# Never read files with secrets — someone may have committed such a thing into
+# a public repository. Checked by file name, not by content.
 SECRET_PATTERNS = (
     ".env",
     ".pem",
@@ -24,7 +24,7 @@ SECRET_PATTERNS = (
     "secrets",
 )
 
-# Читаем только текст. Картинки и бинарники — по имени, без содержимого.
+# Read text only. Images and binaries — by name, without content.
 TEXT_SUFFIXES = (
     ".md",
     ".txt",
@@ -46,25 +46,25 @@ TEXT_SUFFIXES = (
     ".go",
 )
 
-# Потолок был 200 КБ — «в описание всё равно не влезет». Это было неверно:
-# SKILL.md у mvanhorn/last30days-skill весит 207 КБ, не прочитался, и карточка
-# вышла с текстом «документация отсутствует». Обрезка для описания делается
-# позже и отдельно, а здесь резать нельзя — иначе опорный файл теряется целиком.
+# The ceiling used to be 200 KB — "it won't fit in the description anyway". That was
+# wrong: SKILL.md in mvanhorn/last30days-skill weighs 207 KB, didn't get read, and the
+# card came out with the text "no documentation". Truncation for the description is done
+# later and separately; here we must not cut — otherwise the reference file is lost entirely.
 MAX_TEXT_BYTES = 2_000_000
 
 
 def is_secret_file(path: str) -> bool:
     name = path.rsplit("/", 1)[-1].lower()
     if name == ".env.example" or name.endswith(".example") or name.endswith(".sample"):
-        return False  # образцы без настоящих значений — можно
+        return False  # samples without real values — allowed
     return any(p in name for p in SECRET_PATTERNS)
 
 
 @dataclass
 class RepoFile:
-    path: str  # путь внутри репозитория, без верхней папки архива
+    path: str  # path within the repository, without the archive's top folder
     size: int
-    text: str | None  # None для бинарных, больших и секретных
+    text: str | None  # None for binary, large, and secret files
 
 
 @dataclass
@@ -82,7 +82,7 @@ class RepoContents:
         return None
 
     def find(self, *names: str) -> RepoFile | None:
-        """Первый найденный файл из перечисленных, в порядке приоритета."""
+        """The first matching file from the listed names, in priority order."""
         for name in names:
             found = self.get(name)
             if found is not None:
@@ -113,6 +113,6 @@ def read_archive(blob: bytes) -> RepoContents:
 
 
 def _strip_top_folder(name: str) -> str:
-    """Архив Gitea завёрнут в одну папку — убираем её."""
+    """A Gitea archive is wrapped in a single folder — strip it."""
     parts = name.split("/", 1)
     return parts[1] if len(parts) == 2 else ""

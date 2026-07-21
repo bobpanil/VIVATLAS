@@ -1,6 +1,6 @@
-"""Сканирование: забрать список репозиториев и сложить в базу.
+"""Scanning: fetch the list of repositories and stash it in the database.
 
-Ничего не пишет в Git. Только читает.
+Never writes to Git. Read-only.
 """
 
 import logging
@@ -18,10 +18,11 @@ log = logging.getLogger(__name__)
 
 
 def is_scannable(repo: RepoRef) -> bool:
-    """Приватные репозитории не сканируются. Никогда, без исключений.
+    """Private repositories are never scanned. Never, no exceptions.
 
-    Это правило, а не настройка: переключателя для него нет нигде — ни в .env,
-    ни в базе. Пустые репозитории пропускаем отдельно: в них нечего читать.
+    This is a rule, not a setting: there is no toggle for it anywhere — not in .env,
+    not in the database. Empty repositories are skipped separately: there is
+    nothing to read in them.
     """
     if repo.is_private:
         return False
@@ -55,9 +56,9 @@ def get_or_create_source(session: Session, kind: str, base_url: str, name: str) 
 async def scan_source(
     session: Session, provider: GitProvider, source: Source, include_private: bool = False
 ) -> ScanResult:
-    """include_private разрешает приватные репозитории — но ТОЛЬКО для личного
-    источника пользователя (с его токеном, в его частную зону). Для общей зоны
-    правило «не трогать приватное» остаётся: сюда True не передают."""
+    """include_private allows private repositories — but ONLY for a user's personal
+    source (with their token, into their private zone). For the shared zone the
+    "don't touch private" rule stands: True is never passed here."""
     run = ScanRun(source_id=source.id)
     session.add(run)
     session.flush()
@@ -106,12 +107,12 @@ async def scan_source(
                         "renamed",
                         repository_id=row.id,
                         title=repo.full_name,
-                        details=f"было: {old_name}",
+                        details=f"was: {old_name}",
                         scan_run_id=run.id,
                     )
                 result.updated += 1
 
-        # Пропал из выдачи — помечаем, но не удаляем: историю не теряем.
+        # Gone from the listing — flag it, but don't delete: we keep the history.
         allowed_ids = {repo.external_id for repo in allowed}
         for external_id, row in existing.items():
             if external_id not in allowed_ids and row.gone_at is None:
@@ -121,7 +122,7 @@ async def scan_source(
                     "removed",
                     repository_id=row.id,
                     title=row.full_name,
-                    details="пропал из выдачи хостинга: удалён или закрыт",
+                    details="gone from the host's listing: deleted or made private",
                     scan_run_id=run.id,
                 )
                 result.gone += 1
@@ -181,7 +182,8 @@ def _update_row(row: Repository, repo: RepoRef, now: datetime) -> None:
     row.remote_created_at = repo.created_at
     row.remote_updated_at = repo.updated_at
     row.last_seen_at = now
-    # Удалённый человеком репозиторий не воскрешаем: он есть на хостинге, но в
-    # каталог его вернул бы скан, а человек убрал карточку намеренно и навсегда.
+    # A repository a user removed is not resurrected: it exists on the host, but
+    # a scan would bring it back into the catalogue, while the user removed the
+    # card deliberately and for good.
     if not row.user_removed:
-        row.gone_at = None  # вернулся
+        row.gone_at = None  # came back

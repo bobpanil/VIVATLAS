@@ -1,7 +1,7 @@
 from vivatlas import purposes
 from vivatlas.purposes import detect
 
-# --- настоящие карточки из каталога ---
+# --- real cards from the catalogue ---
 
 
 def test_security_scanner():
@@ -22,15 +22,15 @@ def test_design_kit():
     assert p.key == "design"
 
 
-# --- имя весит больше тегов ---
+# --- name outweighs tags ---
 
 
 def test_name_beats_tags():
-    # Настоящий случай: по тегам выходила "проверка" — playwright и web-testing
-    # перевесили. Но доступность у инструмента прямо в названии.
+    # Real case: by tags it came out as "testing" — playwright and web-testing
+    # tipped the balance. But accessibility is right there in the name.
     tags = ["playwright", "web-testing", "html-auditing", "web-accessibility", "nodejs"]
     assert detect(tags, "site-accessibility-auditor")[0].key == "accessibility"
-    # без имени действительно выходит проверка — значит имя и решило
+    # without the name it really does come out as testing — so the name is what decided it
     assert detect(tags)[0].key == "testing"
 
 
@@ -39,12 +39,12 @@ def test_performance_auditor():
     assert p.key == "performance"
 
 
-# --- не гадаем ---
+# --- no guessing ---
 
 
 def test_single_tag_is_not_enough():
-    # Одно совпадение — случайность. Настоящий случай:
-    # site-unused-items-auditor выходил "безопасностью" по одному тегу.
+    # A single match is a coincidence. Real case:
+    # site-unused-items-auditor came out as "security" from one tag.
     p, score = detect(["static-analysis"], "site-unused-items-auditor")
     assert p.key == "unknown"
     assert score == 1
@@ -57,7 +57,7 @@ def test_no_tags_no_purpose():
 
 
 def test_unrelated_tags_give_unknown():
-    p, _ = detect(["сemething", "weird", "unrelated"], "mystery-box")
+    p, _ = detect(["something", "weird", "unrelated"], "mystery-box")
     assert p.key == "unknown"
 
 
@@ -67,13 +67,13 @@ def test_two_tags_are_enough():
     assert score == 2
 
 
-# --- устройство ---
+# --- internals ---
 
 
 def test_every_purpose_has_an_icon_and_label():
     for p in purposes.all_purposes() + [purposes.UNKNOWN]:
         assert p.label and p.icon
-        assert "<" in p.icon  # это разметка, а не текст
+        assert "<" in p.icon  # it's markup, not text
 
 
 def test_purpose_keys_are_unique():
@@ -82,11 +82,11 @@ def test_purpose_keys_are_unique():
 
 
 def test_design_is_last_because_it_is_the_widest():
-    # "Оформление" подошло бы почти всему, поэтому при равном счёте должно
-    # уступать узким направлениям.
+    # "Design" would fit almost anything, so on a tie it should
+    # yield to narrower purposes.
     assert purposes.all_purposes()[-1].key == "design"
     p, _ = detect(["typography", "web-accessibility", "wcag-compliance", "css"], "x")
-    assert p.key == "accessibility"  # 2 против 2, но доступность уже
+    assert p.key == "accessibility"  # 2 vs 2, but accessibility is narrower
 
 
 def test_detection_is_stable():

@@ -1,17 +1,20 @@
-"""Поставить новую версию вместо старой.
+"""Put the new version in place of the old one.
 
-Второе — и последнее — место в программе, которое пишет в Git. Правила такие
-же жёсткие, как у импорта, но повод отказать тут ровно один и он главный:
+The second — and last — place in the program that writes to Git. The rules are
+just as strict as for import, but here there's exactly one reason to refuse and
+it's the main one:
 
-    обновляем ТОЛЬКО то, что вы не трогали.
+    we update ONLY what you haven't touched.
 
-Если копию правили, перезапись затрёт правку молча и без следа. Поэтому
-состояние перепроверяется прямо перед записью, вживую, а не берётся из базы:
-между вчерашней проверкой и сегодняшней командой файл могли поправить.
+If the copy was edited, overwriting would wipe the edit silently and without a
+trace. So the state is re-checked live, right before writing, rather than taken
+from the database: the file could have been edited between yesterday's check
+and today's command.
 
-Заменяется один файл — опорный, тот самый, по которому мы сравниваем. Тащить
-весь репозиторий заново мы не умеем и не притворяемся: файлы, которых у
-источника нет, остались бы висеть, а карточка врала бы, что всё обновлено.
+A single file is replaced — the anchor, the very one we compare against. We
+can't and don't pretend to pull the whole repository again: files the source
+doesn't have would be left dangling, and the card would lie that everything is
+up to date.
 """
 
 import logging
@@ -30,7 +33,7 @@ log = logging.getLogger(__name__)
 
 
 class UpdateRefused(RuntimeError):
-    """Обновлять нельзя. Причина — в тексте, человеку её надо прочитать."""
+    """Can't update. The reason is in the text — a human needs to read it."""
 
 
 @dataclass
@@ -38,7 +41,7 @@ class UpdatePlan:
     link_id: int
     artifact_name: str
     repo_full_name: str
-    path: str  # что заменим у себя
+    path: str  # what we'll replace on our side
     upstream_repo: str
     upstream_path: str
     old_sha: str
@@ -72,14 +75,14 @@ async def plan_update(
     checker: UpstreamChecker,
     link: UpstreamLink,
 ) -> UpdatePlan:
-    """Что именно заменим. Ничего не пишет — только смотрит.
+    """What exactly we'll replace. Writes nothing — just looks.
 
-    Отказ здесь — это нормальный исход, а не сбой. Из пяти состояний обновлять
-    можно ровно одно.
+    A refusal here is a normal outcome, not a failure. Of the five states, only
+    one can be updated.
     """
     if link.kind == "gitea-mirror":
         raise UpdateRefused(
-            "это зеркало — Gitea тянет его сама, и наша запись сбила бы ей синхронизацию"
+            "this is a mirror — Gitea pulls it itself, and our write would break its sync"
         )
 
     status = await check_link(session, provider, checker, link, link.artifact.repository)
@@ -87,23 +90,24 @@ async def plan_update(
 
     if status != "update-available":
         why = {
-            "in-sync": "уже стоит то же самое — обновлять нечего",
-            "locally-modified": "вы правили эту копию — перезапись затрёт вашу правку",
-            "diverged": "и вы правили, и у источника новое — тут нужны руки, а не эта команда",
+            "in-sync": "the same thing is already in place — nothing to update",
+            "locally-modified": "you edited this copy — overwriting would wipe your edit",
+            "diverged": "you edited it and the source has new content — this needs "
+            "hands, not this command",
             "unknown": link.check_error or STATUS_NAMES.get(status, status),
         }.get(status, STATUS_NAMES.get(status, status))
         raise UpdateRefused(why)
 
     if not link.upstream_path:
-        raise UpdateRefused("не знаем, где у источника лежит этот файл")
+        raise UpdateRefused("we don't know where the source keeps this file")
 
     anchor = link.artifact.anchor_path
     if not anchor:
-        raise UpdateRefused("у карточки нет опорного файла — нечего заменять")
+        raise UpdateRefused("the card has no anchor file — nothing to replace")
 
     content = await checker.blob(link.upstream_repo, link.last_upstream_sha)
     if not content:
-        raise UpdateRefused("у источника файл пустой — на такое не меняем")
+        raise UpdateRefused("the source file is empty — we don't replace with that")
 
     return UpdatePlan(
         link_id=link.id,
@@ -124,35 +128,36 @@ async def apply_update(
     checker: UpstreamChecker,
     plan: UpdatePlan,
 ) -> str:
-    """Записать. Возвращает слепок того, что получилось.
+    """Write it. Returns the digest of what came out.
 
-    Вызывается только после явного подтверждения.
+    Called only after explicit confirmation.
     """
     link = session.get(UpstreamLink, plan.link_id)
     owner, name = link.artifact.repository.owner, link.artifact.repository.name
 
-    log.info("заменяю %s/%s: %s", owner, name, plan.path)
+    log.info("replacing %s/%s: %s", owner, name, plan.path)
     await provider.update_file(
         owner,
         name,
         plan.path,
         plan.content,
-        message=f"Обновление из github.com/{plan.upstream_repo}",
-        sha=plan.old_sha,  # Gitea откажет, если файл успели поправить
+        message=f"Update from github.com/{plan.upstream_repo}",
+        sha=plan.old_sha,  # Gitea will refuse if the file was edited in the meantime
         branch=link.artifact.repository.default_branch or "main",
     )
 
-    # Проверяем, что легло именно то. Слепок считается от содержимого, поэтому
-    # он обязан совпасть с источником. Если нет — Gitea что-то сделала с файлом
-    # по дороге (перевод переносов строк, например), и отметка бы наврала.
+    # Verify that exactly the right thing landed. The digest is computed from the
+    # content, so it must match the source. If it doesn't — Gitea did something to
+    # the file along the way (line-ending conversion, for example), and the mark
+    # would have lied.
     ref = _repo_ref(link)
     head = await provider.get_head_sha(ref)
     ours = await provider.blob_shas(ref, head)
     got = ours.get(plan.path, "")
     if got != plan.new_sha:
         raise RuntimeError(
-            f"записали, но получилось не то: у нас {got[:8]}, у источника "
-            f"{plan.new_sha[:8]}. Отметку не двигаю — иначе она соврёт."
+            f"wrote it, but got the wrong thing: ours is {got[:8]}, the source's "
+            f"is {plan.new_sha[:8]}. Not moving the mark — otherwise it would lie."
         )
 
     now = datetime.now(UTC)

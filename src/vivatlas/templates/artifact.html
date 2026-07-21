@@ -4,7 +4,7 @@
 {% block title %}{{ a.name }} — VIVATLAS{% endblock %}
 {% block modal_title %}<span class="art-owner">{{ a.repository.owner }}/</span>{{ a.name }}{% endblock %}
 
-{# Плашки «зона / тип / направление» — вверху, у заголовка, справа. #}
+{# Chips "zone / type / purpose" — up top, next to the title, on the right. #}
 {% block modal_head_extra %}
 <div class="art-chips" data-pur="{{ purpose.key }}">
     <span class="art-chip zone-{{ zone }}"
@@ -24,8 +24,8 @@
 {% endblock %}
 
 {% block modal_body %}
-{# Два столбца: слева — фото и описание репозитория, справа — всё остальное
-   (теги, папки, источник, паспорт). Узкий экран — в один столбец. #}
+{# Two columns: on the left — the photo and repository description, on the right —
+   everything else (tags, folders, source, passport). Narrow screen — a single column. #}
 <div class="art-cols">
 <div class="art-main">
 {% if preview_url %}
@@ -68,7 +68,7 @@
 </section>
 {% endif %}
 
-{# Папки: общие (у всех) и личные. Убрать — крестиком; добавить — из списка. #}
+{# Folders: shared (visible to all) and personal. Remove with the cross; add from the list. #}
 <section class="art-sec">
     <h3>{{ t('artifact.folders_title') }}</h3>
     {% if art_categories %}
@@ -128,8 +128,8 @@
 </section>
 {% endif %}
 
-{# Подробности — компактная сетка; показываем только заполненные поля (без «—»),
-   а если полей нет вовсе — раздел не рисуем. #}
+{# Details — a compact grid; we show only filled-in fields (no "—"),
+   and if there are no fields at all — we don't render the section. #}
 {% set has_passport = author or a.repository.remote_created_at or a.repository.remote_updated_at
     or a.file_count or a.anchor_path or a.source_commit or a.summary_model or a.repository.html_url %}
 {% if has_passport %}
@@ -152,8 +152,8 @@
 {% endblock %}
 
 {% block modal_foot %}
-{# GitHub — оригинал (откуда взяли), Gitea — своя копия. Открываются в новой
-   вкладке. У черновиков копии в Gitea ещё нет — тогда только GitHub. #}
+{# GitHub — the original (where we got it from), Gitea — our own copy. They open in a
+   new tab. Drafts don't have a Gitea copy yet — then only GitHub. #}
 {% set gh = upstream.upstream_url if upstream else a.repository.original_url %}
 {% set mine = a.owner_user_id and a.owner_user_id == request.state.user_id %}
 {% set can_delete = mine or (request.state.is_owner and a.shared) %}
@@ -168,8 +168,8 @@
             data-done="{{ t('artifact.repo_copied') }}">{{ t('artifact.copy_repo') }}</button>
     {% endif %}
     {% if can_delete %}
-    {# Удалить карточку из каталога. data-confirm — чтобы модалка не перехватила
-       переход как «Закрыть»; подтверждение обычным confirm. #}
+    {# Delete the card from the catalogue. data-confirm — so the modal doesn't intercept
+       the navigation as "Close"; confirmation via a plain confirm. #}
     <form method="post" action="/artifact/{{ a.id }}/delete" class="art-del"
           onsubmit="return confirm('{{ t('artifact.delete_confirm') }}');">
         <button class="btn-danger" type="submit">{{ t('artifact.delete') }}</button>
@@ -180,8 +180,8 @@
 
 {% block scripts %}
 <script>
-// Кнопки футера копируют ссылку (источник — оригинал, хранилище — копия в
-// Gitea), а не открывают: удобнее вставить, например, в Claude Code.
+// Footer buttons copy the link (source — the original, storage — the copy in
+// Gitea) rather than opening it: easier to paste, for example, into Claude Code.
 (function () {
     function copy(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) {

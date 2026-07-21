@@ -14,7 +14,7 @@ The demo data lives under a single Source (kind="github", the demo base_url), so
 import argparse
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -42,7 +42,7 @@ DEMO_BASE_URL = "https://github.com/__vivatlas_demo__"
 DEMO_NAME = "GitHub (demo data)"
 DATA = ROOT / "scripts" / "mock_repos.json"
 
-# --- разметка ---------------------------------------------------------------
+# --- tagging ----------------------------------------------------------------
 PLATFORM = {"anthropic", "openai", "claude", "gpt", "gemini", "ollama",
             "huggingface", "langchain", "llamaindex", "azure", "aws", "google", "mistral"}
 PURPOSE = {"ai", "ai-agents", "agents", "agent", "agentic-ai", "rag", "chatbot",
@@ -77,14 +77,14 @@ def pick_type(topics: set[str], text_blob: str) -> str:
 
 def tag_category(topic: str) -> str:
     if topic in PLATFORM:
-        return "платформа"
+        return "platform"
     if topic in FORMAT:
-        return "формат"
+        return "format"
     if topic in RUN:
-        return "запуск"
+        return "runtime"
     if topic in PURPOSE:
-        return "назначение"
-    return "прочее"
+        return "purpose"
+    return "other"
 
 
 def parse_dt(s: str) -> datetime | None:
@@ -132,7 +132,7 @@ def wipe(session) -> int:
                       UpstreamLink, TagSuppression, Change):
             session.execute(model.__table__.delete().where(model.artifact_id.in_(art_ids)))
         session.execute(Artifact.__table__.delete().where(Artifact.id.in_(art_ids)))
-        # FTS — своя таблица, чистим по rowid.
+        # FTS — its own table, clean up by rowid.
         ids_csv = ",".join(str(i) for i in art_ids)
         session.execute(text(f"DELETE FROM artifacts_fts WHERE rowid IN ({ids_csv})"))
     if repo_ids:
@@ -219,20 +219,20 @@ def main() -> int:
             session.add(art)
             session.flush()
 
-            # Теги: язык (правило) + до 4 тем (тема-платформа/формат — правило,
-            # прочее/назначение — «модель»). Пара — вручную, чтобы в легенде были
-            # видны все три источника. used — чтобы одна и та же метка (язык и
-            # тема могут совпасть, напр. Go и topic:go) не попала на карточку дважды.
+            # Tags: language (rule) + up to 4 topics (platform/format topic — rule,
+            # other/purpose — "model"). A couple are manual, so the legend shows
+            # all three sources. used — so the same tag (language and
+            # topic can coincide, e.g. Go and topic:go) doesn't land on the card twice.
             used: set[int] = set()
             if lang:
-                t = get_or_create_tag(session, tag_cache, lang, "язык")
+                t = get_or_create_tag(session, tag_cache, lang, "language")
                 if t.id not in used:
                     used.add(t.id)
                     session.add(ArtifactTag(artifact_id=art.id, tag_id=t.id, source="derived",
                                             confidence=1.0, origin="language"))
             for j, topic in enumerate(sorted(topics)[:4]):
                 cat = tag_category(topic)
-                src_kind = "derived" if cat in ("платформа", "формат", "запуск") else "ai"
+                src_kind = "derived" if cat in ("platform", "format", "runtime") else "ai"
                 if i % 13 == 0 and j == 0:
                     src_kind = "manual"
                 t = get_or_create_tag(session, tag_cache, topic, cat)

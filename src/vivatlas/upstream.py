@@ -1,16 +1,16 @@
-"""Откуда взялся инструмент и не вышла ли новая версия.
+"""Where a tool came from and whether a new version has been released.
 
-Источник ищется ТОЛЬКО там, где он записан явно:
-  1. Gitea знает, что репозиторий — зеркало (original_url)
-  2. В README есть строчка "Source: ... github.com/владелец/репозиторий"
+The source is looked up ONLY where it's recorded explicitly:
+  1. Gitea knows the repository is a mirror (original_url)
+  2. The README has a line "Source: ... github.com/owner/repository"
 
-Модель к этому не подпускается намеренно. Попроси её найти источник — она
-найдёт, потому что она всегда что-нибудь находит. А потом по этой догадке
-кто-нибудь перезапишет файлы. Нет источника — значит нет, так и пишем.
+The model is deliberately kept away from this. Ask it to find the source and it
+will, because it always finds something. And then someone rewrites files based
+on that guess. No source means no source, and that's what we write down.
 
-Сравнение идёт по слепкам git (blob sha). Они считаются от содержимого, поэтому
-одинаковый файл на GitHub и в Gitea даёт одинаковый слепок — сравнивать можно
-напрямую, ничего не скачивая.
+Comparison goes by git blobs (blob sha). They're computed from content, so the
+same file on GitHub and in Gitea yields the same blob — you can compare them
+directly, without downloading anything.
 """
 
 import logging
@@ -36,13 +36,13 @@ _SOURCE_LINE = re.compile(
 class UpstreamRef:
     kind: str  # github-file | gitea-mirror
     repo: str  # "VoltAgent/awesome-design-md"
-    path: str  # "design-md/cohere/DESIGN.md", пусто у зеркала
+    path: str  # "design-md/cohere/DESIGN.md", empty for a mirror
     url: str
     discovered_by: str
 
 
 def detect_from_mirror(original_url: str) -> UpstreamRef | None:
-    """Gitea сама знает, откуда привезли репозиторий. Самый надёжный случай."""
+    """Gitea itself knows where the repository was brought from. The most reliable case."""
     if not original_url:
         return None
     m = re.search(r"github\.com/([\w.\-]+)/([\w.\-]+?)(?:\.git)?/?$", original_url)
@@ -53,17 +53,17 @@ def detect_from_mirror(original_url: str) -> UpstreamRef | None:
         repo=f"{m.group(1)}/{m.group(2)}",
         path="",
         url=original_url,
-        discovered_by="Gitea: это зеркало",
+        discovered_by="Gitea: this is a mirror",
     )
 
 
 def detect_from_readme(
     contents: RepoContents, repo_name: str, anchor_path: str | None
 ) -> UpstreamRef | None:
-    """Строчка "Source: ..." в конце README.
+    """A "Source: ..." line at the end of the README.
 
-    Ищем по полному тексту файла, а не по обрезанному описанию: у дизайн-наборов
-    эта строчка стоит последней и в обрезку не попадает.
+    We search the full text of the file, not the truncated description: in design
+    sets this line comes last and doesn't make it into the truncation.
     """
     readme = contents.get("README.md")
     if readme is None or not readme.text:
@@ -80,16 +80,17 @@ def detect_from_readme(
         repo=upstream_repo,
         path=path,
         url=f"https://github.com/{upstream_repo}",
-        discovered_by="строка Source в README",
+        discovered_by="Source line in README",
     )
 
 
 def _guess_path(upstream_repo: str, repo_name: str, anchor_path: str | None) -> str:
-    """Где у источника лежит наш файл.
+    """Where the source keeps our file.
 
-    Проверено на всех 74 дизайн-наборах: путь всегда design-md/<имя>/DESIGN.md,
-    где <имя> — имя нашего репозитория. Правило узкое намеренно: угадывать путь
-    для незнакомого источника — значит потом сравнивать не то с не тем.
+    Checked against all 74 design sets: the path is always design-md/<name>/DESIGN.md,
+    where <name> is the name of our repository. The rule is deliberately narrow:
+    guessing the path for an unknown source means comparing the wrong thing against
+    the wrong thing later.
     """
     if upstream_repo.lower() == "voltagent/awesome-design-md" and anchor_path:
         return f"design-md/{repo_name}/{anchor_path}"
@@ -97,19 +98,19 @@ def _guess_path(upstream_repo: str, repo_name: str, anchor_path: str | None) -> 
 
 
 class UpstreamChecker:
-    """Слепки файлов у источника. Одним запросом на весь репозиторий."""
+    """Blobs of the source's files. One request for the whole repository."""
 
     def __init__(self, token: str = "", timeout: float = 30.0) -> None:
         headers = {"User-Agent": _UA, "Accept": "application/vnd.github+json"}
         if token:
-            # Токен не для доступа — репозитории открытые. Только чтобы GitHub
-            # не резал по 60 запросов в час.
+            # The token isn't for access — the repositories are public. It's only so
+            # GitHub doesn't cap us at 60 requests per hour.
             headers["Authorization"] = f"Bearer {token}"
         self._client = httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True)
         self._cache: dict[str, dict[str, str]] = {}
 
     async def blob_shas(self, repo: str, branch: str = "") -> dict[str, str]:
-        """Все файлы репозитория со слепками: путь -> sha."""
+        """All files of the repository with their blobs: path -> sha."""
         if repo in self._cache:
             return self._cache[repo]
 
@@ -125,19 +126,19 @@ class UpstreamChecker:
         response.raise_for_status()
         data = response.json()
         if data.get("truncated"):
-            log.warning("%s: список файлов обрезан гитхабом, часть путей не увидим", repo)
+            log.warning("%s: file list truncated by github, we won't see some paths", repo)
 
         shas = {t["path"]: t["sha"] for t in data.get("tree", []) if t["type"] == "blob"}
         self._cache[repo] = shas
         return shas
 
     async def blob(self, repo: str, sha: str) -> bytes:
-        """Содержимое файла по его слепку.
+        """A file's content by its blob.
 
-        Именно по слепку, а не по пути в ветке: слепок мы уже сравнили и знаем,
-        что новая версия — это он. Пока мы ходим за содержимым, в ветку может
-        прилететь ещё коммит, и по пути приехало бы не то, что мы показали
-        человеку.
+        By blob, not by path in the branch: we've already compared the blob and know
+        the new version is this one. While we're fetching the content, another commit
+        may land on the branch, and by path we'd get something other than what we
+        showed the user.
         """
         import base64
 
@@ -145,11 +146,11 @@ class UpstreamChecker:
         response.raise_for_status()
         data = response.json()
         if data.get("encoding") != "base64":
-            raise RuntimeError(f"{repo}@{sha[:8]}: неожиданная упаковка {data.get('encoding')}")
+            raise RuntimeError(f"{repo}@{sha[:8]}: unexpected packing {data.get('encoding')}")
         return base64.b64decode(data["content"])
 
     async def head_sha(self, repo: str) -> str:
-        """Последний коммит — для зеркал, где сравниваем целиком."""
+        """The latest commit — for mirrors, where we compare the whole thing."""
         response = await self._client.get(f"https://api.github.com/repos/{repo}")
         response.raise_for_status()
         branch = response.json()["default_branch"]
@@ -167,26 +168,26 @@ def decide_status(
     baseline_local: str,
     baseline_upstream: str,
 ) -> str:
-    """Что означает расхождение.
+    """What the discrepancy means.
 
-    Без отметки на момент копирования "файлы разные" ничего не значит: то ли
-    вышла новая версия, то ли пользователь сам поправил. Отметка это различает.
+    Without a mark taken at copy time, "the files differ" means nothing: either a
+    new version came out, or the user edited it themselves. The mark tells them apart.
     """
     if not local_sha or not upstream_sha:
         return "unknown"
     if local_sha == upstream_sha:
         return "in-sync"
     if local_sha == baseline_local and upstream_sha != baseline_upstream:
-        return "update-available"  # у них новое, у нас нетронуто
+        return "update-available"  # theirs is new, ours is untouched
     if upstream_sha == baseline_upstream and local_sha != baseline_local:
-        return "locally-modified"  # мы правили, у них без изменений
-    return "diverged"  # разошлось с обеих сторон
+        return "locally-modified"  # we edited it, theirs is unchanged
+    return "diverged"  # diverged on both sides
 
 
 STATUS_NAMES = {
-    "in-sync": "совпадает с источником",
-    "update-available": "вышла новая версия",
-    "locally-modified": "вы правили — обновлять нельзя",
-    "diverged": "разошлось с обеих сторон",
-    "unknown": "сравнить не с чем",
+    "in-sync": "matches the source",
+    "update-available": "a new version was released",
+    "locally-modified": "you edited it — updating isn't allowed",
+    "diverged": "diverged on both sides",
+    "unknown": "nothing to compare against",
 }

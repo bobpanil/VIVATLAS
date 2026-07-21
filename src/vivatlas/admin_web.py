@@ -19,7 +19,6 @@ from vivatlas.auth_web import _reset_link_base
 from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.models import Artifact, Source, User
-from vivatlas.scanner import get_or_create_source
 from vivatlas.web import BASE, _counts, _delete_artifact, launch_global_scan
 
 log = logging.getLogger(__name__)
@@ -199,26 +198,39 @@ def _ensure_global_sources(session) -> list[tuple[int, str]]:
     """Materialize the SHARED Gitea/GitHub sources from the saved admin config, so
     the scan machinery has Source rows (owner None => shared cards) to crawl. Keeps
     each source's token in sync with the config. Returns (id, name) per configured host."""
+    from vivatlas.providers.github import _account_from as github_account
+
     out: list[tuple[int, str]] = []
+
+    def upsert(kind: str, base_url: str, name: str, secret: str) -> Source:
+        # Match the ONE shared source per kind by (kind, owner is None), not by URL:
+        # keying on the URL would strand a row whenever the address changes (e.g. after
+        # fixing a mangled GitHub link) and the stale one would keep getting scanned.
+        src = session.scalar(
+            select(Source).where(Source.kind == kind, Source.owner_user_id.is_(None))
+        )
+        if src is None:
+            src = Source(kind=kind, base_url=base_url, display_name=name)
+            session.add(src)
+        else:
+            src.base_url = base_url
+            src.display_name = name
+        src.owner_user_id = None
+        src.token_enc = security.encrypt_secret(secret) if secret else ""
+        session.flush()
+        return src
+
     gitea_url = (settings.gitea_url or "").strip()
     if gitea_url:
-        src = get_or_create_source(session, "gitea", gitea_url, "Gitea")
-        src.owner_user_id = None
-        src.token_enc = (
-            security.encrypt_secret(settings.gitea_token) if settings.gitea_token else ""
-        )
-        session.flush()
+        src = upsert("gitea", gitea_url, "Gitea", settings.gitea_token)
         out.append((src.id, src.display_name or "Gitea"))
-    account = (settings.github_user or "").strip()
+    # Normalise the account: the admin may paste a full profile URL, and building
+    # https://github.com/{that} would double-prefix it.
+    account = github_account(settings.github_user)
     if account:
-        src = get_or_create_source(
-            session, "github", f"https://github.com/{account}", f"GitHub: {account}"
+        src = upsert(
+            "github", f"https://github.com/{account}", f"GitHub: {account}", settings.github_token
         )
-        src.owner_user_id = None
-        src.token_enc = (
-            security.encrypt_secret(settings.github_token) if settings.github_token else ""
-        )
-        session.flush()
         out.append((src.id, src.display_name or f"GitHub: {account}"))
     return out
 

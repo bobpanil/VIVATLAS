@@ -29,13 +29,23 @@ _USER_AGENT = "VivAtlas/0.1 (+https://github.com/bobpanil/vivatlas)"
 
 
 def _account_from(user: str) -> str:
-    """Accept either a bare account name ("bobpanil") or a profile URL
-    ("https://github.com/bobpanil") — a Source stores the latter in base_url."""
-    user = (user or "").strip().rstrip("/")
-    if "://" in user:
-        path = urlsplit(user).path.strip("/")
-        return path.split("/", 1)[0] if path else ""
-    return user
+    """The account name from a bare name ("bobpanil") or a GitHub profile URL
+    ("https://github.com/bobpanil") — a Source stores the latter in base_url.
+
+    Tolerant of a URL prefixed twice
+    (https://github.com/https://github.com/bobpanil), which is trivially produced by
+    pasting a full profile link into the "account" field: earlier that parsed to the
+    account "https:" and the scan 404'd on /users/https:/repos. We take whatever
+    follows the LAST github.com/, then the first path segment (an account has no
+    slashes)."""
+    user = (user or "").strip().strip("/")
+    if not user:
+        return ""
+    if "github.com/" in user:
+        user = user.rsplit("github.com/", 1)[1].strip("/")
+    elif "://" in user:
+        user = urlsplit(user).path.strip("/")
+    return user.split("/", 1)[0]
 
 
 class GitHubProvider:

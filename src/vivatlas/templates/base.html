@@ -182,14 +182,15 @@
                         <img class="side-acct-img" src="/avatar/{{ request.state.user_id }}" alt="" onerror="this.remove()">
                     </span>
                     <span class="side-acct-info">
-                        <span class="side-acct-email">{{ request.state.user_email }}</span>
-                        <span class="side-acct-role">{{ t('account.type_admin') if request.state.is_owner else t('account.type_member') }}</span>
+                        {# The name, not the email (the email is on the hover title). #}
+                        <span class="side-acct-email">{{ request.state.user_name }}</span>
+                        <span class="side-acct-role">{% if request.state.is_owner %}{{ t('account.type_owner') }}{% elif request.state.is_admin %}{{ t('account.type_admin') }}{% else %}{{ t('account.type_member') }}{% endif %}</span>
                     </span>
                     <svg class="side-acct-caret" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>
                 </button>
                 <div class="side-acct-menu" id="side-acct-menu" hidden role="menu">
                     <a class="usermenu-item" href="/settings" role="menuitem" data-modal>{{ icons.ic('settings') }}<span>{{ t('nav.settings') }}</span></a>
-                    {% if request.state.is_owner %}
+                    {% if request.state.is_admin %}
                     <a class="usermenu-item" href="/admin" role="menuitem" data-modal>{{ icons.ic('admin') }}<span>{{ t('nav.admin') }}</span></a>
                     {% endif %}
                     <form method="post" action="/logout">

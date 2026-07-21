@@ -75,13 +75,22 @@
                 <span class="admin-user-email">{{ u.email }}</span>
             </div>
             <div class="admin-user-tags">
-                {% if u.is_owner %}<span class="admin-tag admin-tag-owner">{{ t('admin.users.owner') }}</span>{% endif %}
+                {% if u.is_owner %}<span class="admin-tag admin-tag-owner">{{ t('admin.users.owner') }}</span>
+                {% elif u.is_admin %}<span class="admin-tag admin-tag-admin">{{ t('admin.users.admin') }}</span>{% endif %}
                 {% if u.totp %}<span class="admin-tag">2FA</span>{% endif %}
                 {% if u.is_active %}<span class="admin-tag admin-tag-on">{{ t('admin.users.active') }}</span>
                 {% else %}<span class="admin-tag admin-tag-off">{{ t('admin.users.disabled') }}</span>{% endif %}
             </div>
             {% if not u.is_me %}
             <div class="admin-user-actions">
+                {# Promote to / demote from administrator. Only the owner may, and never
+                   on the owner themselves. #}
+                {% if request.state.is_owner and not u.is_owner %}
+                <form method="post" action="/admin/users/{{ u.id }}/admin">
+                    <input type="hidden" name="make" value="{{ '0' if u.is_admin else '1' }}">
+                    <button class="btn-secondary" type="submit">{{ t('admin.users.demote') if u.is_admin else t('admin.users.promote') }}</button>
+                </form>
+                {% endif %}
                 <form method="post" action="/admin/users/{{ u.id }}/toggle">
                     <button class="btn-secondary" type="submit">{{ t('admin.users.disable') if u.is_active else t('admin.users.enable') }}</button>
                 </form>
@@ -175,6 +184,17 @@
 </label>
 {% endmacro %}
 
+{# A model field as a dropdown. It starts with the saved value as the only option, so
+   it works (and submits) with no scripts; the loader script then fills it from the
+   Google models list (kind = "text" | "embedding"). #}
+{% macro model_select(c, kind) %}
+<label class="fld"><span>{{ c.label }}</span>
+    <select name="{{ c.attr }}" data-model-select="{{ kind }}" data-current="{{ c.value }}">
+        <option value="{{ c.value }}" selected>{{ c.value or t('admin.ai.model_pick') }}</option>
+    </select>
+</label>
+{% endmacro %}
+
 {# Sources: where the catalogue reads public repositories from (Gitea/GitHub). Its own
    tab — this is not about AI, nor about the server's own repositories. #}
 <section class="setpanel" data-panel="sources" hidden>
@@ -210,9 +230,9 @@
 
     <form method="post" action="/admin/config" class="admin-form" id="admin-config-form">
         <div class="field-grid">
-            {% for c in config if c.attr in ['google_api_key', 'llm_model', 'embedding_model'] %}
-            {{ cfg_field(c) }}
-            {% endfor %}
+            {% for c in config if c.attr == 'google_api_key' %}{{ cfg_field(c) }}{% endfor %}
+            {% for c in config if c.attr == 'llm_model' %}{{ model_select(c, 'text') }}{% endfor %}
+            {% for c in config if c.attr == 'embedding_model' %}{{ model_select(c, 'embedding') }}{% endfor %}
         </div>
     </form>
 </div>
@@ -246,4 +266,34 @@ document.addEventListener('submit', function (e) {
     <button class="cta" type="submit" form="admin-sources-form" data-panel="sources" hidden>{{ t('admin.config.save_btn') }}</button>
     <button class="cta" type="submit" form="admin-config-form" data-panel="ai" hidden>{{ t('admin.config.save_btn') }}</button>
 </footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// AI model dropdowns: fill them from the models the saved Google key can use. Until
+// then (and if the key is unset or the request fails) each keeps its saved value as
+// the only option, so the form still works without scripts or without a key.
+(function () {
+    var selects = document.querySelectorAll('select[data-model-select]');
+    if (!selects.length) return;
+    fetch('/admin/ai/models', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            selects.forEach(function (sel) {
+                var list = (d[sel.getAttribute('data-model-select')] || []).slice();
+                if (!list.length) return;   // keep the saved value as-is
+                var cur = sel.getAttribute('data-current') || '';
+                if (cur && list.indexOf(cur) === -1) list.unshift(cur);
+                sel.innerHTML = '';
+                list.forEach(function (name) {
+                    var o = document.createElement('option');
+                    o.value = name; o.textContent = name;
+                    if (name === cur) o.selected = true;
+                    sel.appendChild(o);
+                });
+            });
+        })
+        .catch(function () { /* leave the manual value */ });
+})();
+</script>
 {% endblock %}

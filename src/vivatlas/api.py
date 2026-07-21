@@ -35,6 +35,11 @@ _AUTOSCAN_EVERY = timedelta(hours=24)
 _AUTOSCAN_CHECK_SECONDS = 3600
 _AUTOSCAN_WARMUP_SECONDS = 300
 
+# Retry of failed AI summaries: more often than the daily crawl, since a quota
+# hiccup should heal within the hour, not the day.
+_RETRY_EVERY_SECONDS = 1800
+_RETRY_WARMUP_SECONDS = 420
+
 
 async def _autoscan_pass() -> None:
     from vivatlas.web import _scan_one_source
@@ -77,6 +82,26 @@ async def _autoscan_loop() -> None:
         await asyncio.sleep(_AUTOSCAN_CHECK_SECONDS)
 
 
+async def _retry_loop() -> None:
+    """Cards whose AI summary failed (a quota hiccup, usually) get another try on a
+    short cadence — from the docs already stored, so no re-download and working cards
+    are untouched. Separate from the daily crawl so a rate-limited batch heals within
+    the hour instead of a day later."""
+    await asyncio.sleep(_RETRY_WARMUP_SECONDS)
+    while True:
+        try:
+            from vivatlas.web import retry_failed_summaries
+
+            fixed = await retry_failed_summaries()
+            if fixed:
+                log.info("retry: filled in %d missing summaries", fixed)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("retry: pass failed")
+        await asyncio.sleep(_RETRY_EVERY_SECONDS)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     # Without the secret key the door won't lock: it backs the signatures (2FA,
@@ -102,13 +127,15 @@ async def _lifespan(app: FastAPI):
 
         with session_scope() as s:
             runtime_settings.apply_config_overrides(s)
-    task = asyncio.create_task(_autoscan_loop())
+    tasks = [asyncio.create_task(_autoscan_loop()), asyncio.create_task(_retry_loop())]
     try:
         yield
     finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
 
 app = FastAPI(title="VivAtlas", version="0.1.0", lifespan=_lifespan)
@@ -149,6 +176,9 @@ async def require_login(request: Request, call_next):
             request.state.user_name = name
             request.state.user_email = user.email
             request.state.is_owner = user.is_owner
+            # The owner is always an admin; admins are promoted by the owner. Admin
+            # powers (admin panel, managing shared content) key off this.
+            request.state.is_admin = user.is_owner or user.is_admin
             # Initials for the avatar: from the first letters of the name's words, max two.
             parts = [p for p in name.replace(".", " ").split() if p]
             request.state.user_initials = (

@@ -536,7 +536,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 # and only by an administrator — shared folders are configured by
                 # them. Private ones —
                 # always your own.
-                "can_file_shared": a.shared and getattr(request.state, "is_owner", False),
+                "can_file_shared": a.shared and getattr(request.state, "is_admin", False),
                 "active_cat": "",
                 "active_draft": False,
             },
@@ -1159,6 +1159,131 @@ def _persist_card(plan: _CardPlan, owner_uid: int | None) -> bool:
                     )
         session.commit()
     return created
+
+
+async def retry_failed_summaries(limit: int = 25) -> int:
+    """Re-attempt the AI summary for cards that don't have one — a prior Gemini failure
+    (usually a rate limit). Uses the documentation ALREADY stored on the card, so there
+    is no re-download; working cards (those with a summary) are left untouched. Returns
+    how many were fixed. Called periodically so a temporary quota hiccup heals itself
+    without waiting for the daily crawl."""
+    try:
+        text_model = build_text_model()
+    except Exception:
+        return 0  # no AI key configured — nothing to retry with
+    try:
+        embed_model = build_embedding_model()
+    except Exception:
+        embed_model = None
+    fixed = 0
+    try:
+        with session_scope() as session:
+            ids = list(
+                session.scalars(
+                    select(Artifact.id)
+                    .where(
+                        Artifact.artifact_type != "draft",
+                        (Artifact.summary_short == "") | (Artifact.summary_short.is_(None)),
+                    )
+                    .limit(limit)
+                )
+            )
+        for aid in ids:
+            try:
+                with session_scope() as session:
+                    art = session.get(Artifact, aid)
+                    if art is None or art.summary_short or art.repository is None:
+                        continue
+                    summaries = await summarize(
+                        text_model,
+                        full_name=art.repository.full_name,
+                        artifact_type=art.artifact_type,
+                        doc_text=art.doc_text or "",
+                        file_count=art.file_count or 0,
+                    )
+                    art.summary_short = summaries["summary_short"]
+                    art.summary_normal = summaries["summary_normal"]
+                    art.summary_technical = summaries["summary_technical"]
+                    art.summary_model = getattr(text_model, "model", None)
+                    art.summary_error = None
+                    if embed_model is not None:
+                        await embed_artifact(session, embed_model, art)
+                    await tag_artifact(session, art, text_model)
+                    index_artifact_for_words(session, art)
+                    session.commit()
+                    fixed += 1
+            except Exception:
+                # Still failing (quota again?) — leave it for the next pass.
+                log.warning("retry: card %s still without a summary", aid)
+    finally:
+        await text_model.aclose()
+        if embed_model is not None:
+            await embed_model.aclose()
+    return fixed
+
+
+async def rescan_artifact(artifact_id: int) -> bool:
+    """Rebuild ONE card from its source, forced: re-download, re-detect, and (if an AI
+    key is set) re-summarize, re-embed and re-tag. For a card's owner or an admin who
+    wants a fresh pass now instead of waiting for the daily crawl. Missing AI key isn't
+    fatal — detection and rule tags still refresh. Returns False if the card is gone."""
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None or art.repository is None:
+            return False
+        repo_id = art.repository_id
+        src = art.repository.source
+        kind, base_url, token_enc = src.kind, src.base_url, src.token_enc
+    try:
+        token = security.decrypt_secret(token_enc) if token_enc else ""
+    except Exception:
+        token = ""
+    provider = _provider_for(kind, base_url, token)
+    try:
+        text_model = build_text_model()
+    except Exception:
+        text_model = None  # no AI key — refresh detection and rule tags anyway
+    try:
+        embed_model = build_embedding_model()
+    except Exception:
+        embed_model = None
+    try:
+        with session_scope() as session:
+            repo = session.get(Repository, repo_id)
+            if repo is None:
+                return False
+            await index_repository(session, provider, text_model, repo, force=True)
+            art = session.scalar(select(Artifact).where(Artifact.repository_id == repo_id))
+            if art is not None:
+                if embed_model is not None:
+                    await embed_artifact(session, embed_model, art)
+                await tag_artifact(session, art, text_model)
+                index_artifact_for_words(session, art)
+            session.commit()
+    finally:
+        await provider.aclose()
+        if text_model is not None:
+            await text_model.aclose()
+        if embed_model is not None:
+            await embed_model.aclose()
+    return True
+
+
+@router.post("/artifact/{artifact_id}/rescan")
+async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
+    """Force a fresh scan of one card. Allowed to the card's owner, or to an admin for
+    a shared card. Awaits the rebuild, then returns to the (now refreshed) card."""
+    user_id = getattr(request.state, "user_id", None)
+    is_admin = getattr(request.state, "is_admin", False)
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None:
+            raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
+        mine = art.owner_user_id is not None and art.owner_user_id == user_id
+        if not (mine or (is_admin and art.shared)):
+            raise HTTPException(403)
+    await rescan_artifact(artifact_id)
+    return RedirectResponse(f"/a/{artifact_id}", status_code=303)
 
 
 @router.get("/recommend")

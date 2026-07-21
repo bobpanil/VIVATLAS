@@ -9,7 +9,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, update
 
@@ -31,7 +31,18 @@ templates.env.globals["caticon"] = caticons.caticon_svg
 router = APIRouter()
 
 
+def _admin_or_403(session, request: Request) -> User:
+    """The admin panel is open to the owner and to admins the owner promoted. The few
+    owner-only actions (promoting/demoting admins) check is_owner themselves."""
+    me = auth.current_user(session, request)
+    if me is None or not (me.is_owner or me.is_admin):
+        raise HTTPException(403, i18n.msg(request, "err.owner_only_section"))
+    return me
+
+
 def _owner_or_403(session, request: Request) -> User:
+    """Stricter: only the owner. Guards the actions that shape who has power —
+    promoting or demoting administrators."""
     me = auth.current_user(session, request)
     if me is None or not me.is_owner:
         raise HTTPException(403, i18n.msg(request, "err.owner_only_section"))
@@ -86,6 +97,7 @@ def _admin_page(request: Request, session, me: User, **extra) -> HTMLResponse:
             "email": u.email,
             "name": u.display_name or "",
             "is_owner": u.is_owner,
+            "is_admin": u.is_admin,
             "is_active": u.is_active,
             "is_me": u.id == me.id,
             "last_login": u.last_login_at,
@@ -112,7 +124,7 @@ def _admin_page(request: Request, session, me: User, **extra) -> HTMLResponse:
 @router.get("/admin", response_class=HTMLResponse)
 def admin_page(request: Request) -> HTMLResponse:
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         return _admin_page(request, session, me)
 
 
@@ -123,7 +135,7 @@ def user_toggle(
     """Enable or disable a person's access. We don't disable ourselves — otherwise
     you could lock yourself out; the last owner either."""
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         target = session.get(User, user_id)
         if target is None:
             raise HTTPException(404, i18n.msg(request, "err.user_not_found"))
@@ -150,6 +162,47 @@ def user_toggle(
     return RedirectResponse(dest, status_code=303)
 
 
+@router.post("/admin/users/{user_id}/admin")
+def user_set_admin(
+    request: Request,
+    user_id: int,
+    make: Annotated[str, Form()] = "",
+    next: Annotated[str, Form()] = "/admin",
+) -> RedirectResponse:
+    """Promote a user to administrator (make="1") or demote one. Owner-only: only the
+    owner decides who else has power. The owner is always an admin and is never listed
+    as demotable; you can't change your own role here."""
+    with session_scope() as session:
+        _owner_or_403(session, request)
+        target = session.get(User, user_id)
+        if target is None:
+            raise HTTPException(404, i18n.msg(request, "err.user_not_found"))
+        if target.is_owner:
+            raise HTTPException(400, i18n.msg(request, "err.cant_change_own_role"))
+        target.is_admin = make == "1"
+    dest = next if next.startswith("/") and not next.startswith("//") else "/admin"
+    return RedirectResponse(dest, status_code=303)
+
+
+@router.get("/admin/ai/models")
+async def ai_models(request: Request) -> JSONResponse:
+    """The models the saved Google key may use, for the AI settings dropdowns. Reads the
+    SAVED key (save it first). On no key or an error we return empty lists plus a reason;
+    the page then keeps the manually-typed model as-is."""
+    with session_scope() as session:
+        _admin_or_403(session, request)
+    key = settings.google_api_key
+    if not key:
+        return JSONResponse({"text": [], "embedding": [], "error": "no-key"})
+    from vivatlas.ai.google import list_available_models
+
+    try:
+        data = await list_available_models(key, settings.http_timeout_seconds)
+    except Exception as exc:  # noqa: BLE001 — any failure just falls back to manual entry
+        return JSONResponse({"text": [], "embedding": [], "error": str(exc)[:200]})
+    return JSONResponse(data)
+
+
 # --- configuration (on top of .env) ----------------------------------------
 
 
@@ -171,7 +224,7 @@ def config_save(
     different tabs and different forms. Fields of the absent tab arrive as None and
     don't reach save_config, otherwise saving one tab would blank out the other."""
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         submitted = {
             runtime_settings.CFG_GITEA_URL: gitea_url,
             runtime_settings.CFG_GITEA_TOKEN: gitea_token,
@@ -248,7 +301,7 @@ async def admin_scan(request: Request) -> Response:
     same reason its personal-source twin, settings' source_scan, is async."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         sources = _ensure_global_sources(session)
         session.commit()
         if not sources:
@@ -278,7 +331,7 @@ def smtp_save(
 ) -> HTMLResponse:
     """Save email settings and the site address. An empty password keeps the old one."""
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         runtime_settings.save_smtp(
             session,
             host=host,
@@ -302,14 +355,14 @@ async def smtp_test(request: Request) -> HTMLResponse:
     email even goes out."""
     # We gather the data inside a closed transaction and send outside it (slow).
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         cfg = runtime_settings.get_smtp(session)
         site = runtime_settings.site_url(session)
         to = me.email
 
     if not cfg.is_configured:
         with session_scope() as session:
-            me = _owner_or_403(session, request)
+            me = _admin_or_403(session, request)
             return _admin_page(
                 request, session, me,
                 smtp_err=i18n.translate(
@@ -329,7 +382,7 @@ async def smtp_test(request: Request) -> HTMLResponse:
         note = {"smtp_err": str(exc)}
 
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         return _admin_page(request, session, me, **note)
 
 
@@ -385,7 +438,7 @@ def registration_toggle(
 ) -> RedirectResponse:
     """Open or close free registration. Checkbox sent — open."""
     with session_scope() as session:
-        _owner_or_403(session, request)
+        _admin_or_403(session, request)
         runtime_settings.set_bool(session, runtime_settings.REGISTRATION_OPEN, bool(enabled))
     return RedirectResponse("/admin", status_code=303)
 
@@ -399,7 +452,7 @@ def invite_create(
     """Create an invitation and show a copyable /join link. If an email is given and
     sending is configured — also by email (to the safe address from site_url)."""
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         email = email.strip().lower()
         lang = getattr(request.state, "lang", "en")
         raw = auth.make_invite(session, email, me.id)
@@ -430,7 +483,7 @@ def invite_create(
 def user_delete(request: Request, user_id: int) -> RedirectResponse:
     """Delete a person. Yourself and the last owner — not allowed."""
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         target = session.get(User, user_id)
         if target is None:
             raise HTTPException(404, i18n.msg(request, "err.user_not_found"))
@@ -455,7 +508,7 @@ def user_reset(
     """Reset a person's password: show a copyable /reset link and send it by email
     if email is configured."""
     with session_scope() as session:
-        me = _owner_or_403(session, request)
+        me = _admin_or_403(session, request)
         target = session.get(User, user_id)
         if target is None:
             raise HTTPException(404, i18n.msg(request, "err.user_not_found"))

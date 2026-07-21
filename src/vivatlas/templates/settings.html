@@ -71,6 +71,16 @@
     </div>
 
     <div class="box">
+        {{ sechead(t('account.name_title'), t('account.name_hint')) }}
+        <form method="post" action="/settings/account/name">
+            <label class="fld"><span>{{ t('account.name_label') }}</span>
+                <input type="text" name="display_name" value="{{ me.display_name }}"
+                       maxlength="128" autocomplete="name"></label>
+            <button class="btn-secondary" type="submit">{{ t('account.save_name_btn') }}</button>
+        </form>
+    </div>
+
+    <div class="box">
         {{ sechead(t('account.email_title'), t('account.email_hint')) }}
         <form method="post" action="/settings/account/email">
             <label class="fld"><span>{{ t('account.new_email') }}</span>

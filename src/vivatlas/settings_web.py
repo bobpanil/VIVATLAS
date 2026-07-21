@@ -177,6 +177,21 @@ def change_password(
         return resp
 
 
+@router.post("/settings/account/name", response_class=HTMLResponse)
+def change_name(
+    request: Request, display_name: Annotated[str, Form()] = ""
+) -> HTMLResponse:
+    """Change your display name — shown in the sidebar and on the cards you add. Never
+    left empty: a blank falls back to the local part of your email."""
+    lang = getattr(request.state, "lang", "en")
+    with session_scope() as session:
+        me = _require_me(session, request)
+        me.display_name = display_name.strip()[:128] or me.email.split("@")[0]
+        return _security_page(
+            request, session, me, account_msg=i18n.translate("account.name_changed", lang)
+        )
+
+
 @router.post("/settings/account/email", response_class=HTMLResponse)
 def change_email(
     request: Request,
@@ -373,7 +388,7 @@ def _authorize_category(session, request: Request, cat: Category | None):
     me = _me(session, request)
     if cat is None or not catperm.can_view(cat, me.id):
         raise HTTPException(404, i18n.msg(request, "err.category_not_found"))
-    if not catperm.can_manage(cat, me.id, me.is_owner):
+    if not catperm.can_manage(cat, me.id, me.is_owner or me.is_admin):
         raise HTTPException(403, i18n.msg(request, "err.categories_owner_only"))
     return me
 
@@ -403,7 +418,7 @@ def category_create(
                 dest, status_code=303
             )
         if scope == "shared":
-            if not me.is_owner:
+            if not (me.is_owner or me.is_admin):
                 raise HTTPException(403, i18n.msg(request, "err.categories_owner_only"))
             owner: int | None = None
         else:
@@ -514,7 +529,7 @@ def category_reorder(
             part = part.strip()
             if part.isdigit():
                 cat = session.get(Category, int(part))
-                if cat is not None and catperm.can_manage(cat, me.id, me.is_owner):
+                if cat is not None and catperm.can_manage(cat, me.id, me.is_owner or me.is_admin):
                     cat.position = pos
     return RedirectResponse(_safe_next(next), status_code=303)
 

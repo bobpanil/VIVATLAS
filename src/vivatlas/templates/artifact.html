@@ -165,6 +165,13 @@
 {% set can_delete = mine or (request.state.is_owner and a.shared) %}
 <footer class="modal-foot">
     <a class="btn-secondary foot-left" href="/">{{ t('artifact.close') }}</a>
+    {# Rescan — force a fresh pass on just this card. To the right of Close. For the
+       card's owner, or an admin on a shared card. Not for drafts (no source yet). #}
+    {% if (mine or (request.state.is_admin and a.shared)) and not is_draft %}
+    <form method="post" action="/artifact/{{ a.id }}/rescan" class="art-rescan foot-left">
+        <button class="btn-secondary" type="submit">{{ t('artifact.rescan') }}</button>
+    </form>
+    {% endif %}
     {% if gh %}
     <button class="btn-secondary art-copy" type="button" data-copy="{{ gh }}"
             data-done="{{ t('artifact.source_copied') }}">{{ t('artifact.copy_source') }}</button>

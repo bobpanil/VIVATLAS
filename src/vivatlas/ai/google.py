@@ -51,8 +51,49 @@ class _GoogleClient:
             return response.json()
         raise GoogleAIError("unreachable")
 
+    async def list_models(self) -> list[dict]:
+        """Every model the key can see, across pages. Read-only, no retry — a listing
+        that fails just leaves the manual field."""
+        out: list[dict] = []
+        page_token = ""
+        for _ in range(10):  # a safety bound on pagination, never really reached
+            params: dict = {"pageSize": 200}
+            if page_token:
+                params["pageToken"] = page_token
+            response = await self._client.get("/models", params=params)
+            response.raise_for_status()
+            data = response.json()
+            out.extend(data.get("models") or [])
+            page_token = data.get("nextPageToken") or ""
+            if not page_token:
+                break
+        return out
+
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+async def list_available_models(api_key: str, timeout: float = 30.0) -> dict:
+    """Which models this key may use, split by what they do. Bare names (no "models/"
+    prefix), text = supports generateContent, embedding = supports embedContent. Raises
+    if the key is empty or the request fails — the caller turns that into a manual field."""
+    client = _GoogleClient(api_key, timeout)
+    try:
+        raw = await client.list_models()
+    finally:
+        await client.aclose()
+    text: list[str] = []
+    embed: list[str] = []
+    for m in raw:
+        name = (m.get("name") or "").split("/", 1)[-1]
+        if not name:
+            continue
+        methods = m.get("supportedGenerationMethods") or []
+        if "generateContent" in methods:
+            text.append(name)
+        if "embedContent" in methods:
+            embed.append(name)
+    return {"text": sorted(text), "embedding": sorted(embed)}
 
 
 class GoogleTextModel(_GoogleClient):

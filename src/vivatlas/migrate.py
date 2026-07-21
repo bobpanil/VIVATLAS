@@ -51,6 +51,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # Default avatar from the preset set. Existing rows get '' — the
         # backfill below assigns each a random one.
         "avatar_preset": "VARCHAR(32) DEFAULT ''",
+        # Administrator flag; existing rows default to not-admin (the owner already
+        # has is_owner and is treated as an admin in code).
+        "is_admin": "BOOLEAN DEFAULT 0",
     },
 }
 

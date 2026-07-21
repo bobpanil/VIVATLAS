@@ -44,7 +44,17 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     "account.aria": {"en": "Account: {name}", "ru": "Аккаунт: {name}", "he": "חשבון: {name}"},
     "account.type_admin": {"en": "Administrator", "ru": "Администратор", "he": "מנהל"},
+    "account.type_owner": {"en": "Owner", "ru": "Владелец", "he": "בעלים"},
     "account.type_member": {"en": "Member", "ru": "Участник", "he": "חבר"},
+    "account.name_title": {"en": "Name", "ru": "Имя", "he": "שם"},
+    "account.name_hint": {
+        "en": "Shown in the sidebar and on the cards you add.",
+        "ru": "Показывается в боковой панели и на добавленных вами карточках.",
+        "he": "מוצג בסרגל הצד ובכרטיסים שהוספת.",
+    },
+    "account.name_label": {"en": "Display name", "ru": "Отображаемое имя", "he": "שם לתצוגה"},
+    "account.save_name_btn": {"en": "Save name", "ru": "Сохранить имя", "he": "שמירת שם"},
+    "account.name_changed": {"en": "Name updated.", "ru": "Имя обновлено.", "he": "השם עודכן."},
     # --- theme ----------------------------------------------------------------
     "theme.label": {"en": "Theme", "ru": "Тема", "he": "ערכת נושא"},
     "theme.menu_aria": {"en": "Colour theme", "ru": "Тема оформления", "he": "ערכת צבעים"},
@@ -340,6 +350,11 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "This is the last owner — can't disable.",
         "ru": "это последний владелец — не выключить",
         "he": "זהו הבעלים האחרון — אי אפשר להשבית.",
+    },
+    "err.cant_change_own_role": {
+        "en": "The owner's role can't be changed.",
+        "ru": "роль владельца изменить нельзя",
+        "he": "אי אפשר לשנות את תפקיד הבעלים.",
     },
     # --- source scan (precheck and background) --------------------------------
     "scan.err.source_not_found": {
@@ -852,6 +867,11 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Configuration saved.", "ru": "Настройки сохранены.", "he": "ההגדרות נשמרו.",
     },
     "admin.config.save_btn": {"en": "Save", "ru": "Сохранить", "he": "שמירה"},
+    "admin.ai.model_pick": {
+        "en": "Save the key, then pick a model",
+        "ru": "Сохраните ключ, затем выберите модель",
+        "he": "שמרו את המפתח ואז בחרו מודל",
+    },
     "admin.tab_users": {"en": "Users", "ru": "Люди", "he": "משתמשים"},
     "admin.tab_access": {"en": "Access", "ru": "Доступ", "he": "גישה"},
     "admin.tab_sources": {"en": "Sources", "ru": "Источники", "he": "מקורות"},

@@ -2552,9 +2552,15 @@ html.card-dragging .side-folders-head {
    badge in the corner; the border, meanwhile, is governed by the zone
    (public/private). */
 .card-new {
-    /* The corners are taken by the zone and favourites — we show "new" as a
-       small chip at the start of the card body (above the name). */
-    align-self: flex-start;
+    /* Centred on the footer row (between the purpose on the left and copy on the
+       right). Absolutely placed over the middle so it doesn't disturb the flex
+       layout of the other footer items, and click-through so the card still opens. */
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    pointer-events: none;
     padding: 1px 7px;
     background: var(--primary);
     color: var(--on-primary);
@@ -2714,7 +2720,8 @@ html.card-dragging .side-folders-head {
     /* Row: folder on the left, date, "copy" on the right. The line above the
        footer spans the full width of the card (edge-to-edge): we pull the
        footer out past the body's padding with negative margins and restore the
-       inner padding. */
+       inner padding. Relative so the centred "new" badge positions against it. */
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;

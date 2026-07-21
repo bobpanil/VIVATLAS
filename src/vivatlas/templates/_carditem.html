@@ -57,7 +57,6 @@
     </div>
     {% endif %}
     <div class="card-body">
-        {% if it.is_new %}<span class="card-new">{{ t('card.new') }}</span>{% endif %}
         <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
         <p class="card-sum">{{ it.summary_short or t('card.no_summary') }}</p>
 
@@ -66,6 +65,10 @@
            the card is gone: you can only delete from the card itself (its page).
            Icon and name in the folder colour (--pur-color) so the group reads. #}
         <div class="card-foot" data-pur="{{ it.purpose.key }}"{% if it.categories %} style="--pur-color: {{ it.categories[0].color }}"{% endif %}>
+            {# "new" badge — centred on the footer row, over the empty middle, same row
+               as the purpose (left) and copy (right). Non-interactive, so it doesn't
+               steal clicks from the stretched card-link beneath it. #}
+            {% if it.is_new %}<span class="card-new">{{ t('card.new') }}</span>{% endif %}
             {% if it.categories %}
             {% set c0 = it.categories[0] %}
             <span class="card-cat{% if c0.owned %} cat-mark-mine{% endif %}">

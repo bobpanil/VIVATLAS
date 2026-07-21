@@ -383,6 +383,12 @@ class User(Base):
     # others in: people install the program for themselves, and open registration
     # by default would mean any passerby could create an account in someone else's catalogue.
     is_owner: Mapped[bool] = mapped_column(default=False)
+    # An administrator: the owner can promote others here. Admins reach the admin
+    # panel and manage shared content, but only the owner promotes/demotes them and
+    # the owner can never be demoted. The owner is implicitly an admin too.
+    # server_default so inserts that predate the column (e.g. bulk core inserts) still
+    # get a value rather than tripping the NOT NULL constraint.
+    is_admin: Mapped[bool] = mapped_column(default=False, server_default="0")
     is_active: Mapped[bool] = mapped_column(default=True)
 
     # Default avatar from the "busts" set (static/usericons/<key>.webp). Shown if

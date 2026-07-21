@@ -2,7 +2,12 @@ import httpx
 import pytest
 import respx
 
-from vivatlas.ai.google import GoogleAIError, GoogleEmbeddingModel, GoogleTextModel
+from vivatlas.ai.google import (
+    GoogleAIError,
+    GoogleEmbeddingModel,
+    GoogleTextModel,
+    list_available_models,
+)
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 KEY = "test-secret-key-12345"
@@ -28,6 +33,48 @@ async def test_key_goes_in_header_not_in_url():
 async def test_empty_key_fails_loudly():
     with pytest.raises(GoogleAIError, match="GOOGLE_API_KEY"):
         GoogleEmbeddingModel("", "m", dim=2)
+
+
+@respx.mock
+async def test_list_models_splits_by_supported_method():
+    # For the admin dropdowns: text = generateContent, embedding = embedContent.
+    # Names come back with a "models/" prefix we strip; a model doing both lands in both.
+    respx.get(f"{BASE}/models").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "models": [
+                    {"name": "models/gemini-3.1-flash-lite",
+                     "supportedGenerationMethods": ["generateContent", "countTokens"]},
+                    {"name": "models/gemini-embedding-2",
+                     "supportedGenerationMethods": ["embedContent"]},
+                    {"name": "models/aqa", "supportedGenerationMethods": ["generateAnswer"]},
+                ]
+            },
+        )
+    )
+    out = await list_available_models(KEY)
+    assert out["text"] == ["gemini-3.1-flash-lite"]
+    assert out["embedding"] == ["gemini-embedding-2"]
+    # A model that supports neither of our methods isn't offered anywhere.
+    assert "aqa" not in out["text"] and "aqa" not in out["embedding"]
+
+
+@respx.mock
+async def test_list_models_follows_pagination():
+    respx.get(f"{BASE}/models").mock(
+        side_effect=[
+            httpx.Response(200, json={
+                "models": [{"name": "models/a", "supportedGenerationMethods": ["generateContent"]}],
+                "nextPageToken": "p2",
+            }),
+            httpx.Response(200, json={
+                "models": [{"name": "models/b", "supportedGenerationMethods": ["generateContent"]}],
+            }),
+        ]
+    )
+    out = await list_available_models(KEY)
+    assert out["text"] == ["a", "b"]
 
 
 @respx.mock

@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 _API_ROOT = "https://api.github.com"
 _PAGE_SIZE = 100  # GitHub's ceiling
-_USER_AGENT = "VivAtlas/0.1 (+https://github.com/bobpanil/vivatlas)"
+_USER_AGENT = "VIVATLAS/0.1 (+https://github.com/bobpanil/vivatlas)"
 
 
 def _account_from(user: str) -> str:

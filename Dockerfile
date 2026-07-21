@@ -1,4 +1,4 @@
-# VivAtlas — self-contained image.
+# VIVATLAS — self-contained image.
 #   docker build -t vivatlas:latest .
 #   docker run -d -p 8710:8710 -v vivatlas_data:/data vivatlas:latest
 FROM python:3.12-slim

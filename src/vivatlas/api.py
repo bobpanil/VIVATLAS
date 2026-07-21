@@ -138,7 +138,7 @@ async def _lifespan(app: FastAPI):
                 await task
 
 
-app = FastAPI(title="VivAtlas", version="0.1.0", lifespan=_lifespan)
+app = FastAPI(title="VIVATLAS", version="0.1.0", lifespan=_lifespan)
 
 # Paths open without sign-in. Everything else is behind the lock. The list is
 # short deliberately: whatever isn't here is closed, not the other way round.
@@ -158,7 +158,7 @@ _OPEN_EXACT = {
 async def require_login(request: Request, call_next):
     """Lock on everything. Not signed in — off to the sign-in page, not inside.
 
-    The MCP server is open for now: ChatGPT comes without a cookie and needs its
+    The MCP server is open for now: an MCP client comes without a cookie and needs its
     own token — that's the next step. Flagged so we don't forget: behind a tunnel it's a hole.
     """
     # Language — for all pages, including open ones (sign-in, reset): from it the
@@ -230,7 +230,7 @@ from vivatlas.ext_api import router as ext_router  # noqa: E402
 
 app.include_router(ext_router)
 
-# MCP for ChatGPT. As a separate application: it has its own lifecycle, and
+# MCP for remote AI assistants. As a separate application: it has its own lifecycle, and
 # mixing it with the regular pages isn't allowed.
 app.mount("/mcp-server", mcp_http_app())
 

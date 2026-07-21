@@ -173,9 +173,9 @@ CATALOG: dict[str, dict[str, str]] = {
     "add.js_working": {"en": "Working…", "ru": "Работаю…", "he": "עובד…"},
     "artifact.js_copied": {"en": "Copied", "ru": "Скопировано", "he": "הועתק"},
     "logo.home_alt": {
-        "en": "VivAtlas — home",
-        "ru": "VivAtlas — на главную",
-        "he": "VivAtlas — לדף הבית",
+        "en": "VIVATLAS — home",
+        "ru": "VIVATLAS — на главную",
+        "he": "VIVATLAS — לדף הבית",
     },
     "modal.window_title": {"en": "Window", "ru": "Окно", "he": "חלון"},
     # --- type labels (were web.TYPE_NAMES) ------------------------------------
@@ -651,9 +651,9 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     # --- invitation email -----------------------------------------------------
     "email.invite.subject": {
-        "en": "You're invited to VivAtlas",
-        "ru": "Приглашение в VivAtlas",
-        "he": "הוזמנת ל-VivAtlas",
+        "en": "You're invited to VIVATLAS",
+        "ru": "Приглашение в VIVATLAS",
+        "he": "הוזמנת ל-VIVATLAS",
     },
     "email.invite.preheader": {
         "en": "Set up your account — the link is valid for {days} days.",
@@ -661,9 +661,9 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "הקימו חשבון — הקישור תקף {days} ימים.",
     },
     "email.invite.h1": {
-        "en": "Join VivAtlas",
-        "ru": "Присоединяйтесь к VivAtlas",
-        "he": "הצטרפו ל-VivAtlas",
+        "en": "Join VIVATLAS",
+        "ru": "Присоединяйтесь к VIVATLAS",
+        "he": "הצטרפו ל-VIVATLAS",
     },
     "email.invite.intro": {
         "en": "You've been invited. Set your name and password to create your account. The link is valid for {days} days.",
@@ -686,14 +686,14 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "לא ציפיתם לזה? אפשר להתעלם מהמייל.",
     },
     "email.invite.footer_note": {
-        "en": "This invitation was sent from VivAtlas.",
-        "ru": "Это приглашение отправлено из VivAtlas.",
-        "he": "הזמנה זו נשלחה מ-VivAtlas.",
+        "en": "This invitation was sent from VIVATLAS.",
+        "ru": "Это приглашение отправлено из VIVATLAS.",
+        "he": "הזמנה זו נשלחה מ-VIVATLAS.",
     },
     "email.invite.txt_heading": {
-        "en": "Join VivAtlas",
-        "ru": "Присоединяйтесь к VivAtlas",
-        "he": "הצטרפו ל-VivAtlas",
+        "en": "Join VIVATLAS",
+        "ru": "Присоединяйтесь к VIVATLAS",
+        "he": "הצטרפו ל-VIVATLAS",
     },
     "email.invite.txt_intro": {
         "en": "You've been invited. Open the link to set your name and password (valid {days} days):",
@@ -706,9 +706,9 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "לא ציפיתם? התעלמו מהמייל.",
     },
     "email.invite.txt_footer_note": {
-        "en": "Sent from VivAtlas.",
-        "ru": "Отправлено из VivAtlas.",
-        "he": "נשלח מ-VivAtlas.",
+        "en": "Sent from VIVATLAS.",
+        "ru": "Отправлено из VIVATLAS.",
+        "he": "נשלח מ-VIVATLAS.",
     },
     # --- settings sections (tabs) ---------------------------------------------
     "settings.tab_account": {"en": "Account", "ru": "Аккаунт", "he": "חשבון"},

@@ -105,7 +105,7 @@ class SmtpConfig:
     username: str = ""
     password: str = ""  # decrypted; only ever exposed through mask
     from_addr: str = ""
-    from_name: str = "VivAtlas"
+    from_name: str = "VIVATLAS"
 
     @property
     def is_configured(self) -> bool:
@@ -133,7 +133,7 @@ def get_smtp(session: Session) -> SmtpConfig:
         username=get(session, SMTP_USERNAME, "").strip(),
         password=security.decrypt_secret(get(session, SMTP_PASSWORD_ENC, "")),
         from_addr=get(session, SMTP_FROM, "").strip(),
-        from_name=get(session, SMTP_FROM_NAME, "VivAtlas").strip() or "VivAtlas",
+        from_name=get(session, SMTP_FROM_NAME, "VIVATLAS").strip() or "VIVATLAS",
     )
 
 
@@ -160,7 +160,7 @@ def save_smtp(
     set(session, SMTP_SECURITY, _clean_security(security_mode))
     set(session, SMTP_USERNAME, username.strip())
     set(session, SMTP_FROM, from_addr.strip())
-    set(session, SMTP_FROM_NAME, from_name.strip() or "VivAtlas")
+    set(session, SMTP_FROM_NAME, from_name.strip() or "VIVATLAS")
     if password:
         set(session, SMTP_PASSWORD_ENC, security.encrypt_secret(password))
 

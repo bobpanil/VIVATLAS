@@ -1,5 +1,5 @@
 #!/bin/sh
-# VivAtlas container entrypoint.
+# VIVATLAS container entrypoint.
 # Keeps all mutable state in the mounted data dir, then starts the web server.
 set -e
 

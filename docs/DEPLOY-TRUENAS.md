@@ -1,6 +1,6 @@
-# Deploying VivAtlas on TrueNAS (Docker)
+# Deploying VIVATLAS on TrueNAS (Docker)
 
-VivAtlas ships as a single container. All mutable state — the SQLite database and
+VIVATLAS ships as a single container. All mutable state — the SQLite database and
 a generated `secret_key` — lives in one mounted folder (`/data`). Back that folder
 up and you've backed up everything.
 

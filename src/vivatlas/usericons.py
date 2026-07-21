@@ -1,4 +1,4 @@
-"""Default avatar set — classic busts with an orbit (VivAtlas brand).
+"""Default avatar set — classic busts with an orbit (VIVATLAS brand).
 
 The ready-made webp files live in static/usericons/avatar-NN.webp. A user gets a
 random one at creation; in settings they can pick a different one or upload their

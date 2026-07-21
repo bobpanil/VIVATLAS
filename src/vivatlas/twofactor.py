@@ -20,7 +20,7 @@ from vivatlas.models import BackupCode, User
 # not a daily sign-in.
 BACKUP_CODES_COUNT = 10
 
-_ISSUER = "VivAtlas"
+_ISSUER = "VIVATLAS"
 
 
 def new_secret() -> str:

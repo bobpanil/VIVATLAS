@@ -24,11 +24,11 @@ def test_render_html_escapes_name():
 
 
 def test_build_message_is_multipart_alternative():
-    cfg = SmtpConfig(host="h", from_addr="from@example.com", from_name="VivAtlas")
+    cfg = SmtpConfig(host="h", from_addr="from@example.com", from_name="VIVATLAS")
     msg = mailer._build_message(cfg, "to@example.com", "Subject", "<b>hi</b>", "hi")
     assert msg["To"] == "to@example.com"
     assert msg["Subject"] == "Subject"
-    assert "VivAtlas" in msg["From"]
+    assert "VIVATLAS" in msg["From"]
     assert "from@example.com" in msg["From"]
     assert msg.is_multipart()
     types = {p.get_content_type() for p in msg.iter_parts()}

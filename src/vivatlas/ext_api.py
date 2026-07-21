@@ -1,7 +1,7 @@
 """JSON API for the browser extension.
 
 Sign in (with the same MFA as the web), check the session, sign out, and capture a
-page or link into VivAtlas. The extension keeps the token returned by login and sends
+page or link into VIVATLAS. The extension keeps the token returned by login and sends
 it as `Authorization: Bearer <token>` on its own cross-site requests (the SameSite
 cookie isn't sent on those). The same login ALSO sets the session cookie, so opening
 the web UI from the extension needs no second sign-in.

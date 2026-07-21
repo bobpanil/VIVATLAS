@@ -1,8 +1,9 @@
-# Access from ChatGPT and Claude Code
+# MCP access (for AI assistants)
 
-VivAtlas can answer not only you through the browser, but also your AI assistants.
-Ask Claude Code "what do I have for building a landing page?" — it digs into
-your catalogue and answers based on facts, instead of making things up.
+VIVATLAS answers not only you through the browser, but also any AI assistant that
+speaks the [Model Context Protocol](https://modelcontextprotocol.io). Ask your
+assistant "what do I have for building a landing page?" — it digs into your catalogue
+and answers from facts, instead of making things up.
 
 Read-only, all of it. Nothing is written to Git or to the database.
 
@@ -17,27 +18,29 @@ Read-only, all of it. Nothing is written to Git or to the database.
 | `list_artifacts` | A list, optionally of a single type |
 | `list_tags` | All tags with the number of tools |
 
-## Claude Code
+## Local (stdio)
 
-Add to `~/.claude/settings.json`:
+For a client that launches the server as a local process. Add a server to your MCP
+client's config (the exact file depends on the client), pointing at the CLI:
 
 ```json
 {
   "mcpServers": {
     "vivatlas": {
-      "command": "D:\Software\Dev\VivAtlas\.venv\Scripts\python.exe",
+      "command": "/path/to/vivatlas/.venv/bin/python",
       "args": ["-m", "vivatlas.cli", "mcp"],
-      "cwd": "D:\Software\Dev\VivAtlas"
+      "cwd": "/path/to/vivatlas"
     }
   }
 }
 ```
 
-To check: ask Claude Code "show me an overview of my tool catalogue".
+Then ask your assistant "show me an overview of my tool catalogue" to check it.
 
-## ChatGPT
+## Remote (HTTP)
 
-You need an internet-reachable address — that same Cloudflare Tunnel.
+For a client that connects over the network. Serve on a reachable address (behind a
+reverse proxy or tunnel that terminates TLS):
 
 ```
 vivatlas serve --host 0.0.0.0

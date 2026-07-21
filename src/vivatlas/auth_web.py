@@ -293,7 +293,7 @@ def forgot_do(
                 else:
                     background.add_task(
                         _send_reset_quietly, cfg, user.email,
-                        "Change your password — VivAtlas", html, text
+                        "Change your password — VIVATLAS", html, text
                     )
     return _page(request, "forgot_sent")
 

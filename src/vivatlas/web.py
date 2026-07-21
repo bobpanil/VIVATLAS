@@ -1343,7 +1343,7 @@ def recommend_redirect(task: str = "") -> RedirectResponse:
     """"What to pick?" is merged into search: one window for everything. The old link with a task
     we redirect straight into search, so bookmarks don't break.
 
-    Recommendations haven't gone anywhere — they remain for ChatGPT via MCP, where the
+    Recommendations haven't gone anywhere — they remain for MCP clients, where the
     answer has room for explanations. On the site search already ranks by
     meaning, and a separate page only split "ask the program" in two."""
     q = f"?q={quote(task.strip())}" if task.strip() else ""

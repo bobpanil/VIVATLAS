@@ -28,7 +28,7 @@ from vivatlas.updater import UpdateRefused, apply_update, plan_update
 from vivatlas.upstream import UpstreamChecker
 from vivatlas.upstream_sync import check_all
 
-app = typer.Typer(help="VivAtlas")
+app = typer.Typer(help="VIVATLAS")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -534,7 +534,7 @@ def serve(
     # open while the server runs, whereas the launcher window closes right away.
     # For someone who started it with a double-click, the phone address shows only here.
     typer.echo("")
-    typer.echo(f"  VivAtlas, port {port}")
+    typer.echo(f"  VIVATLAS, port {port}")
     typer.echo(f"    on this computer : http://127.0.0.1:{port}")
     if host == "0.0.0.0":
         for ip in lan_addresses():
@@ -561,7 +561,7 @@ def serve(
 
 @app.command("mcp")
 def mcp_stdio() -> None:
-    """Start the MCP server for Claude Code (stdio)."""
+    """Start the MCP server over stdio (for a local MCP client)."""
     # We silence the logs: in stdio mode stdout is the protocol channel, any line
     # in it breaks the connection.
     logging.getLogger().handlers.clear()

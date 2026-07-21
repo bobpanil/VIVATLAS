@@ -326,7 +326,7 @@ def smtp_save(
     username: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
     from_addr: Annotated[str, Form()] = "",
-    from_name: Annotated[str, Form()] = "VivAtlas",
+    from_name: Annotated[str, Form()] = "VIVATLAS",
     site_url: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     """Save email settings and the site address. An empty password keeps the old one."""
@@ -372,7 +372,7 @@ async def smtp_test(request: Request) -> HTMLResponse:
 
     html, text = mailer.render("test", getattr(request.state, "lang", "en"), site=site)
     try:
-        await mailer.send(cfg, to, "Email test — VivAtlas", html, text)
+        await mailer.send(cfg, to, "Email test — VIVATLAS", html, text)
         note = {
             "smtp_msg": i18n.translate(
                 "admin.smtp.test_sent", getattr(request.state, "lang", "en"), to=to
@@ -473,7 +473,7 @@ def invite_create(
                 pass
             else:
                 background.add_task(
-                    _send_quietly, cfg, email, "Invitation — VivAtlas", html, text
+                    _send_quietly, cfg, email, "Invitation — VIVATLAS", html, text
                 )
                 note["invite_msg"] = i18n.translate("admin.invite.sent", lang, to=email)
         return _admin_page(request, session, me, **note)
@@ -530,7 +530,7 @@ def user_reset(
                 name=target.display_name, minutes=auth.RESET_MAX_AGE // 60,
             )
             background.add_task(
-                _send_quietly, cfg, target.email, "Password reset — VivAtlas", html, text
+                _send_quietly, cfg, target.email, "Password reset — VIVATLAS", html, text
             )
             note["reset_msg"] = i18n.translate("admin.reset.sent", lang, to=target.email)
         return _admin_page(request, session, me, **note)

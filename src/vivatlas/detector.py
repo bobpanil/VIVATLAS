@@ -92,7 +92,7 @@ def _simple(contents: RepoContents, artifact_type: str, confidence: float, reaso
 
 
 def _refine_skill_type(artifact_type: str, contents: RepoContents, reasons: list[str]) -> str:
-    """SKILL.md appears in both ChatGPT and Claude — refine by content."""
+    """SKILL.md is used by more than one skill ecosystem — refine by content."""
     if artifact_type != "skill":
         return artifact_type
     anchor = contents.find("SKILL.md", "skill.md")

@@ -64,7 +64,7 @@ def _save(session, **over):
         security_mode="starttls",
         username="user",
         from_addr="from@example.com",
-        from_name="VivAtlas",
+        from_name="VIVATLAS",
         password="secret-mail-password",
     )
     base.update(over)

@@ -1,8 +1,8 @@
-"""Access from ChatGPT and Claude Code.
+"""MCP access for AI assistants.
 
 One set of tools, two ways to connect:
-  stdio           — Claude Code launches us as a program
-  streamable-http — ChatGPT hits the /mcp address
+  stdio           — a local MCP client launches us as a program
+  streamable-http — a remote MCP client hits the /mcp address
 
 Responses are deliberately short. On the other end a model with limited
 memory reads them: extra text crowds out the useful. So we return fields, not
@@ -336,10 +336,10 @@ def find_stale_artifacts(days: int = 365) -> dict:
 
 
 def run_stdio() -> None:
-    """For Claude Code."""
+    """For a local MCP client (stdio)."""
     mcp.run(transport="stdio")
 
 
 def http_app():
-    """For ChatGPT — mounted into the main application."""
+    """For a remote MCP client — mounted into the main application."""
     return mcp.streamable_http_app()

@@ -294,15 +294,15 @@ class GitHubFetcher:
             # This isn't an error but the author's intent. In .gitattributes they mark
             # export-ignore on what isn't needed to run: tests, documentation,
             # images. That's how mvanhorn/last30days-skill excludes 14 MB of demos.
-            # Important: on install Claude Code downloads exactly this same archive,
-            # so the archive is the canonical form of the tool.
+            # Important: on install an agent client downloads exactly this same
+            # archive, so the archive is the canonical form of the tool.
             weight_mb = sum(e.get("size", 0) for e in excluded) / 1024 / 1024
             folders = sorted({e["path"].split("/")[-2] for e in excluded if "/" in e["path"]})
             warnings.append(
                 f"the author excluded {len(excluded)} files from the archive "
                 f"({weight_mb:.1f} MB, folders: {', '.join(folders[:4])}) — "
                 f"marked them in .gitattributes as not needed to run. "
-                f"On install Claude Code receives exactly this same archive."
+                f"On install the agent client receives exactly this same archive."
             )
 
         return files, warnings

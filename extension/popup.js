@@ -1,11 +1,11 @@
 'use strict';
 
-// VivAtlas Clipper — the whole flow lives here: pick a server, sign in (with MFA),
-// then capture the current page or a pasted link and send it to VivAtlas.
+// VIVATLAS Clipper — the whole flow lives here: pick a server, sign in (with MFA),
+// then capture the current page or a pasted link and send it to VIVATLAS.
 //
 // Auth: /api/ext/login returns a token the extension stores and sends as a Bearer
 // header on its own calls. We ALSO set that token as the vivatlas_session cookie via
-// the cookies API, so "Open VivAtlas" lands in the web UI already signed in.
+// the cookies API, so "Open VIVATLAS" lands in the web UI already signed in.
 
 const COOKIE_NAME = 'vivatlas_session';
 const SESSION_DAYS = 30;

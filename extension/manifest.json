@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "VivAtlas Clipper",
+  "name": "VIVATLAS Clipper",
   "version": "1.0.0",
-  "description": "Send the current page or a link to your VivAtlas catalogue, public or private, and keep browsing.",
+  "description": "Send the current page or a link to your VIVATLAS catalogue, public or private, and keep browsing.",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "VivAtlas Clipper",
+    "default_title": "VIVATLAS Clipper",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

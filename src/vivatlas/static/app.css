@@ -1856,7 +1856,8 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
 }
 
 .src-add button {
-    align-self: flex-start;
+    flex: none;
+    align-self: stretch;   /* sits inline on the fields row, matching the inputs' height */
 }
 
 .topbar,
@@ -4950,6 +4951,31 @@ a.art-chip-pur:hover { border-color: currentColor; }
     flex-wrap: wrap;
     margin-top: var(--s-md);
 }
+
+/* Two-step verification: "code from app" and "turn off verification" side by side
+   on one row (each wraps under the other only on a narrow width). */
+.twofa-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-md);
+    align-items: start;
+}
+.twofa-row .set-row {
+    flex: 1 1 240px;
+    margin-top: var(--s-sm);
+}
+
+/* Fields that save themselves (e.g. the name): a small green confirmation. */
+.autosave-note {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--zone-common);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.autosave-note.show { opacity: 1; }
 
 .set-row input {
     flex: 1;

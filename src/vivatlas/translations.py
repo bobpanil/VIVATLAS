@@ -55,6 +55,7 @@ CATALOG: dict[str, dict[str, str]] = {
     "account.name_label": {"en": "Display name", "ru": "Отображаемое имя", "he": "שם לתצוגה"},
     "account.save_name_btn": {"en": "Save name", "ru": "Сохранить имя", "he": "שמירת שם"},
     "account.name_changed": {"en": "Name updated.", "ru": "Имя обновлено.", "he": "השם עודכן."},
+    "account.saved_tick": {"en": "Saved", "ru": "Сохранено", "he": "נשמר"},
     # --- theme ----------------------------------------------------------------
     "theme.label": {"en": "Theme", "ru": "Тема", "he": "ערכת נושא"},
     "theme.menu_aria": {"en": "Colour theme", "ru": "Тема оформления", "he": "ערכת צבעים"},
@@ -712,6 +713,7 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     # --- settings sections (tabs) ---------------------------------------------
     "settings.tab_account": {"en": "Account", "ru": "Аккаунт", "he": "חשבון"},
+    "settings.tab_profile": {"en": "Profile", "ru": "Профиль", "he": "פרופיל"},
     "settings.tab_appearance": {"en": "Appearance", "ru": "Вид", "he": "מראה"},
     "settings.tab_folders": {"en": "Folders", "ru": "Папки", "he": "תיקיות"},
     "settings.tab_repos": {"en": "Repositories", "ru": "Репозитории", "he": "מאגרים"},

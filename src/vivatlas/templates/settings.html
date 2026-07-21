@@ -18,15 +18,34 @@
 
 {% if step == 'security' %}
 <nav class="settabs" role="tablist" data-tabkey="settab" aria-label="{{ t('nav.settings') }}">
-    <button class="settab on" type="button" data-tab="account">{{ t('settings.tab_account') }}</button>
+    <button class="settab on" type="button" data-tab="profile">{{ t('settings.tab_profile') }}</button>
+    <button class="settab" type="button" data-tab="account">{{ t('settings.tab_account') }}</button>
     <button class="settab" type="button" data-tab="folders">{{ t('settings.tab_folders') }}</button>
     <button class="settab" type="button" data-tab="repos">{{ t('settings.tab_repos') }}</button>
-    <button class="settab" type="button" data-tab="delete">{{ t('settings.tab_delete') }}</button>
 </nav>
 
-<section class="setpanel" data-panel="account">
+<section class="setpanel" data-panel="profile">
     {% if account_error %}<p class="warn">{{ account_error }}</p>{% endif %}
     {% if account_msg %}<p class="set-on">{{ account_msg }}</p>{% endif %}
+
+    <div class="box">
+        {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
+        <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
+            {% for code, meta in langs.items() %}
+            <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="box">
+        {{ sechead(t('account.name_title'), t('account.name_hint')) }}
+        {# Saves itself on blur — no button (see the autosave script). #}
+        <label class="fld"><span>{{ t('account.name_label') }}</span>
+            <input type="text" name="display_name" value="{{ me.display_name }}"
+                   data-autosave="/settings/account/name" data-saved="{{ t('account.saved_tick') }}"
+                   maxlength="128" autocomplete="name"></label>
+        <span class="autosave-note" hidden></span>
+    </div>
 
     <div class="box wide">
         {{ sechead(t('account.photo_title'), t('account.photo_hint')) }}
@@ -69,50 +88,35 @@
         {% endif %}
         </div>{# /.avatar-layout #}
     </div>
+</section>
+
+<section class="setpanel" data-panel="account" hidden>
+    {% if account_error %}<p class="warn">{{ account_error }}</p>{% endif %}
+    {% if account_msg %}<p class="set-on">{{ account_msg }}</p>{% endif %}
 
     <div class="box wide">
-        {{ sechead(t('account.name_title'), t('account.name_hint')) }}
-        <form method="post" action="/settings/account/name">
-            <label class="fld"><span>{{ t('account.name_label') }}</span>
-                <input type="text" name="display_name" value="{{ me.display_name }}"
-                       maxlength="128" autocomplete="name"></label>
-            <button class="btn-secondary" type="submit">{{ t('account.save_name_btn') }}</button>
-        </form>
-    </div>
-
-    {# Two-step verification and interface language sit side by side, above the
-       email/password pair. #}
-    <div class="box">
         {{ sechead(t('settings.twofa_title'), t('settings.twofa_tip')) }}
         {% if totp_on %}
         <p class="set-on">{{ t('settings.twofa_on') }}</p>
         <p class="legend">{{ t('settings.backup_left', n=backup_left) }}</p>
-
-        <form method="post" action="/settings/2fa/backup" class="set-row">
-            <input type="text" name="code" inputmode="numeric" placeholder="{{ t('settings.code_app_placeholder') }}"
-                   aria-label="{{ t('auth.totp.code_app') }}" required>
-            <button class="btn-secondary" type="submit">{{ t('settings.new_backup_codes') }}</button>
-        </form>
-
-        <form method="post" action="/settings/2fa/disable" class="set-row">
-            <input type="password" name="password" placeholder="{{ t('settings.your_password_placeholder') }}"
-                   aria-label="{{ t('auth.password') }}" autocomplete="current-password" required>
-            <button class="btn-secondary" type="submit">{{ t('settings.twofa_disable') }}</button>
-        </form>
+        {# Code-from-app and turn-off side by side on one row. #}
+        <div class="twofa-row">
+            <form method="post" action="/settings/2fa/backup" class="set-row">
+                <input type="text" name="code" inputmode="numeric" placeholder="{{ t('settings.code_app_placeholder') }}"
+                       aria-label="{{ t('auth.totp.code_app') }}" required>
+                <button class="btn-secondary" type="submit">{{ t('settings.new_backup_codes') }}</button>
+            </form>
+            <form method="post" action="/settings/2fa/disable" class="set-row">
+                <input type="password" name="password" placeholder="{{ t('settings.your_password_placeholder') }}"
+                       aria-label="{{ t('auth.password') }}" autocomplete="current-password" required>
+                <button class="btn-secondary" type="submit">{{ t('settings.twofa_disable') }}</button>
+            </form>
+        </div>
         {% else %}
         <form method="post" action="/settings/2fa/start" id="enableform" class="set-row">
             <button class="btn-secondary" type="submit">{{ t('settings.twofa_enable') }}</button>
         </form>
         {% endif %}
-    </div>
-
-    <div class="box">
-        {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
-        <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
-            {% for code, meta in langs.items() %}
-            <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
-            {% endfor %}
-        </select>
     </div>
 
     <div class="box">
@@ -142,6 +146,14 @@
         </form>
     </div>
 
+    <div class="box wide">
+        {{ sechead(t('account.danger_title'), t('account.danger_hint')) }}
+        <form method="post" action="/settings/account/delete" data-confirm="{{ t('account.delete_confirm') }}">
+            <label class="fld"><span>{{ t('account.current_password') }}</span>
+                <input type="password" name="password" autocomplete="current-password" required></label>
+            <button class="btn-secondary btn-danger" type="submit">{{ t('account.delete_btn') }}</button>
+        </form>
+    </div>
 </section>
 
 <section class="setpanel" data-panel="folders" hidden>
@@ -201,6 +213,7 @@
 
     <form method="post" action="/settings/sources" class="src-add">
         <p class="src-add-title">{{ t('settings.connect_new') }}</p>
+        {# Connect sits inline on this row (like the edit form's Save), not on a line of its own. #}
         <div class="src-add-row">
             <select name="kind" aria-label="{{ t('settings.hosting_aria') }}">
                 {% for value, label in source_kinds %}
@@ -209,26 +222,13 @@
             </select>
             <input type="text" name="display_name" placeholder="{{ t('settings.display_name_placeholder') }}"
                    aria-label="{{ t('settings.source_name_aria') }}" maxlength="128">
+            <button class="btn-secondary" type="submit">{{ t('settings.connect') }}</button>
         </div>
         <input type="url" name="base_url" placeholder="{{ t('settings.address_placeholder') }}"
                aria-label="{{ t('settings.source_address_aria') }}" required>
         <input type="password" name="token" placeholder="{{ t('settings.token_placeholder') }}"
                aria-label="{{ t('settings.token_aria') }}" autocomplete="off" spellcheck="false">
         <p class="note">{{ t('settings.gitea_note') }}</p>
-        <button class="btn-secondary" type="submit">{{ t('settings.connect') }}</button>
-    </form>
-</div>
-</section>
-
-{# Account deletion — its own tab: an irreversible action kept apart from
-   everyday settings so you don't stumble into it by accident. #}
-<section class="setpanel" data-panel="delete" hidden>
-<div class="box wide">
-    {{ sechead(t('account.danger_title'), t('account.danger_hint')) }}
-    <form method="post" action="/settings/account/delete" data-confirm="{{ t('account.delete_confirm') }}">
-        <label class="fld"><span>{{ t('account.current_password') }}</span>
-            <input type="password" name="password" autocomplete="current-password" required></label>
-        <button class="btn-secondary btn-danger" type="submit">{{ t('account.delete_btn') }}</button>
     </form>
 </div>
 </section>
@@ -297,6 +297,36 @@
 (function () {
     var sel = document.querySelector('.lang-select[data-lang-nav]');
     if (sel) sel.addEventListener('change', function () { if (sel.value) location.href = sel.value; });
+})();
+
+// Fields that save themselves on blur (the name) — no button. POSTs the value and
+// flashes a small "Saved" note; a blank falls back to the email's local part server-side.
+(function () {
+    document.querySelectorAll('input[data-autosave]').forEach(function (inp) {
+        var initial = inp.value;
+        var box = inp.closest('.box');
+        var note = box ? box.querySelector('.autosave-note') : null;
+        inp.addEventListener('blur', function () {
+            if (inp.value.trim() === initial.trim()) return;
+            var body = new URLSearchParams();
+            body.set(inp.name, inp.value.trim());
+            fetch(inp.getAttribute('data-autosave'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+                credentials: 'same-origin'
+            }).then(function (r) {
+                if (!r.ok) return;
+                initial = inp.value;
+                if (note) {
+                    note.textContent = inp.getAttribute('data-saved') || 'Saved';
+                    note.hidden = false;
+                    note.classList.add('show');
+                    setTimeout(function () { note.classList.remove('show'); }, 1800);
+                }
+            }).catch(function () {});
+        });
+    });
 })();
 
 // Photo upload happens on file selection: there is no separate "submit" button in the

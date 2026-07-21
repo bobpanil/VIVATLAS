@@ -70,7 +70,7 @@
         </div>{# /.avatar-layout #}
     </div>
 
-    <div class="box">
+    <div class="box wide">
         {{ sechead(t('account.name_title'), t('account.name_hint')) }}
         <form method="post" action="/settings/account/name">
             <label class="fld"><span>{{ t('account.name_label') }}</span>
@@ -78,6 +78,41 @@
                        maxlength="128" autocomplete="name"></label>
             <button class="btn-secondary" type="submit">{{ t('account.save_name_btn') }}</button>
         </form>
+    </div>
+
+    {# Two-step verification and interface language sit side by side, above the
+       email/password pair. #}
+    <div class="box">
+        {{ sechead(t('settings.twofa_title'), t('settings.twofa_tip')) }}
+        {% if totp_on %}
+        <p class="set-on">{{ t('settings.twofa_on') }}</p>
+        <p class="legend">{{ t('settings.backup_left', n=backup_left) }}</p>
+
+        <form method="post" action="/settings/2fa/backup" class="set-row">
+            <input type="text" name="code" inputmode="numeric" placeholder="{{ t('settings.code_app_placeholder') }}"
+                   aria-label="{{ t('auth.totp.code_app') }}" required>
+            <button class="btn-secondary" type="submit">{{ t('settings.new_backup_codes') }}</button>
+        </form>
+
+        <form method="post" action="/settings/2fa/disable" class="set-row">
+            <input type="password" name="password" placeholder="{{ t('settings.your_password_placeholder') }}"
+                   aria-label="{{ t('auth.password') }}" autocomplete="current-password" required>
+            <button class="btn-secondary" type="submit">{{ t('settings.twofa_disable') }}</button>
+        </form>
+        {% else %}
+        <form method="post" action="/settings/2fa/start" id="enableform" class="set-row">
+            <button class="btn-secondary" type="submit">{{ t('settings.twofa_enable') }}</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="box">
+        {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
+        <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
+            {% for code, meta in langs.items() %}
+            <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
+            {% endfor %}
+        </select>
     </div>
 
     <div class="box">
@@ -105,41 +140,6 @@
                 <input type="password" name="confirm" autocomplete="new-password" required></label>
             <button class="btn-secondary" type="submit">{{ t('account.change_password_btn') }}</button>
         </form>
-    </div>
-
-    {# Two-step verification — moved here from the former "Security" tab. #}
-    <div class="box wide">
-        {{ sechead(t('settings.twofa_title'), t('settings.twofa_tip')) }}
-        {% if totp_on %}
-        <p class="set-on">{{ t('settings.twofa_on') }}</p>
-        <p class="legend">{{ t('settings.backup_left', n=backup_left) }}</p>
-
-        <form method="post" action="/settings/2fa/backup" class="set-row">
-            <input type="text" name="code" inputmode="numeric" placeholder="{{ t('settings.code_app_placeholder') }}"
-                   aria-label="{{ t('auth.totp.code_app') }}" required>
-            <button class="btn-secondary" type="submit">{{ t('settings.new_backup_codes') }}</button>
-        </form>
-
-        <form method="post" action="/settings/2fa/disable" class="set-row">
-            <input type="password" name="password" placeholder="{{ t('settings.your_password_placeholder') }}"
-                   aria-label="{{ t('auth.password') }}" autocomplete="current-password" required>
-            <button class="btn-secondary" type="submit">{{ t('settings.twofa_disable') }}</button>
-        </form>
-        {% else %}
-        <form method="post" action="/settings/2fa/start" id="enableform" class="set-row">
-            <button class="btn-secondary" type="submit">{{ t('settings.twofa_enable') }}</button>
-        </form>
-        {% endif %}
-    </div>
-
-    {# Interface language — moved here from the former "Appearance" tab (theme was removed). #}
-    <div class="box">
-        {{ sechead(t('settings.language_title'), t('settings.language_tip')) }}
-        <select class="lang-select" data-lang-nav aria-label="{{ t('settings.language_title') }}">
-            {% for code, meta in langs.items() %}
-            <option value="/lang/{{ code }}?next=/settings"{% if code == lang %} selected{% endif %} dir="{{ meta[1] }}">{{ meta[0] }}</option>
-            {% endfor %}
-        </select>
     </div>
 
 </section>

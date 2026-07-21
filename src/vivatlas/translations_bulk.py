@@ -87,6 +87,7 @@ BULK = {
     'artifact.checked': {"en": 'checked', "ru": 'проверено', "he": 'נבדק'},
     'artifact.close': {"en": 'Close', "ru": 'Закрыть', "he": 'סגירה'},
     'artifact.rescan': {"en": 'Rescan', "ru": 'Пересканировать', "he": 'סריקה מחדש'},
+    'artifact.rescanning': {"en": 'Rescanning…', "ru": 'Сканирование…', "he": 'סורק…'},
     'artifact.edit': {"en": 'Edit', "ru": 'Редактировать', "he": 'עריכה'},
     'artifact.save': {"en": 'Save', "ru": 'Сохранить', "he": 'שמירה'},
     'artifact.cancel': {"en": 'Cancel', "ru": 'Отмена', "he": 'ביטול'},

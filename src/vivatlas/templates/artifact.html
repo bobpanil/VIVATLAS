@@ -192,11 +192,12 @@
 {% set can_delete = mine or (request.state.is_owner and a.shared) %}
 <footer class="modal-foot">
     <a class="btn-secondary foot-left" href="/">{{ t('artifact.close') }}</a>
-    {# Rescan — force a fresh pass on just this card. To the right of Close. For the
-       card's owner, or an admin on a shared card. Not for drafts (no source yet). #}
+    {# Rescan — force a fresh pass on just this card, right next to "Copy source". For
+       the card's owner, or an admin on a shared card. Not for drafts (no source yet). #}
     {% if (mine or (request.state.is_admin and a.shared)) and not is_draft %}
-    <form method="post" action="/artifact/{{ a.id }}/rescan" class="art-rescan foot-left">
-        <button class="btn-secondary" type="submit">{{ t('artifact.rescan') }}</button>
+    <form method="post" action="/artifact/{{ a.id }}/rescan" class="art-rescan" id="rescan-form">
+        <button class="btn-secondary" type="submit" id="rescan-btn"
+                data-busy="{{ t('artifact.rescanning') }}">{{ t('artifact.rescan') }}</button>
     </form>
     {% endif %}
     {% if gh %}
@@ -235,6 +236,20 @@
     open.addEventListener('click', function () { show(true); });
     var cancel = form.querySelector('.art-edit-cancel');
     if (cancel) cancel.addEventListener('click', function () { show(false); });
+})();
+
+// Rescan — show a busy state while the rebuild runs (a few seconds), then the page
+// reloads with the fresh card.
+(function () {
+    var rf = document.getElementById('rescan-form');
+    var rb = document.getElementById('rescan-btn');
+    if (!rf || !rb) return;
+    rf.addEventListener('submit', function () {
+        rb.disabled = true;
+        rb.classList.add('is-busy');
+        var busy = rb.getAttribute('data-busy');
+        if (busy) rb.textContent = busy;
+    });
 })();
 </script>
 <script>

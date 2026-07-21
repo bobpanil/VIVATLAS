@@ -3525,6 +3525,27 @@ a.art-chip-pur:hover { border-color: currentColor; }
 }
 .art-edit-open { margin-top: 4px; }
 
+/* A footer button mid-action (Rescan): dimmed, non-clickable, with a small spinner
+   so the wait shows progress. */
+.btn-secondary.is-busy {
+    opacity: 0.8;
+    cursor: default;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.btn-secondary.is-busy::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: rescan-spin 0.7s linear infinite;
+}
+@keyframes rescan-spin { to { transform: rotate(360deg); } }
+
 /* Card section: a full-width line across the modal (−24 = body padding) + denser. */
 .art-sec {
     border-top: 1px solid var(--line);
@@ -4319,6 +4340,9 @@ a.art-chip-pur:hover { border-color: currentColor; }
     grid-template-columns: 1fr 1fr;
     gap: var(--s-xl) var(--s-xxl);
     align-content: start;
+    /* Paired boxes take their natural height (e.g. 2FA next to the shorter
+       language select) instead of stretching to match the taller one. */
+    align-items: start;
 }
 
 /* The grid (gap) does the separating, not .box's top margin — we drop it here. */

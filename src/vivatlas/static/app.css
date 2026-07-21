@@ -3510,6 +3510,21 @@ html.card-dragging .side-folders-head {
 a.art-chip-pur { text-decoration: none; cursor: pointer; }
 a.art-chip-pur:hover { border-color: currentColor; }
 
+/* Manual edit form on the card page. */
+.art-edit { display: flex; flex-direction: column; gap: 10px; }
+.art-edit textarea {
+    width: 100%;
+    font: inherit;
+    resize: vertical;
+}
+.art-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 2px;
+}
+.art-edit-open { margin-top: 4px; }
+
 /* Card section: a full-width line across the modal (−24 = body padding) + denser. */
 .art-sec {
     border-top: 1px solid var(--line);

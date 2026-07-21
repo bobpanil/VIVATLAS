@@ -1269,6 +1269,58 @@ async def rescan_artifact(artifact_id: int) -> bool:
     return True
 
 
+@router.post("/artifact/{artifact_id}/edit")
+async def edit_artifact(
+    request: Request,
+    artifact_id: int,
+    name: Annotated[str, Form()] = "",
+    artifact_type: Annotated[str, Form()] = "",
+    summary_short: Annotated[str, Form()] = "",
+    summary_normal: Annotated[str, Form()] = "",
+    summary_technical: Annotated[str, Form()] = "",
+) -> Response:
+    """Edit a card by hand — the name, type and the three descriptions. For the card's
+    owner or an admin on a shared card, whether the AI succeeded or failed. Clears the
+    "summary failed" note, re-indexes the words and re-embeds so search reflects the
+    edit. A hand-written summary is non-empty, so the failed-summary retry leaves it be."""
+    user_id = getattr(request.state, "user_id", None)
+    is_admin = getattr(request.state, "is_admin", False)
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None:
+            raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
+        mine = art.owner_user_id is not None and art.owner_user_id == user_id
+        if not (mine or (is_admin and art.shared)):
+            raise HTTPException(403)
+        if name.strip():
+            art.name = name.strip()[:200]
+        if artifact_type.strip():
+            art.artifact_type = artifact_type.strip()[:40]
+        art.summary_short = summary_short.strip()
+        art.summary_normal = summary_normal.strip()
+        art.summary_technical = summary_technical.strip()
+        art.summary_error = None
+        art.summary_model = "manual"
+        index_artifact_for_words(session, art)
+        session.commit()
+    # Re-embed with the edited text so semantic search matches it. Best-effort: no AI
+    # key just means search leans on the old vector until the next pass.
+    try:
+        embed_model = build_embedding_model()
+    except Exception:
+        embed_model = None
+    if embed_model is not None:
+        try:
+            with session_scope() as session:
+                art = session.get(Artifact, artifact_id)
+                if art is not None:
+                    await embed_artifact(session, embed_model, art, force=True)
+                    session.commit()
+        finally:
+            await embed_model.aclose()
+    return RedirectResponse(f"/a/{artifact_id}", status_code=303)
+
+
 @router.post("/artifact/{artifact_id}/rescan")
 async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
     """Force a fresh scan of one card. Allowed to the card's owner, or to an admin for

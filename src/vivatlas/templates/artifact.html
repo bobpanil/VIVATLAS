@@ -29,18 +29,45 @@
    everything else (tags, folders, source, passport). Narrow screen — a single column. #}
 <div class="art-cols">
 <div class="art-main">
+{% set can_edit = (a.owner_user_id and a.owner_user_id == request.state.user_id) or (request.state.is_admin and a.shared) %}
 {% if preview_url %}
 <div class="art-image"><img src="{{ preview_url }}" alt="{{ t('artifact.preview_alt', name=a.name) }}"></div>
 {% endif %}
 
-<p class="art-lede">{{ a.summary_short or t('artifact.no_summary') }}</p>
-{% if a.summary_error %}<p class="warn">{{ t('artifact.summary_failed', error=a.summary_error) }}</p>{% endif %}
+{# The read view. "Edit" (owner/admin) swaps it for the form below — handy when the
+   AI summary is wrong or missing, but also just to fix anything by hand. #}
+<div class="art-display">
+    <p class="art-lede">{{ a.summary_short or t('artifact.no_summary') }}</p>
+    {% if a.summary_error %}<p class="warn">{{ t('artifact.summary_failed', error=a.summary_error) }}</p>{% endif %}
 
-{% if a.summary_normal %}
-<section class="art-sec"><h3>{{ t('artifact.what_is') }}</h3><p>{{ a.summary_normal }}</p></section>
-{% endif %}
-{% if a.summary_technical %}
-<section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ a.summary_technical }}</p></section>
+    {% if a.summary_normal %}
+    <section class="art-sec"><h3>{{ t('artifact.what_is') }}</h3><p>{{ a.summary_normal }}</p></section>
+    {% endif %}
+    {% if a.summary_technical %}
+    <section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ a.summary_technical }}</p></section>
+    {% endif %}
+    {% if can_edit %}
+    <button type="button" class="btn-secondary art-edit-open">{{ t('artifact.edit') }}</button>
+    {% endif %}
+</div>
+
+{% if can_edit %}
+<form class="art-edit" method="post" action="/artifact/{{ a.id }}/edit" hidden>
+    <label class="fld"><span>{{ t('artifact.edit_name') }}</span>
+        <input type="text" name="name" value="{{ a.name }}" maxlength="200"></label>
+    <label class="fld"><span>{{ t('artifact.edit_type') }}</span>
+        <input type="text" name="artifact_type" value="{{ a.artifact_type }}" maxlength="40"></label>
+    <label class="fld"><span>{{ t('artifact.edit_short') }}</span>
+        <input type="text" name="summary_short" value="{{ a.summary_short }}" maxlength="200"></label>
+    <label class="fld"><span>{{ t('artifact.what_is') }}</span>
+        <textarea name="summary_normal" rows="3">{{ a.summary_normal }}</textarea></label>
+    <label class="fld"><span>{{ t('artifact.what_inside') }}</span>
+        <textarea name="summary_technical" rows="4">{{ a.summary_technical }}</textarea></label>
+    <div class="art-edit-actions">
+        <button type="button" class="btn-secondary art-edit-cancel">{{ t('artifact.cancel') }}</button>
+        <button type="submit" class="cta">{{ t('artifact.save') }}</button>
+    </div>
+</form>
 {% endif %}
 </div>{# /.art-main #}
 
@@ -192,6 +219,24 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+// Manual edit: swap the read view for the form and back. No network here — the form
+// posts normally on Save.
+(function () {
+    var open = document.querySelector('.art-edit-open');
+    var form = document.querySelector('.art-edit');
+    var display = document.querySelector('.art-display');
+    if (!open || !form || !display) return;
+    function show(editing) {
+        form.hidden = !editing;
+        display.hidden = editing;
+        if (editing) { var f = form.querySelector('input, textarea'); if (f) f.focus(); }
+    }
+    open.addEventListener('click', function () { show(true); });
+    var cancel = form.querySelector('.art-edit-cancel');
+    if (cancel) cancel.addEventListener('click', function () { show(false); });
+})();
+</script>
 <script>
 // Footer buttons copy the link (source — the original, storage — the copy in
 // Gitea) rather than opening it: easier to paste, for example, into Claude Code.

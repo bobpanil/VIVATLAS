@@ -418,6 +418,9 @@ CATALOG: dict[str, dict[str, str]] = {
     "admin.key.gitea_url": {"en": "Gitea address", "ru": "Адрес Gitea", "he": "כתובת Gitea"},
     "admin.key.gitea_token": {"en": "Gitea token", "ru": "Токен Gitea", "he": "אסימון Gitea"},
     "admin.key.github_token": {"en": "GitHub token", "ru": "Токен GitHub", "he": "אסימון GitHub"},
+    "admin.key.github_user": {
+        "en": "GitHub account", "ru": "Аккаунт GitHub", "he": "חשבון GitHub",
+    },
     "admin.key.google_key": {"en": "Google AI key", "ru": "Ключ Google AI", "he": "מפתח Google AI"},
     "admin.key.llm_model": {
         "en": "Description model",
@@ -830,9 +833,20 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     "admin.sources.title": {"en": "Sources", "ru": "Источники", "he": "מקורות"},
     "admin.sources.tip": {
-        "en": "Where the catalog reads public repositories from — Gitea and GitHub. Overrides .env, stored encrypted, applies without a restart. Leave a token blank to keep it.",
-        "ru": "Откуда каталог читает открытые репозитории — Gitea и GitHub. Поверх .env, хранятся шифром, применяются без перезапуска. Пустой токен — оставить прежний.",
-        "he": "מהיכן הקטלוג קורא מאגרים ציבוריים — Gitea ו-GitHub. גובר על .env, נשמר מוצפן, חל ללא הפעלה מחדש. השאירו אסימון ריק כדי לשמור אותו.",
+        "en": "Where the catalog reads public repositories from — Gitea (whole instance) and one GitHub account. Overrides .env, stored encrypted, applies without a restart. Leave a token blank to keep it. Save, then Scan.",
+        "ru": "Откуда каталог читает открытые репозитории — Gitea (весь сервер) и один аккаунт GitHub. Поверх .env, хранятся шифром, применяются без перезапуска. Пустой токен — оставить прежний. Сохраните, затем «Сканировать».",
+        "he": "מהיכן הקטלוג קורא מאגרים ציבוריים — Gitea (כל השרת) וחשבון GitHub אחד. גובר על .env, נשמר מוצפן, חל ללא הפעלה מחדש. השאירו אסימון ריק כדי לשמור אותו. שמרו, ואז סרקו.",
+    },
+    "admin.sources.scan": {"en": "Scan now", "ru": "Сканировать", "he": "סריקה"},
+    "admin.sources.scan_hint": {
+        "en": "Pulls public repositories into the shared catalogue (visible to everyone). Save your changes first; progress shows on the home page.",
+        "ru": "Забирает открытые репозитории в общий каталог (видят все). Сначала сохраните изменения; ход виден на главной.",
+        "he": "מושך מאגרים ציבוריים לקטלוג המשותף (גלוי לכולם). שמרו קודם את השינויים; ההתקדמות מוצגת בעמוד הבית.",
+    },
+    "admin.sources.scan_none": {
+        "en": "Set a Gitea address or a GitHub account first, then Save.",
+        "ru": "Сначала укажите адрес Gitea или аккаунт GitHub и сохраните.",
+        "he": "הזינו קודם כתובת Gitea או חשבון GitHub, ואז שמרו.",
     },
     "admin.config.saved": {
         "en": "Configuration saved.", "ru": "Настройки сохранены.", "he": "ההגדרות נשמרו.",

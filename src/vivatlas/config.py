@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # doesn't cap us at 60 requests per hour. Works without a token too: checking
     # all sources takes 2-3 requests.
     github_token: str = ""
+    # Which GitHub account (user or organization) to catalogue: only its PUBLIC
+    # repositories are read. A token alone isn't enough — GitHub has no
+    # "everything visible" listing like Gitea, so we need to know whose repos to fetch.
+    github_user: str = ""
 
     # Google AI Studio. Verified with live requests on 15.07.2026:
     #   pro (any)            — "quota exceeded", not available for free;

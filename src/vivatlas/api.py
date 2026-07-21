@@ -37,30 +37,30 @@ _AUTOSCAN_WARMUP_SECONDS = 300
 
 
 async def _autoscan_pass() -> None:
-    from vivatlas.web import _run_user_scan
+    from vivatlas.web import _scan_one_source
 
     now = datetime.now(UTC)
     edge = now - _AUTOSCAN_EVERY
     due = (Source.last_auto_scan_at.is_(None)) | (Source.last_auto_scan_at < edge)
-    claimed: list[tuple[int, int]] = []
+    claimed: list[int] = []
     with session_scope() as session:
+        # Both shared (admin, no owner) and personal sources that carry a token —
+        # index_repository files each into the right zone from the source's owner.
         rows = session.execute(
-            select(Source.id, Source.owner_user_id).where(
-                Source.owner_user_id.is_not(None), Source.token_enc != "", due
-            )
+            select(Source.id).where(Source.token_enc != "", due)
         ).all()
-        for sid, uid in rows:
+        for (sid,) in rows:
             # Claim the source atomically: set a fresh marker only if it's
             # still due. The other server sees a zero rowcount and skips it.
             res = session.execute(
                 update(Source).where(Source.id == sid, due).values(last_auto_scan_at=now)
             )
             if res.rowcount:
-                claimed.append((uid, sid))
+                claimed.append(sid)
         session.commit()
-    for uid, sid in claimed:
+    for sid in claimed:
         try:
-            await _run_user_scan(uid, sid, progress=None)  # quietly, no progress bar
+            await _scan_one_source(sid, progress=None)  # quietly, no progress bar
         except Exception:
             log.exception("auto-scan of source %s failed", sid)
 

@@ -9,16 +9,18 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, update
 
 from vivatlas import auth, caticons, i18n, mailer, runtime_settings, security
 from vivatlas import filters as flt
 from vivatlas.auth_web import _reset_link_base
+from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.models import Artifact, Source, User
-from vivatlas.web import BASE, _counts, _delete_artifact
+from vivatlas.scanner import get_or_create_source
+from vivatlas.web import BASE, _counts, _delete_artifact, launch_global_scan
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ def _config_rows(session, lang: str = "en") -> list[dict]:
     label = {
         runtime_settings.CFG_GITEA_URL: "admin.key.gitea_url",
         runtime_settings.CFG_GITEA_TOKEN: "admin.key.gitea_token",
+        runtime_settings.CFG_GITHUB_USER: "admin.key.github_user",
         runtime_settings.CFG_GITHUB_TOKEN: "admin.key.github_token",
         runtime_settings.CFG_GOOGLE_KEY: "admin.key.google_key",
         runtime_settings.CFG_LLM_MODEL: "admin.key.llm_model",
@@ -156,6 +159,7 @@ def config_save(
     request: Request,
     gitea_url: Annotated[str | None, Form()] = None,
     gitea_token: Annotated[str | None, Form()] = None,
+    github_user: Annotated[str | None, Form()] = None,
     github_token: Annotated[str | None, Form()] = None,
     google_api_key: Annotated[str | None, Form()] = None,
     llm_model: Annotated[str | None, Form()] = None,
@@ -172,6 +176,7 @@ def config_save(
         submitted = {
             runtime_settings.CFG_GITEA_URL: gitea_url,
             runtime_settings.CFG_GITEA_TOKEN: gitea_token,
+            runtime_settings.CFG_GITHUB_USER: github_user,
             runtime_settings.CFG_GITHUB_TOKEN: github_token,
             runtime_settings.CFG_GOOGLE_KEY: google_api_key,
             runtime_settings.CFG_LLM_MODEL: llm_model,
@@ -185,6 +190,58 @@ def config_save(
         return _admin_page(
             request, session, me, config_msg=i18n.translate("admin.config.saved", lang)
         )
+
+
+# --- sources: scan the shared Gitea/GitHub into the common catalogue --------
+
+
+def _ensure_global_sources(session) -> list[tuple[int, str]]:
+    """Materialize the SHARED Gitea/GitHub sources from the saved admin config, so
+    the scan machinery has Source rows (owner None => shared cards) to crawl. Keeps
+    each source's token in sync with the config. Returns (id, name) per configured host."""
+    out: list[tuple[int, str]] = []
+    gitea_url = (settings.gitea_url or "").strip()
+    if gitea_url:
+        src = get_or_create_source(session, "gitea", gitea_url, "Gitea")
+        src.owner_user_id = None
+        src.token_enc = (
+            security.encrypt_secret(settings.gitea_token) if settings.gitea_token else ""
+        )
+        session.flush()
+        out.append((src.id, src.display_name or "Gitea"))
+    account = (settings.github_user or "").strip()
+    if account:
+        src = get_or_create_source(
+            session, "github", f"https://github.com/{account}", f"GitHub: {account}"
+        )
+        src.owner_user_id = None
+        src.token_enc = (
+            security.encrypt_secret(settings.github_token) if settings.github_token else ""
+        )
+        session.flush()
+        out.append((src.id, src.display_name or f"GitHub: {account}"))
+    return out
+
+
+@router.post("/admin/scan")
+def admin_scan(request: Request) -> Response:
+    """Scan the shared sources now (owner-only). Refreshes the global Source rows
+    from the saved config and launches a background crawl; the progress bar shows on
+    the home page and the resulting cards are shared with everyone. Reads the SAVED
+    config, so the admin should press Save before Scan."""
+    lang = getattr(request.state, "lang", "en")
+    with session_scope() as session:
+        me = _owner_or_403(session, request)
+        sources = _ensure_global_sources(session)
+        session.commit()
+        if not sources:
+            return _admin_page(
+                request, session, me,
+                config_err=i18n.translate("admin.sources.scan_none", lang),
+            )
+        me_id = me.id
+    launch_global_scan(me_id, [sid for sid, _ in sources], ", ".join(n for _, n in sources), lang)
+    return RedirectResponse("/", status_code=303)
 
 
 # --- email (SMTP) ----------------------------------------------------------

@@ -786,72 +786,98 @@ def precheck_user_scan(user_id: int | None, source_id: int) -> tuple[str, str]:
     return ("", name)
 
 
+def _provider_for(kind: str, base_url: str, token: str):
+    """Build the provider for a source. base_url holds the Gitea host or, for
+    GitHub, the account's profile URL (the account is parsed out of it)."""
+    if kind == "github":
+        from vivatlas.providers.github import GitHubProvider
+
+        return GitHubProvider(user=base_url, token=token, timeout=settings.http_timeout_seconds)
+    return GiteaProvider(base_url=base_url, token=token, timeout=settings.http_timeout_seconds)
+
+
 def launch_user_scan(user_id: int, source_id: int, source_name: str, lang: str = "en") -> None:
-    """Start a background scan. Sets up the progress bar and hands back control
-    immediately — the whole crawl (even fetching the list) runs as a task of the same loop, and
-    the button instantly leads to the home page where the bar is visible."""
+    """Start a background scan of one personal source. Sets up the progress bar and
+    hands back control immediately — the whole crawl runs as a task of the same loop,
+    and the button instantly leads to the home page where the bar is visible."""
     _SCANS[user_id] = {
-        "state": "running",
-        "total": 0,
-        "done": 0,
-        "added": 0,
-        "source": source_name,
-        "error": "",
+        "state": "running", "total": 0, "done": 0, "added": 0, "source": source_name, "error": "",
     }
     # Manual launch — a full rebuild (force): the user clicked and is waiting for something fresh.
-    task = asyncio.create_task(
-        _run_user_scan(user_id, source_id, _SCANS[user_id], force=True, lang=lang)
-    )
+    task = asyncio.create_task(_scan_task([source_id], _SCANS[user_id], force=True, lang=lang))
     _SCAN_TASKS.add(task)
     task.add_done_callback(_SCAN_TASKS.discard)
 
 
-async def _run_user_scan(
-    user_id: int,
+def launch_global_scan(
+    admin_user_id: int, source_ids: list[int], source_name: str, lang: str = "en"
+) -> None:
+    """Admin-triggered scan of the SHARED sources (Gitea/GitHub). Progress is keyed
+    by the admin who started it, so the bar shows on their home page; the cards are
+    shared (the sources have no owner) and appear in everyone's catalogue."""
+    _SCANS[admin_user_id] = {
+        "state": "running", "total": 0, "done": 0, "added": 0, "source": source_name, "error": "",
+    }
+    task = asyncio.create_task(_scan_task(source_ids, _SCANS[admin_user_id], force=True, lang=lang))
+    _SCAN_TASKS.add(task)
+    task.add_done_callback(_SCAN_TASKS.discard)
+
+
+async def _scan_task(
+    source_ids: list[int], progress: dict, force: bool, lang: str
+) -> None:
+    """Run several sources under one progress bar, then set the final state."""
+    try:
+        for sid in source_ids:
+            await _scan_one_source(sid, progress, force=force, lang=lang)
+        progress.update(state="done")
+    except Exception as exc:
+        log.exception("scan task failed")
+        progress.update(state="error", error=str(exc))
+
+
+async def _scan_one_source(
     source_id: int,
     progress: dict | None = None,
     force: bool = False,
     lang: str = "en",
 ) -> None:
-    """A full background crawl of a source: fetch the repository list, then one
-    by one — download, describe, file into the owner's private zone. With progress
-    (manual launch) we move the bar on the home page; without it (the daily auto-scan)
-    we work quietly. force — a full rebuild (manual); without it the auto-scan
-    skips unchanged repositories, spending AI only on new ones. A failure on
-    one repository doesn't take down the rest; a general failure marks the bar with an error."""
+    """A full background crawl of one source: fetch the repository list, then one by
+    one — download, describe, file into the source's zone. A SHARED source (no owner)
+    yields shared cards visible to everyone; a PERSONAL source yields cards private to
+    its owner — index_repository sets owner/zone from the source, so we don't override
+    it here. With `progress` (manual launch) the home-page bar moves; without it (the
+    daily auto-scan) we work quietly. `force` rebuilds even unchanged repos. A failure
+    on one repository doesn't take down the rest; a fatal failure is raised to the caller."""
 
     def bump(key: str, n: int = 1) -> None:
         if progress is not None:
             progress[key] = progress.get(key, 0) + n
 
-    def setp(**kw) -> None:
-        if progress is not None:
-            progress.update(kw)
-
-    # We take the token from the database here, in the background: in precheck we
-    # don't decrypt it longer
-    # than needed. It's your own source — already checked (manual launch) or it's a personal
-    # source from the auto-crawl.
     with session_scope() as session:
         src = session.get(Source, source_id)
-        base_url, token_enc = (src.base_url, src.token_enc) if src else ("", "")
+        if src is None:
+            return
+        base_url, token_enc, kind, owner_uid = (
+            src.base_url, src.token_enc, src.kind, src.owner_user_id
+        )
+    # Personal sources may pull the owner's private repos; a shared source never does.
+    include_private = owner_uid is not None
     try:
         token = security.decrypt_secret(token_enc) if token_enc else ""
-    except Exception:
-        setp(state="error", error=i18n.translate("scan.err.token_lost", lang))
-        return
+    except Exception as exc:
+        raise RuntimeError(i18n.translate("scan.err.token_lost", lang)) from exc
 
-    provider = GiteaProvider(base_url=base_url, token=token, timeout=settings.http_timeout_seconds)
+    provider = _provider_for(kind, base_url, token)
     text_model = build_text_model()
     embed_model = build_embedding_model()
     try:
-        # Fetch and save the repository list. While total=0, the bar honestly
-        # says "reading the repository list…".
+        # Fetch and save the repository list. While total is unchanged, the bar
+        # honestly says "reading the repository list…".
         with session_scope() as session:
             src = session.get(Source, source_id)
-            await scan_source(session, provider, src, include_private=True)
+            await scan_source(session, provider, src, include_private=include_private)
             session.commit()
-            # select(Repository.id) already returns the id numbers themselves, not rows.
             repo_ids = list(
                 session.scalars(
                     select(Repository.id).where(
@@ -859,7 +885,7 @@ async def _run_user_scan(
                     )
                 )
             )
-        setp(total=len(repo_ids))
+        bump("total", len(repo_ids))
         for rid in repo_ids:
             try:
                 with session_scope() as session:
@@ -868,34 +894,30 @@ async def _run_user_scan(
                         session, provider, text_model, repo, force=force
                     )
                     art = session.scalar(select(Artifact).where(Artifact.repository_id == rid))
-                    # "unchanged" — the same commit, the card is already built: we don't waste
-                    # AI (important for the daily auto-scan).
+                    # "unchanged" — the same commit, the card is already built: we don't
+                    # waste AI (important for the daily auto-scan).
                     if art is not None and not result.startswith("unchanged"):
                         await embed_artifact(session, embed_model, art)
                         await tag_artifact(session, art, text_model)
                         index_artifact_for_words(session, art)
-                        # A new card we file as private to the owner (they make it shared
-                        # themselves with a button) and mark it "new". For an existing one we
-                        # don't touch the owner, zone or category — we respect their choice.
+                        # A brand-new card is shown ("new" badge); index_repository already
+                        # set its owner and zone from the source (shared if no owner). A
+                        # personal card is filed into the owner's private folder if we can
+                        # guess one; a shared card is left folderless for the admin to file.
                         if result.startswith("created"):
                             art.hidden = False
-                            art.owner_user_id = user_id
-                            art.shared = False
                             art.is_new = True
-                            auto_cid = _auto_category(session, art, user_id)
-                            if auto_cid is not None:
-                                session.add(
-                                    ArtifactCategory(artifact_id=art.id, category_id=auto_cid)
-                                )
+                            if owner_uid is not None:
+                                auto_cid = _auto_category(session, art, owner_uid)
+                                if auto_cid is not None:
+                                    session.add(
+                                        ArtifactCategory(artifact_id=art.id, category_id=auto_cid)
+                                    )
                             bump("added")
                     session.commit()
             except Exception:
                 log.exception("scan: repository %s failed to build", rid)
             bump("done")
-        setp(state="done")
-    except Exception as exc:
-        log.exception("scan of source %s failed", source_id)
-        setp(state="error", error=str(exc))
     finally:
         await provider.aclose()
         await text_model.aclose()

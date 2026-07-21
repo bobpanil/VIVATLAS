@@ -17,5 +17,9 @@ def build_provider(kind: str = "gitea") -> GitProvider:
     if kind == "github":
         from vivatlas.providers.github import GitHubProvider
 
-        return GitHubProvider()
+        return GitHubProvider(
+            user=settings.github_user,
+            token=settings.github_token,
+            timeout=settings.http_timeout_seconds,
+        )
     raise ValueError(f"Unknown provider: {kind}")

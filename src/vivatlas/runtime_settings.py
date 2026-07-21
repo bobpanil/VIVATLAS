@@ -192,6 +192,7 @@ def _clean_security(mode: str) -> str:
 CFG_GITEA_URL = "cfg_gitea_url"
 CFG_GITEA_TOKEN = "cfg_gitea_token"  # secret
 CFG_GITHUB_TOKEN = "cfg_github_token"  # secret
+CFG_GITHUB_USER = "cfg_github_user"
 CFG_GOOGLE_KEY = "cfg_google_api_key"  # secret
 CFG_LLM_MODEL = "cfg_llm_model"
 CFG_EMBEDDING_MODEL = "cfg_embedding_model"
@@ -200,6 +201,7 @@ CFG_EMBEDDING_MODEL = "cfg_embedding_model"
 _CONFIG_MAP: dict[str, tuple[str, bool]] = {
     CFG_GITEA_URL: ("gitea_url", False),
     CFG_GITEA_TOKEN: ("gitea_token", True),
+    CFG_GITHUB_USER: ("github_user", False),
     CFG_GITHUB_TOKEN: ("github_token", True),
     CFG_GOOGLE_KEY: ("google_api_key", True),
     CFG_LLM_MODEL: ("llm_model", False),

@@ -182,13 +182,21 @@
     <h3>{{ t('admin.sources.title') }}</h3>
     <p class="legend">{{ t('admin.sources.tip') }}</p>
     {% if config_msg %}<p class="admin-ok">{{ config_msg }}</p>{% endif %}
+    {% if config_err %}<p class="auth-err" role="alert">{{ config_err }}</p>{% endif %}
 
     <form method="post" action="/admin/config" class="admin-form" id="admin-sources-form">
         <div class="field-grid">
-            {% for c in config if c.attr in ['gitea_url', 'gitea_token', 'github_token'] %}
+            {% for c in config if c.attr in ['gitea_url', 'gitea_token', 'github_user', 'github_token'] %}
             {{ cfg_field(c) }}
             {% endfor %}
         </div>
+    </form>
+
+    {# "Scan now" — button lives in the footer (left of Save). It reads the SAVED
+       config and pulls public repos into the shared catalogue, with a progress bar
+       on the home page. Save any edits first. #}
+    <form method="post" action="/admin/scan" class="admin-test" id="admin-scan-form">
+        <span class="legend">{{ t('admin.sources.scan_hint') }}</span>
     </form>
 </div>
 </section>
@@ -233,6 +241,8 @@ document.addEventListener('submit', function (e) {
     {# Test email — left of "Save mail settings" (both on the "Mail" tab). #}
     <button class="btn-secondary" type="submit" form="admin-smtp-test-form" data-panel="mail" hidden>{{ t('admin.smtp.test') }}</button>
     <button class="cta" type="submit" form="admin-smtp-form" data-panel="mail" hidden>{{ t('admin.smtp.save') }}</button>
+    {# Scan now — left of "Save" on the "Sources" tab. #}
+    <button class="btn-secondary" type="submit" form="admin-scan-form" data-panel="sources" hidden>{{ t('admin.sources.scan') }}</button>
     <button class="cta" type="submit" form="admin-sources-form" data-panel="sources" hidden>{{ t('admin.config.save_btn') }}</button>
     <button class="cta" type="submit" form="admin-config-form" data-panel="ai" hidden>{{ t('admin.config.save_btn') }}</button>
 </footer>

@@ -3049,6 +3049,22 @@ html.card-dragging .side-folders-head {
 .zone-btn.zone-common { color: var(--zone-common); }
 .zone-btn.zone-private { color: var(--zone-private); }
 
+/* In the footer (next to copy) the zone and favourite buttons must sit above the
+   stretched card-link so their clicks land, and drop the overlay shadow/solid fill
+   they needed over the preview — flat, to match the copy button in the same row. */
+.card-foot .zone-form,
+.card-foot .fav-form {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    margin: 0;
+}
+.card-foot .zone-btn,
+.card-foot .fav-btn {
+    background: transparent;
+    box-shadow: none;
+}
+
 /* The purpose icon — coloured, by section. */
 .pur svg {
     width: 16px;

@@ -12,42 +12,6 @@
     <a class="card-link" href="/a/{{ it.id }}" draggable="false" data-modal
        aria-label="{{ t('card.open_aria', owner=it.owner, name=it.name) }}"></a>
 
-    {# Top corners: left — zone/ownership (lock/globe), right — favourite.
-       Both buttons are outlined and sit over the preview. Those allowed can
-       toggle the zone; for others it shows as a static mark (no click). #}
-    <div class="card-corners">
-        {% if can_toggle %}
-        <form class="zone-form" method="post" action="/artifact/{{ it.id }}/visibility">
-            <input type="hidden" name="next" value="{{ next_path }}">
-            <button class="zone-btn zone-{{ it.zone }}" type="submit" data-id="{{ it.id }}"
-                    aria-label="{% if it.zone == 'private' %}{{ t('card.make_public') }}{% else %}{{ t('card.make_private') }}{% endif %}"
-                    title="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}">
-                <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
-                <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
-            </button>
-        </form>
-        {% else %}
-        <span class="zone-btn zone-static zone-{{ it.zone }}"
-              title="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}"
-              aria-label="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}">
-            <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
-            <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
-        </span>
-        {% endif %}
-
-        {# Favourite — per-user. Works without JS too (the form returns here). #}
-        <form class="fav-form" method="post" action="/favorite/{{ it.id }}">
-            <input type="hidden" name="next" value="{{ next_path }}">
-            <button class="fav-btn{% if it.favorite %} on{% endif %}" type="submit"
-                    data-id="{{ it.id }}" aria-pressed="{{ 'true' if it.favorite else 'false' }}"
-                    aria-label="{{ t('card.favorite') }}" title="{{ t('card.favorite') }}">
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/>
-                </svg>
-            </button>
-        </form>
-    </div>
-
     {% if it.preview_url %}
     <div class="thumb"><img src="{{ it.preview_url }}" alt="" loading="lazy"></div>
     {% else %}
@@ -93,12 +57,29 @@
             </span>
             {% endif %}
 
-            {% if it.updated %}
-            <time class="when" title="{{ t('card.updated_title') }}{% if it.created %}{{ t('card.created_suffix', date=it.created.strftime('%d.%m.%Y')) }}{% endif %}">{{ it.updated.strftime("%d.%m.%y") }}</time>
+            {# Right-side actions — public/private, copy, favourite (fav on the far right).
+               The date is not shown here; it lives on the card's own page. #}
+            {% if can_toggle %}
+            <form class="zone-form" method="post" action="/artifact/{{ it.id }}/visibility">
+                <input type="hidden" name="next" value="{{ next_path }}">
+                <button class="zone-btn zone-{{ it.zone }}" type="submit" data-id="{{ it.id }}"
+                        aria-label="{% if it.zone == 'private' %}{{ t('card.make_public') }}{% else %}{{ t('card.make_private') }}{% endif %}"
+                        title="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}">
+                    <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
+                    <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
+                </button>
+            </form>
+            {% else %}
+            <span class="zone-btn zone-static zone-{{ it.zone }}"
+                  title="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}"
+                  aria-label="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}">
+                <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
+                <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
+            </span>
             {% endif %}
 
             {% if it.source_url %}
-            {# "Copy" — two stacked cards. Copies the link to the source. #}
+            {# "Copy" — copies the link to the source. #}
             <button class="card-copy" type="button" data-copy="{{ it.source_url }}"
                     aria-label="{{ t('card.copy_source') }}" title="{{ t('card.copy_source') }}">
                 <svg class="i-link" viewBox="0 0 16 16" aria-hidden="true">
@@ -110,6 +91,18 @@
                 </svg>
             </button>
             {% endif %}
+
+            {# Favourite — per-user, on the far right. Works without JS too. #}
+            <form class="fav-form" method="post" action="/favorite/{{ it.id }}">
+                <input type="hidden" name="next" value="{{ next_path }}">
+                <button class="fav-btn{% if it.favorite %} on{% endif %}" type="submit"
+                        data-id="{{ it.id }}" aria-pressed="{{ 'true' if it.favorite else 'false' }}"
+                        aria-label="{{ t('card.favorite') }}" title="{{ t('card.favorite') }}">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M8 1.9l1.85 3.75 4.15.6-3 2.93.71 4.13L8 11.39 4.29 13.34 5 9.21l-3-2.93 4.15-.6z"/>
+                    </svg>
+                </button>
+            </form>
         </div>
         {% if it.reasons %}<div class="why">{{ it.reasons|join(", ") }}</div>{% endif %}
     </div>

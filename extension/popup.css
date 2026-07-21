@@ -50,6 +50,10 @@ html, body {
 .banner.ok { border-color: var(--zone-common); color: var(--zone-common); }
 
 .step { display: flex; flex-direction: column; gap: 12px; }
+/* Only one step at a time. Without this, ".step { display:flex }" overrides the
+   [hidden] attribute (author beats the UA rule) and every step stacks into one
+   long scroll instead of stepping server → login → MFA → workspace. */
+.step[hidden] { display: none; }
 
 .lead { margin: 4px 0 0; font-size: 15px; font-weight: 600; }
 .server-note { margin: 0; font-size: 12px; color: var(--mute); word-break: break-all; }

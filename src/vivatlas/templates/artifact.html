@@ -46,9 +46,6 @@
     {% if a.summary_technical %}
     <section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ a.summary_technical }}</p></section>
     {% endif %}
-    {% if can_edit %}
-    <button type="button" class="btn-secondary art-edit-open">{{ t('artifact.edit') }}</button>
-    {% endif %}
 </div>
 
 {% if can_edit %}
@@ -190,15 +187,19 @@
 {% set gh = upstream.upstream_url if upstream else a.repository.original_url %}
 {% set mine = a.owner_user_id and a.owner_user_id == request.state.user_id %}
 {% set can_delete = mine or (request.state.is_owner and a.shared) %}
+{% set can_edit = mine or (request.state.is_admin and a.shared) %}
 <footer class="modal-foot">
     <a class="btn-secondary foot-left" href="/">{{ t('artifact.close') }}</a>
-    {# Rescan — force a fresh pass on just this card, right next to "Copy source". For
-       the card's owner, or an admin on a shared card. Not for drafts (no source yet). #}
+    {# Rescan then Edit, side by side. Rescan forces a fresh pass (not for drafts);
+       Edit swaps the read view above for the form. Both for the owner/admin. #}
     {% if (mine or (request.state.is_admin and a.shared)) and not is_draft %}
     <form method="post" action="/artifact/{{ a.id }}/rescan" class="art-rescan" id="rescan-form">
         <button class="btn-secondary" type="submit" id="rescan-btn"
                 data-busy="{{ t('artifact.rescanning') }}">{{ t('artifact.rescan') }}</button>
     </form>
+    {% endif %}
+    {% if can_edit %}
+    <button type="button" class="btn-secondary art-edit-open">{{ t('artifact.edit') }}</button>
     {% endif %}
     {% if gh %}
     <button class="btn-secondary art-copy" type="button" data-copy="{{ gh }}"

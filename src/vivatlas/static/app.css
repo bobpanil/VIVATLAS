@@ -1582,9 +1582,7 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
 }
 
 .catrow-add {
-    margin-top: var(--s-sm);
-    padding-top: var(--s-sm);
-    border-top: 1px solid var(--hairline-soft);
+    margin-top: var(--s-md);
 }
 
 .catrow-form input[type="text"],
@@ -1816,8 +1814,6 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
     flex-direction: column;
     gap: var(--s-sm);
     margin-top: var(--s-md);
-    padding-top: var(--s-md);
-    border-top: 1px solid var(--hairline-soft);
 }
 
 .src-add-title {

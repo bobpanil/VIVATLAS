@@ -39,10 +39,12 @@
 
     <div class="box">
         {{ sechead(t('account.name_title'), t('account.name_hint')) }}
-        {# Saves itself on blur — no button (see the autosave script). #}
-        <label class="fld"><span>{{ t('account.name_label') }}</span>
+        {# No sub-label (the heading says "Name"), so the field lines up with the
+           language dropdown opposite it. Saves itself on blur — no button. #}
+        <label class="fld">
             <input type="text" name="display_name" value="{{ me.display_name }}"
                    data-autosave="/settings/account/name" data-saved="{{ t('account.saved_tick') }}"
+                   aria-label="{{ t('account.name_label') }}"
                    maxlength="128" autocomplete="name"></label>
         <span class="autosave-note" hidden></span>
     </div>

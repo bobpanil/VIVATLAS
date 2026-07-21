@@ -2555,10 +2555,12 @@ html.card-dragging .side-folders-head {
 .card-new {
     /* Centred on the footer row (between the purpose on the left and copy on the
        right). Absolutely placed over the middle so it doesn't disturb the flex
-       layout of the other footer items, and click-through so the card still opens. */
+       layout of the other footer items, and click-through so the card still opens.
+       The footer has 10px top padding (0 bottom), so its content sits 5px below the
+       box centre — we add 5px to line the badge up with the text, not the box. */
     position: absolute;
     left: 50%;
-    top: 50%;
+    top: calc(50% + 5px);
     transform: translate(-50%, -50%);
     z-index: 1;
     pointer-events: none;

@@ -188,6 +188,7 @@ CATALOG: dict[str, dict[str, str]] = {
     "type.mcp-server": {"en": "MCP server", "ru": "MCP-сервер", "he": "שרת MCP"},
     "type.plugin": {"en": "Plugin", "ru": "плагин", "he": "תוסף"},
     "type.project": {"en": "Project", "ru": "проект", "he": "פרויקט"},
+    "type.page": {"en": "Page", "ru": "страница", "he": "עמוד"},
     "type.draft": {"en": "Draft", "ru": "черновик", "he": "טיוטה"},
     "type.unknown": {"en": "Unrecognized", "ru": "не опознан", "he": "לא זוהה"},
     # --- recognition basis (were web.BASIS_NAMES) -----------------------------

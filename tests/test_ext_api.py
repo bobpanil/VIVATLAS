@@ -81,6 +81,9 @@ def capture_db(tmp_path, monkeypatch):
     Local = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     monkeypatch.setattr(db, "SessionLocal", Local)
     monkeypatch.setattr(settings, "gitea_token", "")
+    # No AI key: the capture still lands as a real card, just without a summary — and
+    # the test makes no network calls.
+    monkeypatch.setattr(settings, "google_api_key", "")
     with Local() as s:
         u = User(email="b@x.com", display_name="B", password_hash="h")
         s.add(u)
@@ -89,31 +92,50 @@ def capture_db(tmp_path, monkeypatch):
     return Local, uid
 
 
-async def test_capture_keeps_a_page_as_a_draft(capture_db):
+async def _drain_captures():
+    """ext_capture fires the processing off as a background task; let it finish."""
+    import asyncio
+
+    from vivatlas import web
+
+    pending = [t for t in list(web._SCAN_TASKS) if not t.done()]
+    if pending:
+        await asyncio.gather(*pending)
+
+
+async def test_capture_processes_a_page_into_the_library(capture_db):
     Local, uid = capture_db
     res = await ext_capture(
         "https://example.com/cool-tool", "Cool Tool", "the captured page text", uid, shared=False
     )
-    assert res["kind"] == "draft" and res["id"]
+    # Returns fast; the work happens in the background — not left as a draft.
+    assert res["kind"] == "processing"
+    await _drain_captures()
     with Local() as s:
-        art = s.get(Artifact, res["id"])
-        assert art.artifact_type == "draft"
-        assert art.name == "Cool Tool"
+        art = s.scalar(select(Artifact).where(Artifact.name == "Cool Tool"))
+        assert art is not None
+        assert art.artifact_type == "page"  # a real card, not a draft
         assert art.doc_text == "the captured page text"  # the grabbed DOM is kept
         assert art.owner_user_id == uid and art.shared is False
+        assert art.is_new is True and art.hidden is False
 
 
 async def test_capture_respects_the_shared_flag(capture_db):
     Local, uid = capture_db
     res = await ext_capture("https://example.com/x", "X", "", uid, shared=True)
+    assert res["kind"] == "processing"
+    await _drain_captures()
     with Local() as s:
-        assert s.get(Artifact, res["id"]).shared is True
+        art = s.scalar(select(Artifact).where(Artifact.name == "X"))
+        assert art is not None and art.shared is True
 
 
-async def test_capture_github_without_gitea_falls_to_draft(capture_db):
-    # A repo URL, but nothing to import into — kept as a draft rather than lost.
+async def test_capture_github_without_gitea_is_added_not_dropped(capture_db):
+    # A repo URL, but nothing to import into — added as a page card rather than lost.
     Local, uid = capture_db
     res = await ext_capture("https://github.com/o/r", "o/r", "", uid, shared=False)
-    assert res["kind"] == "draft"
+    assert res["kind"] == "processing"
+    await _drain_captures()
     with Local() as s:
-        assert s.scalar(select(Artifact).where(Artifact.name == "o/r")) is not None
+        art = s.scalar(select(Artifact).where(Artifact.name == "o/r"))
+        assert art is not None and art.artifact_type == "page"

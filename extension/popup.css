@@ -37,7 +37,7 @@ html, body {
 /* The logo spans the full popup width, edge to edge. */
 .head .logo { display: block; width: 100%; height: auto; }
 
-.body { padding: 4px 16px 16px; }
+.body { padding: 2px 16px 12px; }
 
 .banner {
   margin: 0 16px 8px;
@@ -50,7 +50,7 @@ html, body {
 .banner.err { border-color: var(--accent-red); color: var(--accent-red); }
 .banner.ok { border-color: var(--zone-common); color: var(--zone-common); }
 
-.step { display: flex; flex-direction: column; gap: 12px; }
+.step { display: flex; flex-direction: column; gap: 10px; }
 /* Only one step at a time. Without this, ".step { display:flex }" overrides the
    [hidden] attribute (author beats the UA rule) and every step stacks into one
    long scroll instead of stepping server → login → MFA → workspace. */
@@ -105,7 +105,7 @@ button { font: inherit; cursor: pointer; }
 
 .preview {
   margin: 0;
-  max-height: 96px;
+  max-height: 60px;
   overflow: auto;
   padding: 8px 10px;
   font-family: var(--sans);

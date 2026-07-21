@@ -1668,23 +1668,85 @@ def _is_github_repo_url(url: str) -> bool:
 
 
 async def ext_capture(url: str, title: str, text: str, user_id: int, shared: bool) -> dict:
-    """The browser extension's "add tool". A GitHub repo (with Gitea configured to import
-    into) is imported in the background so the user keeps browsing; anything else — a page,
-    a link we can't import — is kept immediately as a draft holding the URL, title and the
-    captured text, to process or edit later. Returns what happened."""
+    """The browser extension's "add tool". Everything is processed in the background so the
+    user keeps browsing, and lands as a real card in the library — a GitHub repo is imported
+    into a full card; any other page/link is summarised by the AI from the captured text.
+    Nothing is left as a draft (a draft only remains if processing fails outright)."""
     url = (url or "").strip()
     if _is_github_repo_url(url) and settings.gitea_token:
         task = asyncio.create_task(_import_github_capture(url, user_id, shared))
-        _SCAN_TASKS.add(task)
-        task.add_done_callback(_SCAN_TASKS.discard)
-        return {"kind": "import"}
+    else:
+        task = asyncio.create_task(_process_web_capture(url, title, text, user_id, shared))
+    _SCAN_TASKS.add(task)
+    task.add_done_callback(_SCAN_TASKS.discard)
+    return {"kind": "processing"}
+
+
+async def _process_web_capture(
+    url: str, title: str, text: str, user_id: int, shared: bool
+) -> None:
+    """Background: turn a captured page/link into a real card — summarise the grabbed text
+    with the AI, embed and tag it, and add it to the library (not a draft). If processing
+    fails, the row is left as a draft so the capture is never lost."""
     with session_scope() as session:
         aid = _create_draft(session, user_id, url, title.strip(), "", text or "")
+        # Promote it from a draft to a real page card straight away, so even if the AI is
+        # slow or unavailable it's already in the catalogue (not the drafts pile).
         art = session.get(Artifact, aid)
-        if art is not None:
-            art.shared = shared
+        if art is None:
+            return
+        art.artifact_type = "page"
+        art.owner_user_id = user_id
+        art.shared = shared
+        art.is_new = True
+        art.hidden = False
+        name = art.name or title.strip() or url
+        doc = art.doc_text or ""
         session.commit()
-    return {"kind": "draft", "id": aid}
+    try:
+        text_model = build_text_model()
+    except Exception:
+        text_model = None
+    try:
+        embed_model = build_embedding_model()
+    except Exception:
+        embed_model = None
+    try:
+        with session_scope() as session:
+            art = session.scalar(select(Artifact).where(Artifact.id == aid))
+            if art is None:
+                return
+            if text_model is not None:
+                try:
+                    summaries = await summarize(
+                        text_model,
+                        full_name=name,
+                        artifact_type="page",
+                        doc_text=doc,
+                        file_count=0,
+                    )
+                    art.summary_short = summaries["summary_short"]
+                    art.summary_normal = summaries["summary_normal"]
+                    art.summary_technical = summaries["summary_technical"]
+                    art.summary_model = getattr(text_model, "model", None)
+                    art.summary_error = None
+                except Exception as exc:  # noqa: BLE001 — keep the card, note why
+                    art.summary_error = str(exc)[:500]
+                    log.warning("ext capture: summary failed for %s: %s", url, exc)
+            if embed_model is not None:
+                await embed_artifact(session, embed_model, art)
+            await tag_artifact(session, art, text_model)
+            index_artifact_for_words(session, art)
+            if not shared:
+                auto_cid = _auto_category(session, art, user_id)
+                if auto_cid is not None:
+                    session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
+            session.commit()
+    finally:
+        if text_model is not None:
+            await text_model.aclose()
+        if embed_model is not None:
+            await embed_model.aclose()
 
 
 async def _import_github_capture(url: str, user_id: int, shared: bool) -> None:

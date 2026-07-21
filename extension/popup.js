@@ -244,7 +244,7 @@ async function onSend() {
     return banner(r.data.error || 'Could not add.', 'err');
   }
   const where = visibility === 'public' ? 'public catalogue' : 'your private space';
-  banner(r.data.kind === 'import' ? 'Importing the repo into ' + where + '…' : 'Saved to ' + where + '.', 'ok');
+  banner('Added to ' + where + ' — processing…', 'ok');
 }
 
 async function onLogout() {

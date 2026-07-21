@@ -7,6 +7,8 @@ come out the far end, and the unchanged fast-path still skips the download — a
 a file-backed SQLite so the real multi-session, WAL locking path is exercised.
 """
 
+import inspect
+
 import pytest
 from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import sessionmaker
@@ -178,3 +180,15 @@ async def test_scan_failed_summary_still_produces_a_card(scan_env, monkeypatch):
         assert all(a.artifact_type == "skill" for a in arts)  # type still detected
         # An embedding is still built (from the name), search shouldn't go blind.
         assert s.scalar(select(func.count()).select_from(Embedding)) == 2
+
+
+def test_scan_launching_endpoints_are_async():
+    """launch_user_scan/launch_global_scan schedule the crawl with
+    asyncio.create_task, which requires the running event loop. Their endpoints must
+    therefore be `async def` — a sync endpoint runs in a threadpool with no loop and
+    the scan dies with "no running event loop". This pins both against that regression."""
+    from vivatlas.admin_web import admin_scan
+    from vivatlas.settings_web import source_scan
+
+    assert inspect.iscoroutinefunction(admin_scan)
+    assert inspect.iscoroutinefunction(source_scan)

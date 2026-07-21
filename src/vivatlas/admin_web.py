@@ -224,11 +224,16 @@ def _ensure_global_sources(session) -> list[tuple[int, str]]:
 
 
 @router.post("/admin/scan")
-def admin_scan(request: Request) -> Response:
+async def admin_scan(request: Request) -> Response:
     """Scan the shared sources now (owner-only). Refreshes the global Source rows
     from the saved config and launches a background crawl; the progress bar shows on
     the home page and the resulting cards are shared with everyone. Reads the SAVED
-    config, so the admin should press Save before Scan."""
+    config, so the admin should press Save before Scan.
+
+    Must be async: launch_global_scan schedules the crawl with asyncio.create_task,
+    which needs the running event loop. A plain `def` endpoint runs in a threadpool
+    worker with no loop, and the scan would die with "no running event loop" — the
+    same reason its personal-source twin, settings' source_scan, is async."""
     lang = getattr(request.state, "lang", "en")
     with session_scope() as session:
         me = _owner_or_403(session, request)

@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -1646,6 +1646,99 @@ def add_draft(
             "preview_url": preview_url(art),
         }
     return _add_page(request, "done", card=card)
+
+
+_GH_RESERVED = {
+    "settings", "marketplace", "notifications", "explore", "topics", "trending",
+    "sponsors", "features", "about", "pricing", "login", "join", "orgs", "apps",
+}
+
+
+def _is_github_repo_url(url: str) -> bool:
+    """A github.com URL that points at a repository (owner/repo), not a profile or a
+    site page. plan_import validates for real later; this is only the routing hint."""
+    try:
+        parts = urlsplit(url.strip())
+    except ValueError:
+        return False
+    if parts.netloc.lower().removeprefix("www.") != "github.com":
+        return False
+    segs = [s for s in parts.path.split("/") if s]
+    return len(segs) >= 2 and segs[0].lower() not in _GH_RESERVED
+
+
+async def ext_capture(url: str, title: str, text: str, user_id: int, shared: bool) -> dict:
+    """The browser extension's "add tool". A GitHub repo (with Gitea configured to import
+    into) is imported in the background so the user keeps browsing; anything else — a page,
+    a link we can't import — is kept immediately as a draft holding the URL, title and the
+    captured text, to process or edit later. Returns what happened."""
+    url = (url or "").strip()
+    if _is_github_repo_url(url) and settings.gitea_token:
+        task = asyncio.create_task(_import_github_capture(url, user_id, shared))
+        _SCAN_TASKS.add(task)
+        task.add_done_callback(_SCAN_TASKS.discard)
+        return {"kind": "import"}
+    with session_scope() as session:
+        aid = _create_draft(session, user_id, url, title.strip(), "", text or "")
+        art = session.get(Artifact, aid)
+        if art is not None:
+            art.shared = shared
+        session.commit()
+    return {"kind": "draft", "id": aid}
+
+
+async def _import_github_capture(url: str, user_id: int, shared: bool) -> None:
+    """Background: import a GitHub repo captured from the extension into a full card, in
+    the chosen zone. On any failure we leave a draft so the capture is never lost."""
+    try:
+        fetcher = GitHubFetcher(token=settings.github_token)
+        try:
+            plan = await plan_import(fetcher, url)
+        finally:
+            await fetcher.aclose()
+        provider = build_provider("gitea")
+        try:
+            text_model = build_text_model()
+        except Exception:
+            text_model = None
+        try:
+            embed_model = build_embedding_model()
+        except Exception:
+            embed_model = None
+        try:
+            with session_scope() as session:
+                result = await execute(session, provider, plan, settings.gitea_url)
+                session.commit()
+                repo = session.get(Repository, result.repository_id)
+                await index_repository(session, provider, text_model, repo, force=True)
+                art = session.scalar(select(Artifact).where(Artifact.repository_id == repo.id))
+                art.owner_user_id = user_id
+                art.shared = shared
+                session.commit()
+                record_upstream(session, art.id, plan)
+                if embed_model is not None:
+                    await embed_artifact(session, embed_model, art)
+                await tag_artifact(session, art, text_model)
+                index_artifact_for_words(session, art)
+                if not shared:
+                    auto_cid = _auto_category(session, art, user_id)
+                    if auto_cid is not None:
+                        session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
+                session.commit()
+        finally:
+            await provider.aclose()
+            if text_model is not None:
+                await text_model.aclose()
+            if embed_model is not None:
+                await embed_model.aclose()
+    except Exception:
+        log.exception("ext capture: import failed for %s — keeping a draft", url)
+        with session_scope() as session:
+            aid = _create_draft(session, user_id, url, "", "", "")
+            art = session.get(Artifact, aid)
+            if art is not None:
+                art.shared = shared
+            session.commit()
 
 
 @router.post("/add/save")

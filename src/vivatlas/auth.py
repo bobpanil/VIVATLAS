@@ -120,8 +120,10 @@ def check_login(session: Session, email: str, password: str) -> LoginResult:
     return LoginResult(ok=True, user=user)
 
 
-def open_session(session: Session, user: User, request: Request, response: Response) -> None:
-    """Create a session and set the cookie. Called once sign-in is confirmed."""
+def open_session(session: Session, user: User, request: Request, response: Response) -> str:
+    """Create a session and set the cookie. Called once sign-in is confirmed. Returns the
+    raw session token: the cookie carries it for the web UI, and the browser extension
+    keeps the same token to send as a Bearer header on its own cross-site API calls."""
     raw = security.new_token()
     row = UserSession(
         user_id=user.id,
@@ -142,11 +144,25 @@ def open_session(session: Session, user: User, request: Request, response: Respo
         secure=request.url.scheme == "https",
         path="/",
     )
+    return raw
+
+
+def _token_from_request(request: Request) -> str | None:
+    """The session token: the cookie for a browser, or an `Authorization: Bearer <token>`
+    header for the extension (whose cross-site fetches don't carry the SameSite cookie)."""
+    raw = request.cookies.get(COOKIE_NAME)
+    if raw:
+        return raw
+    authz = request.headers.get("authorization", "")
+    if authz[:7].lower() == "bearer ":
+        return authz[7:].strip() or None
+    return None
 
 
 def current_user(session: Session, request: Request) -> User | None:
-    """Who's at the door right now. None — nobody."""
-    raw = request.cookies.get(COOKIE_NAME)
+    """Who's at the door right now. None — nobody. Accepts the session cookie or a
+    Bearer token (the extension)."""
+    raw = _token_from_request(request)
     if not raw:
         return None
     row = session.scalar(
@@ -168,8 +184,9 @@ def current_user(session: Session, request: Request) -> User | None:
 
 
 def close_session(session: Session, request: Request, response: Response) -> None:
-    """Sign out: revoke this session and remove the cookie."""
-    raw = request.cookies.get(COOKIE_NAME)
+    """Sign out: revoke this session and remove the cookie. Works for a cookie or a
+    Bearer token (the extension)."""
+    raw = _token_from_request(request)
     if raw:
         row = session.scalar(
             select(UserSession).where(UserSession.token_hash == security.token_hash(raw))
@@ -207,21 +224,14 @@ def _signer() -> TimestampSigner:
     return TimestampSigner(settings.secret_key, salt="skill-atlas/2fa-ticket")
 
 
-def issue_totp_ticket(response: Response, user: User, secure: bool) -> None:
-    token = _signer().sign(str(user.id)).decode("ascii")
-    response.set_cookie(
-        TOTP_TICKET_COOKIE,
-        token,
-        max_age=_TICKET_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=secure,
-        path="/",
-    )
+def make_totp_ticket_token(user: User) -> str:
+    """The signed 'passed the password, owes a code' tag. The web flow puts it in a
+    cookie; the extension carries it in the JSON body between the two steps."""
+    return _signer().sign(str(user.id)).decode("ascii")
 
 
-def read_totp_ticket(request: Request) -> int | None:
-    token = request.cookies.get(TOTP_TICKET_COOKIE)
+def read_totp_ticket_token(token: str) -> int | None:
+    """The user id from a ticket token, or None if forged/stale."""
     if not token:
         return None
     try:
@@ -232,6 +242,22 @@ def read_totp_ticket(request: Request) -> int | None:
         return int(raw.decode("ascii"))
     except ValueError:
         return None
+
+
+def issue_totp_ticket(response: Response, user: User, secure: bool) -> None:
+    response.set_cookie(
+        TOTP_TICKET_COOKIE,
+        make_totp_ticket_token(user),
+        max_age=_TICKET_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path="/",
+    )
+
+
+def read_totp_ticket(request: Request) -> int | None:
+    return read_totp_ticket_token(request.cookies.get(TOTP_TICKET_COOKIE) or "")
 
 
 def clear_totp_ticket(response: Response) -> None:

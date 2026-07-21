@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <title>VivAtlas Clipper</title>
+</head>
+<body>
+  <header class="head">
+    <img class="logo" src="assets/logo-dark.webp" width="640" height="197" alt="VIVATLAS">
+  </header>
+
+  <!-- A message strip shared by all steps (errors and confirmations). -->
+  <p class="banner" id="banner" role="status" hidden></p>
+
+  <main class="body">
+    <!-- Step 1 — server address -->
+    <section class="step" id="step-server" hidden>
+      <p class="lead">Where is your VivAtlas?</p>
+      <label class="field">
+        <span>Server address</span>
+        <input id="server" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="https://vivatlas.example.com">
+      </label>
+      <button class="btn-primary" id="server-go" type="button">Continue</button>
+    </section>
+
+    <!-- Step 2 — email + password -->
+    <section class="step" id="step-login" hidden>
+      <p class="lead">Sign in</p>
+      <p class="server-note" id="login-server"></p>
+      <label class="field">
+        <span>Email</span>
+        <input id="email" type="email" autocomplete="username" spellcheck="false">
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input id="password" type="password" autocomplete="current-password">
+      </label>
+      <button class="btn-primary" id="login-go" type="button">Sign in</button>
+      <button class="btn-ghost" id="login-back" type="button">Change server</button>
+    </section>
+
+    <!-- Step 3 — MFA -->
+    <section class="step" id="step-mfa" hidden>
+      <p class="lead">Two-step verification</p>
+      <p class="server-note" id="mfa-hint">Enter the 6-digit code from your app.</p>
+      <label class="field">
+        <span id="mfa-label">Code</span>
+        <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               spellcheck="false" placeholder="123456">
+      </label>
+      <button class="btn-primary" id="mfa-go" type="button">Verify</button>
+      <button class="btn-ghost" id="mfa-toggle" type="button">Use a backup code</button>
+      <button class="btn-ghost" id="mfa-back" type="button">Back</button>
+    </section>
+
+    <!-- Step 4 — capture / add -->
+    <section class="step" id="step-main" hidden>
+      <label class="field">
+        <span>Link</span>
+        <input id="url" type="url" inputmode="url" spellcheck="false" placeholder="https://…">
+      </label>
+      <label class="field">
+        <span>Title</span>
+        <input id="title" type="text" spellcheck="false" placeholder="(optional)">
+      </label>
+
+      <div class="grabrow">
+        <button class="btn-ghost" id="grab" type="button">Grab page text</button>
+        <span class="muted" id="grab-status"></span>
+      </div>
+      <pre class="preview" id="preview" hidden></pre>
+
+      <div class="vis">
+        <span class="field-label">Save as</span>
+        <div class="seg" role="group" aria-label="Visibility">
+          <button class="seg-btn on" id="vis-private" type="button" data-v="private">Private</button>
+          <button class="seg-btn" id="vis-public" type="button" data-v="public">Public</button>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="send" type="button">Add to VivAtlas</button>
+
+      <div class="main-foot">
+        <button class="btn-ghost" id="open-web" type="button">Open VivAtlas</button>
+        <button class="btn-ghost" id="logout" type="button">Sign out</button>
+      </div>
+      <p class="whoami" id="whoami"></p>
+    </section>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

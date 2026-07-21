@@ -146,7 +146,12 @@ _OPEN_PREFIXES = (
     "/static/", "/login", "/setup", "/logout", "/forgot", "/reset", "/register", "/join",
     "/lang/", "/mcp-server",
 )
-_OPEN_EXACT = {"/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa"}
+_OPEN_EXACT = {
+    "/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa",
+    # The extension's sign-in pair — open like the web sign-in; everything else under
+    # /api/ext (session, add, logout) stays behind the lock.
+    "/api/ext/login", "/api/ext/mfa",
+}
 
 
 @app.middleware("http")
@@ -218,6 +223,12 @@ app.include_router(auth_router)
 app.include_router(settings_router)
 app.include_router(admin_router)
 app.include_router(web_router)
+
+# The browser extension's JSON API. Imported here (not at the top) so its dependency
+# on web.py is resolved after the web router is in place.
+from vivatlas.ext_api import router as ext_router  # noqa: E402
+
+app.include_router(ext_router)
 
 # MCP for ChatGPT. As a separate application: it has its own lifecycle, and
 # mixing it with the regular pages isn't allowed.

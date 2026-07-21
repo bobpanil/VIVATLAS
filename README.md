@@ -2,7 +2,11 @@
 
 A catalogue of skills, agents and tools from your Git repositories. Multi-user: everyone has their own sign-in, their own folders and sources; the shared catalogue is common to all.
 
-Plan and history: [docs/PLAN.md](docs/PLAN.md). Access from ChatGPT and Claude Code: [docs/MCP.md](docs/MCP.md).
+> **VivAtlas is a viewer, not an owner.** It reads *public* Git repositories and helps you find and view the tools inside them. It does **not** own — and claims no rights in — any of the repositories, code, names or trademarks it catalogues or links to. Those belong to their authors and are governed by their own licenses.
+
+**License:** [Business Source License 1.1](LICENSE) — free to use, deploy and modify, including commercially; you may **not** sell or resell VivAtlas itself (as a product or a hosted service). Converts to Apache-2.0 on 2030-07-21.
+
+Access from ChatGPT and Claude Code: [docs/MCP.md](docs/MCP.md). Deploy on TrueNAS: [docs/DEPLOY-TRUENAS.md](docs/DEPLOY-TRUENAS.md).
 
 ## What already works
 
@@ -15,8 +19,9 @@ Plan and history: [docs/PLAN.md](docs/PLAN.md). Access from ChatGPT and Claude C
 - **Account.** Change email/password, deletion, profile photo (→ WebP) or an avatar from a ready-made set (classical busts), personal folders and sources.
 - **Admin panel.** People, access and invitations, shared folders, email (SMTP), integrations (addresses/tokens/models on top of `.env`, applied without a restart).
 - **Interface.** Custom rendering on the server, no build step. Languages: English (default), Russian, Hebrew (RTL). Themes: light / dark / OLED / system. Works from a phone too.
-- **Sources.** Gitea (shared and personal), scanning. GitHub — a place has been left for it (`providers/github.py`).
+- **Sources.** Gitea (shared and personal) and GitHub (an account's or organisation's public repositories), scanned daily and on demand. Failed AI summaries are retried automatically.
 - **Adding.** One door: a link, site, screenshot or reel → candidates with stars → plan → import. An address named by a model is always verified with the host.
+- **Browser extension.** A Chrome/Chromium extension (`extension/`) clips the current page or a pasted link into your catalogue, public or private, from any tab. See [extension/README.md](extension/README.md).
 - **Upstream.** A card remembers its source; `upstream` compares, `update` installs a new version only where you have not touched the file.
 - **Outward.** REST API and MCP server for ChatGPT / Claude Code.
 
@@ -75,8 +80,11 @@ src/vivatlas/
   providers/
     base.py            common interface to the host (the "socket")
     gitea.py           Gitea
-    github.py          stub — a place for GitHub
+    github.py          GitHub (an account's public repositories)
+  ext_api.py           JSON API for the browser extension (/api/ext)
   templates/, static/  pages and styles (custom app.css, no build step)
+
+extension/             Chrome/Chromium extension (Manifest V3) — clip pages into VivAtlas
 ```
 
-To add GitHub: implement the methods in `providers/github.py` and enable it in `providers/__init__.py`. The rest of the code stays the same.
+Adding another host: implement the `providers/base.py` interface in a new provider and wire it in `providers/__init__.py`. The rest of the code stays the same.

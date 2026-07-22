@@ -56,8 +56,7 @@
                         <span>{{ t('help.demo.name') }}</span><em>{{ t('help.demo.type') }}</em>
                     </div>
                     <div class="card-body">
-                        <span class="card-new">{{ t('help.badge_new') }}</span>
-                        <div class="card-name"><span class="card-owner">boris/</span>ai-skills</div>
+                        <div class="card-name"><span class="card-new-dot" aria-label="{{ t('help.badge_new') }}"></span><span class="card-owner">boris/</span>ai-skills</div>
                         <p class="card-sum">{{ t('help.demo.sum') }}</p>
                         <div class="card-foot" data-pur="design">
                             <span class="card-cat pur">
@@ -75,7 +74,7 @@
 
             <ul class="help-legend">
                 <li>
-                    <span class="lg-ic"><span class="card-new lg-badge">{{ t('help.badge_new') }}</span></span>
+                    <span class="lg-ic"><span class="card-new-dot"></span></span>
                     <span>{{ t('help.legend.new') | safe }}</span>
                 </li>
                 <li>

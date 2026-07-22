@@ -21,7 +21,7 @@
     </div>
     {% endif %}
     <div class="card-body">
-        <div class="card-name"><span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
+        <div class="card-name">{% if it.is_new %}<span class="card-new-dot" title="{{ t('card.new') }}" aria-label="{{ t('card.new') }}"></span>{% endif %}<span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
         <p class="card-sum">{{ it.summary_short or t('card.no_summary') }}</p>
 
         {# Footer: bottom-left — folder (icon + name), or, if there are no
@@ -29,10 +29,9 @@
            the card is gone: you can only delete from the card itself (its page).
            Icon and name in the folder colour (--pur-color) so the group reads. #}
         <div class="card-foot" data-pur="{{ it.purpose.key }}"{% if it.categories %} style="--pur-color: {{ it.categories[0].color }}"{% endif %}>
-            {# "new" badge — centred on the footer row, over the empty middle, same row
-               as the purpose (left) and copy (right). Non-interactive, so it doesn't
-               steal clicks from the stretched card-link beneath it. #}
-            {% if it.is_new %}<span class="card-new">{{ t('card.new') }}</span>{% endif %}
+            {# The "new" marker is a small dot next to the card name (see .card-new-dot),
+               not a pill in the footer — so it never overlaps the purpose or the buttons
+               on a narrow card. #}
             {% if it.categories %}
             {% set c0 = it.categories[0] %}
             <span class="card-cat{% if c0.owned %} cat-mark-mine{% endif %}">

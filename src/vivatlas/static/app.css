@@ -2553,27 +2553,18 @@ html.card-dragging .side-folders-head {
 /* "New": the card was added by a recent scan and not yet opened. Marked by a
    badge in the corner; the border, meanwhile, is governed by the zone
    (public/private). */
-.card-new {
-    /* Centred on the footer row (between the purpose on the left and copy on the
-       right). Absolutely placed over the middle so it doesn't disturb the flex
-       layout of the other footer items, and click-through so the card still opens.
-       The footer has 10px top padding (0 bottom), so its content sits 5px below the
-       box centre — we add 5px to line the badge up with the text, not the box. */
-    position: absolute;
-    left: 50%;
-    top: calc(50% + 5px);
-    transform: translate(-50%, -50%);
-    z-index: 1;
-    pointer-events: none;
-    padding: 1px 7px;
+/* "New" marker: a small filled dot next to the card name — unobtrusive, and (unlike
+   the old centred footer pill) it never collides with the purpose tag or the footer
+   buttons on a narrow/mobile card. The help legend uses the same class. */
+.card-new-dot {
+    display: inline-block;
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin-right: 6px;
+    border-radius: 50%;
     background: var(--primary);
-    color: var(--on-primary);
-    font-family: var(--mono);
-    font-size: 10px;   /* was 9px — too small even for a micro-chip */
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    border-radius: var(--r-full);
+    vertical-align: 1px;
 }
 
 /* A card just inserted during a scan — fades in gently. */

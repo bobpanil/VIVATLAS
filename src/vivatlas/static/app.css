@@ -3490,6 +3490,47 @@ html.card-dragging .side-folders-head {
     margin: 0 0 var(--s-md);
 }
 
+/* The raw text the extension grabbed, shown when there's no AI description yet.
+   Collapsed by default so it never dominates the card. */
+.art-captured {
+    margin: 0 0 var(--s-md);
+}
+.art-captured > summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    list-style: revert;
+}
+.art-captured > summary:hover {
+    color: var(--ink);
+}
+.art-captured > pre {
+    margin: var(--s-sm) 0 0;
+    max-height: 220px;
+    overflow: auto;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--body-ink, var(--charcoal));
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--surface-sunken, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--line);
+    border-radius: var(--r-md, 8px);
+}
+
+/* The captured source link — wraps rather than blowing out the column width. */
+.art-link {
+    margin: 0;
+    word-break: break-all;
+}
+.art-link a {
+    font-family: var(--mono);
+    font-size: 12.5px;
+}
+
 .art-chips {
     display: flex;
     flex-wrap: wrap;

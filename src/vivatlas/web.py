@@ -1269,6 +1269,71 @@ async def rescan_artifact(artifact_id: int) -> bool:
     return True
 
 
+async def reprocess_draft(artifact_id: int) -> bool:
+    """"Rescan with AI" for a DRAFT. A draft has no downloadable source, so instead of
+    index_repository we re-run the AI over the page text captured for it: summarise,
+    embed and tag the stored doc_text. On a successful summary the draft graduates to a
+    real 'page' card (leaves the drafts pile); if the AI is unavailable or fails it stays
+    a draft with the reason recorded, so it can be tried again. Returns False if gone."""
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None:
+            return False
+        name = art.name
+        doc = art.doc_text or ""
+    try:
+        text_model = build_text_model()
+    except Exception:
+        text_model = None
+    try:
+        embed_model = build_embedding_model()
+    except Exception:
+        embed_model = None
+    try:
+        with session_scope() as session:
+            art = session.get(Artifact, artifact_id)
+            if art is None:
+                return False
+            summarised = False
+            if text_model is not None:
+                try:
+                    summaries = await summarize(
+                        text_model,
+                        full_name=name,
+                        artifact_type="page",
+                        doc_text=doc,
+                        file_count=0,
+                    )
+                    art.summary_short = summaries["summary_short"]
+                    art.summary_normal = summaries["summary_normal"]
+                    art.summary_technical = summaries["summary_technical"]
+                    art.summary_model = getattr(text_model, "model", None)
+                    art.summary_error = None
+                    summarised = True
+                except Exception as exc:  # noqa: BLE001 — keep the draft, note why
+                    art.summary_error = str(exc)[:500]
+                    log.warning("draft rescan: summary failed for %s: %s", artifact_id, exc)
+            else:
+                art.summary_error = "No AI model configured — set a Google key in admin."
+            # Graduate to a real card only once the AI has actually described it; a failed
+            # pass leaves it a draft so "Rescan with AI" can be tried again later.
+            if summarised:
+                art.artifact_type = "page"
+                art.hidden = False
+                art.is_new = True
+            if embed_model is not None:
+                await embed_artifact(session, embed_model, art)
+            await tag_artifact(session, art, text_model)
+            index_artifact_for_words(session, art)
+            session.commit()
+    finally:
+        if text_model is not None:
+            await text_model.aclose()
+        if embed_model is not None:
+            await embed_model.aclose()
+    return True
+
+
 @router.post("/artifact/{artifact_id}/edit")
 async def edit_artifact(
     request: Request,
@@ -1323,8 +1388,11 @@ async def edit_artifact(
 
 @router.post("/artifact/{artifact_id}/rescan")
 async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
-    """Force a fresh scan of one card. Allowed to the card's owner, or to an admin for
-    a shared card. Awaits the rebuild, then returns to the (now refreshed) card."""
+    """Force a fresh pass over one card. Allowed to the card's owner, or to an admin for
+    a shared card. Awaits the rebuild, then returns to the (now refreshed) card.
+
+    A draft has no downloadable source, so "Rescan with AI" re-runs the AI over its
+    captured text (reprocess_draft); everything else re-downloads from its source."""
     user_id = getattr(request.state, "user_id", None)
     is_admin = getattr(request.state, "is_admin", False)
     with session_scope() as session:
@@ -1334,7 +1402,11 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
         mine = art.owner_user_id is not None and art.owner_user_id == user_id
         if not (mine or (is_admin and art.shared)):
             raise HTTPException(403)
-    await rescan_artifact(artifact_id)
+        is_draft = art.artifact_type == "draft"
+    if is_draft:
+        await reprocess_draft(artifact_id)
+    else:
+        await rescan_artifact(artifact_id)
     return RedirectResponse(f"/a/{artifact_id}", status_code=303)
 
 
@@ -1673,14 +1745,32 @@ def _is_github_repo_url(url: str) -> bool:
     return len(segs) >= 2 and segs[0].lower() not in _GH_RESERVED
 
 
+def _name_from_url(url: str) -> str:
+    """A readable name from a URL when the page gave us no title: 'owner/repo' for a
+    GitHub link, otherwise the last path segment (tidied) or the bare host. So a capture
+    never ends up called just "draft"."""
+    try:
+        parts = urlsplit((url or "").strip())
+    except ValueError:
+        return ""
+    host = parts.netloc.lower().removeprefix("www.")
+    segs = [s for s in parts.path.split("/") if s]
+    if host == "github.com" and len(segs) >= 2:
+        return f"{segs[0]}/{segs[1]}"
+    if segs:
+        return segs[-1].replace("-", " ").replace("_", " ").strip()
+    return host
+
+
 async def ext_capture(url: str, title: str, text: str, user_id: int, shared: bool) -> dict:
     """The browser extension's "add tool". Everything is processed in the background so the
     user keeps browsing, and lands as a real card in the library — a GitHub repo is imported
     into a full card; any other page/link is summarised by the AI from the captured text.
-    Nothing is left as a draft (a draft only remains if processing fails outright)."""
+    Nothing is left empty: even if the AI or the GitHub import fails, the card keeps the
+    name, link and page text the extension already grabbed (see _process_web_capture)."""
     url = (url or "").strip()
     if _is_github_repo_url(url) and settings.gitea_token:
-        task = asyncio.create_task(_import_github_capture(url, user_id, shared))
+        task = asyncio.create_task(_import_github_capture(url, title, text, user_id, shared))
     else:
         task = asyncio.create_task(_process_web_capture(url, title, text, user_id, shared))
     _SCAN_TASKS.add(task)
@@ -1695,7 +1785,10 @@ async def _process_web_capture(
     with the AI, embed and tag it, and add it to the library (not a draft). If processing
     fails, the row is left as a draft so the capture is never lost."""
     with session_scope() as session:
-        aid = _create_draft(session, user_id, url, title.strip(), "", text or "")
+        # A name even without a title or the AI: the page title, else 'owner/repo' or the
+        # last path segment of the link. Never the literal "draft".
+        display_name = title.strip() or _name_from_url(url) or url
+        aid = _create_draft(session, user_id, url, display_name, "", text or "")
         # Promote it from a draft to a real page card straight away, so even if the AI is
         # slow or unavailable it's already in the catalogue (not the drafts pile).
         art = session.get(Artifact, aid)
@@ -1706,7 +1799,7 @@ async def _process_web_capture(
         art.shared = shared
         art.is_new = True
         art.hidden = False
-        name = art.name or title.strip() or url
+        name = art.name or display_name or url
         doc = art.doc_text or ""
         session.commit()
     try:
@@ -1755,9 +1848,13 @@ async def _process_web_capture(
             await embed_model.aclose()
 
 
-async def _import_github_capture(url: str, user_id: int, shared: bool) -> None:
+async def _import_github_capture(
+    url: str, title: str, text: str, user_id: int, shared: bool
+) -> None:
     """Background: import a GitHub repo captured from the extension into a full card, in
-    the chosen zone. On any failure we leave a draft so the capture is never lost."""
+    the chosen zone. If the import fails, fall back to the plain web-capture path so the
+    card still keeps the name, link and page text the extension grabbed — never an empty
+    draft."""
     try:
         fetcher = GitHubFetcher(token=settings.github_token)
         try:
@@ -1800,13 +1897,10 @@ async def _import_github_capture(url: str, user_id: int, shared: bool) -> None:
             if embed_model is not None:
                 await embed_model.aclose()
     except Exception:
-        log.exception("ext capture: import failed for %s — keeping a draft", url)
-        with session_scope() as session:
-            aid = _create_draft(session, user_id, url, "", "", "")
-            art = session.get(Artifact, aid)
-            if art is not None:
-                art.shared = shared
-            session.commit()
+        log.exception(
+            "ext capture: GitHub import failed for %s — saving the grabbed page instead", url
+        )
+        await _process_web_capture(url, title, text, user_id, shared)
 
 
 @router.post("/add/save")
@@ -1816,7 +1910,8 @@ def add_save(
     zone: Annotated[str, Form()] = "private",
 ) -> RedirectResponse:
     """The final step of creation: the card is marked private or shared and saved.
-    Until then it's the creator's private draft."""
+    Until then it's the creator's private draft. Defaults to private — a missing or
+    unexpected zone must never publish the card to everyone."""
     user_id = getattr(request.state, "user_id", None)
     with session_scope() as session:
         art = session.get(Artifact, artifact_id)

@@ -139,3 +139,55 @@ async def test_capture_github_without_gitea_is_added_not_dropped(capture_db):
     with Local() as s:
         art = s.scalar(select(Artifact).where(Artifact.name == "o/r"))
         assert art is not None and art.artifact_type == "page"
+
+
+async def test_reprocess_draft_without_ai_keeps_it_a_draft_with_a_reason(capture_db):
+    # "Rescan with AI" on a draft, but no AI key: it must NOT silently graduate — it stays
+    # a draft, with the reason recorded so the person can see why.
+    from vivatlas import web
+
+    Local, uid = capture_db
+    with Local() as s:
+        aid = web._create_draft(s, uid, "https://example.com/x", "X", "", "captured text")
+        s.commit()
+
+    assert await web.reprocess_draft(aid) is True
+    with Local() as s:
+        art = s.get(Artifact, aid)
+        assert art.artifact_type == "draft"
+        assert art.summary_error
+
+
+async def test_reprocess_draft_with_ai_promotes_to_a_page(capture_db, monkeypatch):
+    # With a working AI the draft graduates to a real page card carrying the summary.
+    from vivatlas import web
+
+    class FakeModel:
+        model = "fake-model"
+
+        async def aclose(self): ...
+
+    async def fake_summarize(model, **kw):
+        return {"summary_short": "s", "summary_normal": "n", "summary_technical": "t"}
+
+    async def fake_tag(session, art, model): ...
+
+    def no_embed():
+        raise RuntimeError("no embedding key in the test")
+
+    monkeypatch.setattr(web, "build_text_model", lambda: FakeModel())
+    monkeypatch.setattr(web, "build_embedding_model", no_embed)
+    monkeypatch.setattr(web, "summarize", fake_summarize)
+    monkeypatch.setattr(web, "tag_artifact", fake_tag)
+
+    Local, uid = capture_db
+    with Local() as s:
+        aid = web._create_draft(s, uid, "https://example.com/y", "Y", "", "some captured text")
+        s.commit()
+
+    assert await web.reprocess_draft(aid) is True
+    with Local() as s:
+        art = s.get(Artifact, aid)
+        assert art.artifact_type == "page"
+        assert art.summary_short == "s" and art.summary_error is None
+        assert art.is_new is True

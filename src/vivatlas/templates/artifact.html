@@ -40,6 +40,15 @@
     <p class="art-lede">{{ a.summary_short or t('artifact.no_summary') }}</p>
     {% if a.summary_error %}<p class="warn">{{ t('artifact.summary_failed', error=a.summary_error) }}</p>{% endif %}
 
+    {# No AI description yet — show the raw text the extension grabbed, so the card still
+       says what it is (and can be edited by hand). #}
+    {% if a.doc_text and not a.summary_normal and not a.summary_technical %}
+    <details class="art-captured">
+        <summary>{{ t('artifact.captured_text') }}</summary>
+        <pre>{{ a.doc_text }}</pre>
+    </details>
+    {% endif %}
+
     {% if a.summary_normal %}
     <section class="art-sec"><h3>{{ t('artifact.what_is') }}</h3><p>{{ a.summary_normal }}</p></section>
     {% endif %}
@@ -69,6 +78,14 @@
 </div>{# /.art-main #}
 
 <div class="art-side">
+{# The captured link — for pages/drafts that have no upstream section of their own.
+   Without this the source is only reachable through the "Copy source" button. #}
+{% if a.repository.original_url and not upstream %}
+<section class="art-sec">
+    <h3>{{ t('artifact.link') }}</h3>
+    <p class="art-link"><a href="{{ a.repository.original_url }}" target="_blank" rel="noopener">{{ a.repository.original_url }}</a></p>
+</section>
+{% endif %}
 {% if a.detect_reasons %}
 <section class="art-sec">
     <h3>{{ t('artifact.why_type') }}</h3>
@@ -190,12 +207,13 @@
 {% set can_edit = mine or (request.state.is_admin and a.shared) %}
 <footer class="modal-foot">
     <a class="btn-secondary foot-left" href="/">{{ t('artifact.close') }}</a>
-    {# Rescan then Edit, side by side. Rescan forces a fresh pass (not for drafts);
-       Edit swaps the read view above for the form. Both for the owner/admin. #}
-    {% if (mine or (request.state.is_admin and a.shared)) and not is_draft %}
+    {# Rescan then Edit, side by side. Rescan forces a fresh pass — for a draft it re-runs
+       the AI over the captured text ("Rescan with AI"), for a real card it re-downloads
+       from the source. Edit swaps the read view above for the form. Owner/admin only. #}
+    {% if mine or (request.state.is_admin and a.shared) %}
     <form method="post" action="/artifact/{{ a.id }}/rescan" class="art-rescan" id="rescan-form">
         <button class="btn-secondary" type="submit" id="rescan-btn"
-                data-busy="{{ t('artifact.rescanning') }}">{{ t('artifact.rescan') }}</button>
+                data-busy="{{ t('artifact.rescanning') }}">{{ t('artifact.rescan_ai') if is_draft else t('artifact.rescan') }}</button>
     </form>
     {% endif %}
     {% if can_edit %}

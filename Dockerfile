@@ -20,6 +20,11 @@ RUN pip install .
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
+# The unpacked browser extension, served as a one-click zip from Settings → Browser
+# extension. Only the runtime files reach here (see .dockerignore). Resolved at runtime
+# from /app/extension (the working dir).
+COPY extension ./extension
+
 # Non-root user and a data dir for the SQLite db + generated secret.
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     && mkdir -p /data \

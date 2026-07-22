@@ -22,6 +22,7 @@
     <button class="settab" type="button" data-tab="account">{{ t('settings.tab_account') }}</button>
     <button class="settab" type="button" data-tab="folders">{{ t('settings.tab_folders') }}</button>
     <button class="settab" type="button" data-tab="repos">{{ t('settings.tab_repos') }}</button>
+    <button class="settab" type="button" data-tab="extension">{{ t('settings.tab_extension') }}</button>
 </nav>
 
 <section class="setpanel" data-panel="profile">
@@ -232,6 +233,46 @@
                aria-label="{{ t('settings.token_aria') }}" autocomplete="off" spellcheck="false">
         <p class="note">{{ t('settings.gitea_note') }}</p>
     </form>
+</div>
+</section>
+
+<section class="setpanel" data-panel="extension" hidden>
+<div class="box wide">
+    {{ sechead(t('settings.ext_title'), t('settings.ext_tip')) }}
+    <p class="legend">{{ t('settings.ext_intro') }}</p>
+
+    {% if extension_available %}
+    <ol class="ext-steps">
+        <li>
+            <span class="ext-step-text">{{ t('settings.ext_step_download') }}</span>
+            <a class="cta ext-dl" href="/settings/extension.zip" download>{{ t('settings.ext_download_btn') }}</a>
+        </li>
+        <li>{{ t('settings.ext_step_unzip') }}</li>
+        <li>
+            <span class="ext-step-text">{{ t('settings.ext_step_open') }}</span>
+            <span class="ext-copyrow">
+                <code>chrome://extensions</code>
+                <button type="button" class="btn-secondary ext-copy" data-copy="chrome://extensions"
+                        data-done="{{ t('settings.ext_copied') }}"
+                        onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
+            </span>
+        </li>
+        <li>{{ t('settings.ext_step_devmode') }}</li>
+        <li>{{ t('settings.ext_step_load') }}</li>
+        <li>
+            <span class="ext-step-text">{{ t('settings.ext_step_signin') }}</span>
+            <span class="ext-copyrow">
+                <code>{{ server_url }}</code>
+                <button type="button" class="btn-secondary ext-copy" data-copy="{{ server_url }}"
+                        data-done="{{ t('settings.ext_copied') }}"
+                        onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
+            </span>
+        </li>
+    </ol>
+    <p class="note">{{ t('settings.ext_note_chrome') }}</p>
+    {% else %}
+    <p class="warn">{{ t('settings.ext_unavailable') }}</p>
+    {% endif %}
 </div>
 </section>
 

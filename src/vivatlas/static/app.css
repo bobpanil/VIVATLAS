@@ -4420,6 +4420,33 @@ a.art-chip-pur:hover { border-color: currentColor; }
     grid-column: 1 / -1;
 }
 
+/* Browser-extension tab: numbered install steps with copy chips and a download CTA. */
+.ext-steps {
+    margin: 10px 0 0;
+    padding-left: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+}
+.ext-steps li { padding-left: 4px; }
+.ext-step-text { display: block; margin-bottom: 6px; }
+.ext-dl { display: inline-flex; align-items: center; text-decoration: none; }
+.ext-copyrow { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ext-copyrow code {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 5px 9px;
+    background: var(--surface-sunken, rgba(0, 0, 0, 0.04));
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm, 6px);
+    color: var(--ink);
+    word-break: break-all;
+}
+.ext-copy { flex: none; }
+
 /* Section messages (error/success) — also full width, above the section grid. */
 .setpanel > .warn,
 .setpanel > .set-on,

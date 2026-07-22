@@ -23,3 +23,8 @@ tests/
 docs/
 *.cmd
 .DS_Store
+# Extension source art — the served zip only needs the built PNG icons plus the
+# webp logos and favicon2.svg, so keep the multi-MB source PNGs out of the image.
+extension/assets/*.png
+extension/assets/favicon1.svg
+extension/icons/svg.svg

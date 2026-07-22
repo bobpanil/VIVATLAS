@@ -4,7 +4,10 @@ Language, theme, and personal repositories will land here later. One page, and
 its sections grow.
 """
 
+import io
 import logging
+import os
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -15,7 +18,8 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from sqlalchemy import func, select
 
-from vivatlas import auth, avatars, caticons, catnames, i18n, security, twofactor, usericons
+from vivatlas import auth, avatars, caticons, catnames, i18n, runtime_settings, security
+from vivatlas import twofactor, usericons
 from vivatlas import categories as catperm
 from vivatlas import filters as flt
 from vivatlas.db import session_scope
@@ -85,6 +89,62 @@ def _valid_url(u: str) -> bool:
     return u.startswith("http://") or u.startswith("https://")
 
 
+# The browser-extension files, for the "Browser extension" tab's one-click download.
+# Only the runtime files (not the multi-MB source art) go into the zip.
+_EXT_FILES = [
+    "manifest.json",
+    "popup.html",
+    "popup.css",
+    "popup.js",
+    "README.md",
+    "icons/icon16.png",
+    "icons/icon48.png",
+    "icons/icon128.png",
+    "assets/logo-light.webp",
+    "assets/logo-dark.webp",
+    "assets/favicon2.svg",
+]
+
+
+def _extension_dir() -> Path | None:
+    """Where the unpacked extension lives, across dev and Docker. In the image the
+    Dockerfile copies it to /app/extension (the working dir); from a source checkout it
+    sits at the repo root. VIVATLAS_EXTENSION_DIR overrides. None if not shipped."""
+    candidates = []
+    env = os.environ.get("VIVATLAS_EXTENSION_DIR")
+    if env:
+        candidates.append(Path(env))
+    candidates.append(Path.cwd() / "extension")
+    candidates.append(Path(__file__).resolve().parents[2] / "extension")
+    candidates.append(Path("/app/extension"))
+    for c in candidates:
+        if (c / "manifest.json").is_file():
+            return c
+    return None
+
+
+@router.get("/settings/extension.zip")
+def extension_zip(request: Request) -> Response:
+    """Download the browser clipper as a ready-to-load unpacked extension (zipped)."""
+    with session_scope() as session:
+        if _me(session, request) is None:
+            raise HTTPException(401, "Sign in first.")
+    ext = _extension_dir()
+    if ext is None:
+        raise HTTPException(404, "The extension files are not bundled with this server.")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for rel in _EXT_FILES:
+            p = ext / rel
+            if p.is_file():
+                z.write(p, arcname="vivatlas-clipper/" + rel)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="vivatlas-clipper.zip"'},
+    )
+
+
 def _security_page(
     request: Request, session, me, error: str = "", **msgs
 ) -> HTMLResponse:
@@ -112,6 +172,10 @@ def _security_page(
         cat_icons=caticons.ICON_SLUGS,
         my_sources=_my_sources(session, me.id, lang),
         source_kinds=SOURCE_KINDS,
+        # The address the extension should point at: the configured public URL, else
+        # whatever host this request came in on.
+        server_url=runtime_settings.site_url(session) or str(request.base_url).rstrip("/"),
+        extension_available=_extension_dir() is not None,
         error=error,
         **msgs,
     )

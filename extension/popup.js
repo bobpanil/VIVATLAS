@@ -1,19 +1,20 @@
 'use strict';
 
-// VIVATLAS Clipper — the whole flow lives here: pick a server, sign in (with MFA),
-// then capture the current page or a pasted link and send it to VIVATLAS.
+// VIVATLAS Clipper — pick a server, sign in (with MFA), then capture the current page
+// or a pasted link. The cog panel holds the account, the server, the default "Save as"
+// and sign-out; the capture view keeps only what you touch per clip.
 //
-// Auth: /api/ext/login returns a token the extension stores and sends as a Bearer
-// header on its own calls. We ALSO set that token as the vivatlas_session cookie via
-// the cookies API, so "Open VIVATLAS" lands in the web UI already signed in.
+// Auth: /api/ext/login returns a token stored here and sent as a Bearer header. The same
+// token is also set as the vivatlas_session cookie, so "Open VIVATLAS" lands signed in.
 
 const COOKIE_NAME = 'vivatlas_session';
 const SESSION_DAYS = 30;
 
-let state = { server: '', token: '', email: '' };
+let state = { server: '', token: '', email: '', name: '', defaultVis: 'private' };
 let ticket = '';        // between password and MFA; not persisted
 let backupMode = false; // MFA: app code vs backup code
-let visibility = 'private';
+let visState = 'default';   // per-clip: 'default' | 'private' | 'public'
+let grabbedText = '';       // the page text captured for the current clip
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,8 +22,14 @@ const $ = (id) => document.getElementById(id);
 
 function load() {
   return new Promise((res) => {
-    chrome.storage.local.get(['server', 'token', 'email'], (v) => {
-      state = { server: v.server || '', token: v.token || '', email: v.email || '' };
+    chrome.storage.local.get(['server', 'token', 'email', 'name', 'defaultVis'], (v) => {
+      state = {
+        server: v.server || '',
+        token: v.token || '',
+        email: v.email || '',
+        name: v.name || '',
+        defaultVis: v.defaultVis === 'public' ? 'public' : 'private',
+      };
       res();
     });
   });
@@ -34,9 +41,11 @@ function save() {
 // --- ui helpers ----------------------------------------------------------
 
 function show(step) {
+  $('cogpanel').hidden = true;
   ['step-server', 'step-login', 'step-mfa', 'step-main'].forEach((id) => {
     $(id).hidden = id !== step;
   });
+  document.body.classList.toggle('signed-in', step === 'step-main');
   clearBanner();
 }
 function banner(msg, kind) {
@@ -102,8 +111,8 @@ async function activeTab() {
   return tabs && tabs[0] ? tabs[0] : null;
 }
 
-// Grab the readable text of the active tab (like a read-later clipper). url/title come
-// from the tab even when the page can't be scripted (chrome://, PDF viewer, store).
+// Grab the readable text of the active tab. url/title come from the tab even when the
+// page can't be scripted (chrome://, PDF viewer, store).
 async function grab() {
   const tab = await activeTab();
   const out = { url: (tab && tab.url) || '', title: (tab && tab.title) || '', text: '' };
@@ -125,30 +134,65 @@ async function grab() {
 }
 
 async function initMain() {
-  $('whoami').textContent = (state.email ? state.email + ' · ' : '') + state.server;
-  setVisibility('private');
+  $('cog-account').textContent = state.name ? (state.name + ' · ' + state.email) : state.email;
+  $('cog-server').textContent = state.server;
+  syncDefaultSeg();
+  setVis('default');
   await refillCapture();
 }
 
 async function refillCapture() {
-  $('grab-status').textContent = 'reading page…';
+  $('rescan').disabled = true;
   const cap = await grab();
   $('url').value = cap.url;
   $('title').value = cap.title;
-  if (cap.text) {
-    $('preview').textContent = cap.text;
-    $('preview').hidden = false;
-    $('grab-status').textContent = 'captured ' + cap.text.length + ' chars';
-  } else {
-    $('preview').hidden = true;
-    $('grab-status').textContent = 'no page text — the link will still be saved';
-  }
+  grabbedText = cap.text || '';
+  $('rescan').disabled = false;
 }
 
-function setVisibility(v) {
-  visibility = v;
-  $('vis-private').classList.toggle('on', v === 'private');
-  $('vis-public').classList.toggle('on', v === 'public');
+// --- visibility ----------------------------------------------------------
+
+function setVis(v) {
+  visState = v;
+  $('vis').setAttribute('data-vis', v);
+  let label;
+  if (v === 'default') label = 'Save as: default (' + (state.defaultVis === 'public' ? 'Public' : 'Private') + ')';
+  else if (v === 'private') label = 'Save as: Private';
+  else label = 'Save as: Public';
+  $('vis').title = label;
+  $('vis').setAttribute('aria-label', label);
+}
+function cycleVis() {
+  const order = ['default', 'private', 'public'];
+  setVis(order[(order.indexOf(visState) + 1) % order.length]);
+}
+function effectiveShared() {
+  let v = visState;
+  if (v === 'default') v = state.defaultVis;
+  return v === 'public';
+}
+
+function syncDefaultSeg() {
+  $('def-private').classList.toggle('on', state.defaultVis !== 'public');
+  $('def-public').classList.toggle('on', state.defaultVis === 'public');
+}
+async function setDefaultVis(v) {
+  state.defaultVis = v === 'public' ? 'public' : 'private';
+  await save();
+  syncDefaultSeg();
+  if (visState === 'default') setVis('default');   // refresh the "(Private/Public)" hint
+}
+
+// --- cog panel -----------------------------------------------------------
+
+function openCog() {
+  $('step-main').hidden = true;
+  $('cogpanel').hidden = false;
+  clearBanner();
+}
+function closeCog() {
+  $('cogpanel').hidden = true;
+  $('step-main').hidden = false;
 }
 
 // --- flow ----------------------------------------------------------------
@@ -157,7 +201,15 @@ async function decideStart() {
   if (!state.server) return show('step-server');
   if (!state.token) { $('login-server').textContent = state.server; return show('step-login'); }
   const r = await api('/session');
-  if (r.ok) { show('step-main'); return initMain(); }
+  if (r.ok) {
+    if (r.data.user) {
+      state.email = r.data.user.email || state.email;
+      state.name = r.data.user.name || state.name;
+      await save();
+    }
+    show('step-main');
+    return initMain();
+  }
   // token no longer valid — sign in again, keep the server.
   state.token = '';
   await save();
@@ -170,7 +222,6 @@ async function onServerGo() {
   if (!server) return banner('Enter a server address.', 'err');
   let origin;
   try { origin = new URL(server).origin; } catch (e) { return banner('That address looks off.', 'err'); }
-  // Ask for access to this host (needed for the API calls and the cookie).
   const granted = await new Promise((res) =>
     chrome.permissions.request({ origins: [origin + '/*'] }, res));
   if (!granted) return banner('Permission for that server was declined.', 'err');
@@ -223,6 +274,7 @@ async function onMfaGo() {
 async function onSignedIn(data) {
   state.token = data.token || '';
   state.email = (data.user && data.user.email) || state.email;
+  state.name = (data.user && data.user.name) || state.name;
   await save();
   setSessionCookie();
   $('password').value = '';
@@ -233,18 +285,23 @@ async function onSignedIn(data) {
 async function onSend() {
   const url = $('url').value.trim();
   const title = $('title').value.trim();
-  const text = $('preview').hidden ? '' : $('preview').textContent;
-  if (!url && !text) return banner('Nothing to add — capture a page or paste a link.', 'err');
+  if (!url && !grabbedText) return banner('Nothing to add — open a page or paste a link.', 'err');
+  const shared = effectiveShared();
   $('send').disabled = true;
   banner('Sending…', '');
-  const r = await api('/add', 'POST', { url, title, text, shared: visibility === 'public' });
+  const r = await api('/add', 'POST', { url, title, text: grabbedText, shared });
   $('send').disabled = false;
   if (!r.ok) {
     if (r.status === 401) { state.token = ''; await save(); banner('Session expired — sign in again.', 'err'); return show('step-login'); }
     return banner(r.data.error || 'Could not add.', 'err');
   }
-  const where = visibility === 'public' ? 'public catalogue' : 'your private space';
-  banner('Added to ' + where + ' — processing…', 'ok');
+  banner('Added to ' + (shared ? 'the public catalogue' : 'your private space') + ' — processing…', 'ok');
+}
+
+async function onRescan() {
+  banner('Re-reading the page…', '');
+  await refillCapture();
+  clearBanner();
 }
 
 async function onLogout() {
@@ -252,6 +309,7 @@ async function onLogout() {
   clearSessionCookie();
   state.token = '';
   state.email = '';
+  state.name = '';
   await save();
   show('step-login');
   $('login-server').textContent = state.server;
@@ -281,11 +339,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('mfa-toggle').addEventListener('click', () => { backupMode = !backupMode; updateMfaMode(); });
   enterKey('code', onMfaGo);
 
-  $('grab').addEventListener('click', initMain);
-  $('vis-private').addEventListener('click', () => setVisibility('private'));
-  $('vis-public').addEventListener('click', () => setVisibility('public'));
+  $('vis').addEventListener('click', cycleVis);
   $('send').addEventListener('click', onSend);
+  $('rescan').addEventListener('click', onRescan);
   $('open-web').addEventListener('click', onOpenWeb);
+
+  $('cog').addEventListener('click', openCog);
+  $('cog-close').addEventListener('click', closeCog);
+  $('def-private').addEventListener('click', () => setDefaultVis('private'));
+  $('def-public').addEventListener('click', () => setDefaultVis('public'));
   $('logout').addEventListener('click', onLogout);
 
   await decideStart();

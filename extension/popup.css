@@ -1,5 +1,5 @@
-/* VIVATLAS Clipper — the same PostHog/design-lib palette as the app: cream canvas,
-   IBM Plex Sans, a single yellow action button, thin olive hairlines, no shadows. */
+/* VIVATLAS Clipper — the app's PostHog/design-lib palette: cream canvas, IBM Plex
+   Sans, one yellow action, thin hairlines, no shadows. Adapts to dark mode. */
 :root {
   --primary: #f7a501;
   --primary-pressed: #dd9001;
@@ -14,9 +14,26 @@
   --zone-common: #157a56;   /* public */
   --zone-private: #8a5d00;   /* private */
   --accent-red: #cd4239;
+  --chip: rgba(120, 120, 110, 0.18);
   --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --r-sm: 6px;
   --r-md: 9px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --on-primary: #23251d;
+    --ink: #edefe6;
+    --body-ink: #c9ccbf;
+    --mute: #9a9c90;
+    --hairline: #4a4d3f;
+    --hairline-soft: #3a3d31;
+    --canvas: #23251d;
+    --surface-card: #2c2f26;
+    --zone-common: #4cc79b;
+    --zone-private: #e0a63a;
+    --chip: rgba(255, 255, 255, 0.12);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -29,18 +46,40 @@ html, body {
   background: var(--canvas);
 }
 
-.head {
-  display: block;
-  padding: 0;
-  margin: 0 0 8px;
+.head { position: relative; display: block; padding: 0; margin: 0 0 8px; }
+/* Full-width logo, edge to edge. One image per colour scheme. */
+.logo { display: block; width: 100%; height: auto; }
+.logo-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .logo-light { display: none; }
+  .logo-dark { display: block; }
 }
-/* The logo spans the full popup width, edge to edge. */
-.head .logo { display: block; width: 100%; height: auto; }
 
-.body { padding: 2px 16px 12px; }
+/* Cog — floats over the top-right of the logo; only once signed in. */
+.cog {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--chip);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cog svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.cog:hover { color: var(--primary); }
+body:not(.signed-in) .cog { display: none !important; }
+
+.body { position: relative; padding: 10px 18px 16px; }
 
 .banner {
-  margin: 0 16px 8px;
+  margin: 0 18px 8px;
   padding: 8px 10px;
   border-radius: var(--r-sm);
   font-size: 13px;
@@ -51,9 +90,6 @@ html, body {
 .banner.ok { border-color: var(--zone-common); color: var(--zone-common); }
 
 .step { display: flex; flex-direction: column; gap: 10px; }
-/* Only one step at a time. Without this, ".step { display:flex }" overrides the
-   [hidden] attribute (author beats the UA rule) and every step stacks into one
-   long scroll instead of stepping server → login → MFA → workspace. */
 .step[hidden] { display: none; }
 
 .lead { margin: 4px 0 0; font-size: 15px; font-weight: 600; }
@@ -61,7 +97,6 @@ html, body {
 
 .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--body-ink); }
 .field > span { font-weight: 600; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--body-ink); }
 
 input {
   width: 100%;
@@ -99,30 +134,43 @@ button { font: inherit; cursor: pointer; }
   border-radius: var(--r-sm);
 }
 .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+.btn-ghost.wide { width: 100%; }
 
-.grabrow { display: flex; align-items: center; gap: 10px; }
-.muted { font-size: 12px; color: var(--mute); }
+/* Title row: the title fills the width, the visibility control sits on its right. */
+.cap-row { display: flex; align-items: stretch; gap: 8px; }
+.cap-title { flex: 1 1 auto; min-width: 0; }
 
-.preview {
-  margin: 0;
-  max-height: 60px;
-  overflow: auto;
-  padding: 8px 10px;
-  font-family: var(--sans);
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--body-ink);
-  white-space: pre-wrap;
-  word-break: break-word;
+.vis {
+  flex: none;
+  width: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   background: var(--surface-card);
-  border: 1px solid var(--hairline-soft);
+  border: 1px solid var(--hairline);
   border-radius: var(--r-sm);
+  color: var(--mute);
 }
+.vis:hover { border-color: var(--ink); }
+.vis svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; display: none; }
+.vis[data-vis="default"] { color: var(--mute); }
+.vis[data-vis="default"] .i-auto { display: block; }
+.vis[data-vis="private"] { color: var(--zone-private); border-color: var(--zone-private); }
+.vis[data-vis="private"] .i-lock { display: block; }
+.vis[data-vis="public"] { color: var(--zone-common); border-color: var(--zone-common); }
+.vis[data-vis="public"] .i-globe { display: block; }
 
-.vis { display: flex; align-items: center; justify-content: space-between; }
-.seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: var(--r-sm); overflow: hidden; }
+/* Add + Rescan, side by side. */
+.two { display: flex; gap: 8px; }
+.two .btn-primary { flex: 1 1 auto; }
+.two .btn-ghost { flex: none; }
+
+/* Segmented Private / Public control (cog default). */
+.seg { display: inline-flex; width: 100%; border: 1px solid var(--hairline); border-radius: var(--r-sm); overflow: hidden; }
 .seg-btn {
-  padding: 7px 14px;
+  flex: 1 1 0;
+  padding: 7px 10px;
   font-size: 13px;
   font-weight: 600;
   color: var(--mute);
@@ -133,7 +181,22 @@ button { font: inherit; cursor: pointer; }
 .seg-btn.on[data-v="private"] { color: #fff; background: var(--zone-private); }
 .seg-btn.on[data-v="public"] { color: #fff; background: var(--zone-common); }
 
-.main-foot { display: flex; gap: 8px; margin-top: 4px; }
-.main-foot .btn-ghost { flex: 1; }
-
-.whoami { margin: 8px 0 0; font-size: 11px; color: var(--mute); text-align: center; word-break: break-all; }
+/* Cog settings panel — overlays the capture step. */
+.cogpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cogpanel[hidden] { display: none; }
+.cog-head { display: flex; align-items: center; justify-content: space-between; }
+.cog-head b { font-size: 15px; }
+.cog-close {
+  width: 28px; height: 28px; padding: 0; line-height: 1;
+  font-size: 20px; color: var(--mute);
+  background: transparent; border: 1px solid var(--hairline); border-radius: var(--r-sm);
+}
+.cog-close:hover { color: var(--ink); border-color: var(--ink); }
+.cog-block { display: flex; flex-direction: column; gap: 5px; }
+.cog-label { font-size: 12px; font-weight: 600; color: var(--body-ink); }
+.cog-val { margin: 0; font-size: 13px; color: var(--ink); word-break: break-all; }
+.cog-hint { margin: 2px 0 0; font-size: 11px; color: var(--mute); }

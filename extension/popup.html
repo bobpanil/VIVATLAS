@@ -3,12 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="assets/favicon2.svg">
   <link rel="stylesheet" href="popup.css">
   <title>VIVATLAS Clipper</title>
 </head>
 <body>
   <header class="head">
-    <img class="logo" src="assets/logo-dark.webp" width="640" height="197" alt="VIVATLAS">
+    <!-- Full-bleed logo. Light art on a light popup, dark art in dark mode. -->
+    <img class="logo logo-light" src="assets/logo-light.webp" alt="VIVATLAS">
+    <img class="logo logo-dark" src="assets/logo-dark.webp" alt="VIVATLAS">
+    <!-- Cog — only shown once signed in (body.signed-in). Opens the settings panel. -->
+    <button class="cog" id="cog" type="button" aria-label="Settings" title="Settings" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/>
+      </svg>
+    </button>
   </header>
 
   <!-- A message strip shared by all steps (errors and confirmations). -->
@@ -58,36 +68,56 @@
 
     <!-- Step 4 — capture / add -->
     <section class="step" id="step-main" hidden>
+      <!-- Title, with the visibility control on its right. -->
+      <div class="cap-row">
+        <input id="title" class="cap-title" type="text" spellcheck="false" placeholder="Title">
+        <button class="vis" id="vis" type="button" data-vis="default" aria-label="Visibility">
+          <svg class="i-auto" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.7" fill="currentColor" stroke="none"/></svg>
+          <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
+          <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
+        </button>
+      </div>
+
       <label class="field">
         <span>Link</span>
         <input id="url" type="url" inputmode="url" spellcheck="false" placeholder="https://…">
       </label>
-      <label class="field">
-        <span>Title</span>
-        <input id="title" type="text" spellcheck="false" placeholder="(optional)">
-      </label>
 
-      <div class="grabrow">
-        <button class="btn-ghost" id="grab" type="button">Grab page text</button>
-        <span class="muted" id="grab-status"></span>
+      <div class="two">
+        <button class="btn-primary" id="send" type="button">Add to VIVATLAS</button>
+        <button class="btn-ghost" id="rescan" type="button" title="Re-read this page">Rescan</button>
       </div>
-      <pre class="preview" id="preview" hidden></pre>
 
-      <div class="vis">
-        <span class="field-label">Save as</span>
-        <div class="seg" role="group" aria-label="Visibility">
-          <button class="seg-btn on" id="vis-private" type="button" data-v="private">Private</button>
-          <button class="seg-btn" id="vis-public" type="button" data-v="public">Public</button>
+      <button class="btn-ghost wide" id="open-web" type="button">Open VIVATLAS</button>
+    </section>
+
+    <!-- Settings panel (cog). Overlays the capture view. -->
+    <section class="cogpanel" id="cogpanel" hidden>
+      <div class="cog-head">
+        <b>Settings</b>
+        <button class="cog-close" id="cog-close" type="button" aria-label="Close">×</button>
+      </div>
+
+      <div class="cog-block">
+        <span class="cog-label">Signed in as</span>
+        <p class="cog-val" id="cog-account"></p>
+      </div>
+
+      <div class="cog-block">
+        <span class="cog-label">Server</span>
+        <p class="cog-val" id="cog-server"></p>
+      </div>
+
+      <div class="cog-block">
+        <span class="cog-label">Default “Save as”</span>
+        <div class="seg" role="group" aria-label="Default visibility">
+          <button class="seg-btn" id="def-private" type="button" data-v="private">Private</button>
+          <button class="seg-btn" id="def-public" type="button" data-v="public">Public</button>
         </div>
+        <p class="cog-hint">New clips use this unless you change it on the clip itself.</p>
       </div>
 
-      <button class="btn-primary" id="send" type="button">Add to VIVATLAS</button>
-
-      <div class="main-foot">
-        <button class="btn-ghost" id="open-web" type="button">Open VIVATLAS</button>
-        <button class="btn-ghost" id="logout" type="button">Sign out</button>
-      </div>
-      <p class="whoami" id="whoami"></p>
+      <button class="btn-ghost wide" id="logout" type="button">Sign out</button>
     </section>
   </main>
 

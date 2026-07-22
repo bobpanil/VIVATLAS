@@ -41,6 +41,22 @@ class StaleItem:
     reason: str
 
 
+# The default for the visibility-scoping argument. Distinct from None (which means
+# "anonymous — only shared cards"): _UNSET means "no scoping at all", for trusted
+# local callers like the CLI. Every user-facing caller MUST pass a real user_id (int
+# or None) so a person never sees change entries for someone else's private cards.
+_UNSET = object()
+
+
+def _scope_changes(query, user_id):
+    """Limit a Change query to rows whose artifact the user may see."""
+    if user_id is _UNSET:
+        return query
+    from vivatlas.filters import visible_ids
+
+    return query.where(Change.artifact_id.in_(visible_ids(None if user_id is None else user_id)))
+
+
 def record(
     session: Session,
     kind: str,
@@ -62,31 +78,30 @@ def record(
     return change
 
 
-def recent(session: Session, limit: int = 50, kind: str = "") -> list[Change]:
+def recent(session: Session, limit: int = 50, kind: str = "", user_id=_UNSET) -> list[Change]:
     query = select(Change).order_by(Change.created_at.desc(), Change.id.desc())
     if kind:
         query = query.where(Change.kind == kind)
+    query = _scope_changes(query, user_id)
     return list(session.scalars(query.limit(limit)))
 
 
-def since(session: Session, days: int = 30) -> list[Change]:
+def since(session: Session, days: int = 30, user_id=_UNSET) -> list[Change]:
     edge = datetime.now(UTC) - timedelta(days=days)
-    return list(
-        session.scalars(
-            select(Change).where(Change.created_at >= edge).order_by(Change.created_at.desc())
-        )
-    )
+    query = select(Change).where(Change.created_at >= edge).order_by(Change.created_at.desc())
+    query = _scope_changes(query, user_id)
+    return list(session.scalars(query))
 
 
-def summary(session: Session, days: int = 30) -> dict[str, int]:
+def summary(session: Session, days: int = 30, user_id=_UNSET) -> dict[str, int]:
     edge = datetime.now(UTC) - timedelta(days=days)
-    rows = session.execute(
-        select(Change.kind, func.count()).where(Change.created_at >= edge).group_by(Change.kind)
-    ).all()
+    query = select(Change.kind, func.count()).where(Change.created_at >= edge)
+    query = _scope_changes(query, user_id).group_by(Change.kind)
+    rows = session.execute(query).all()
     return {kind: count for kind, count in rows}
 
 
-def stale(session: Session, days: int = STALE_DAYS) -> list[StaleItem]:
+def stale(session: Session, days: int = STALE_DAYS, user_id=_UNSET) -> list[StaleItem]:
     """What hasn't been touched longer than the threshold.
 
     We go by the date of the last commit in the repository, not by our scan
@@ -97,12 +112,17 @@ def stale(session: Session, days: int = STALE_DAYS) -> list[StaleItem]:
     now = datetime.now(UTC)
     out: list[StaleItem] = []
 
-    rows = session.scalars(
+    query = (
         select(Artifact)
         .join(Repository)
         .where(Repository.gone_at.is_(None))
         .order_by(Repository.remote_updated_at)
-    ).all()
+    )
+    if user_id is not _UNSET:
+        from vivatlas.filters import visible_ids
+
+        query = query.where(Artifact.id.in_(visible_ids(None if user_id is None else user_id)))
+    rows = session.scalars(query).all()
 
     for a in rows:
         updated = a.repository.remote_updated_at

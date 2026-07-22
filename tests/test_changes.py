@@ -6,7 +6,7 @@ from sqlalchemy import select
 from tests.test_archive import make_tar
 from vivatlas import changes
 from vivatlas.indexer import index_repository
-from vivatlas.models import Artifact, Change, Repository, Source
+from vivatlas.models import Artifact, Change, Repository, Source, User
 from vivatlas.providers.base import RepoRef
 from vivatlas.scanner import get_or_create_source, scan_source
 
@@ -242,3 +242,56 @@ def test_threshold_is_adjustable(session):
     _artifact_aged(session, days=100, name="hundred")
     assert changes.stale(session, days=365) == []
     assert len(changes.stale(session, days=50)) == 1
+
+
+# --- visibility scoping (a person must not see another user's private cards) ---
+
+
+def _owned_card(session, name: str, owner_id: int, shared: bool):
+    source = Source(kind="f", base_url=f"https://x/{name}", display_name="F")
+    session.add(source)
+    session.flush()
+    row = Repository(
+        source_id=source.id,
+        external_id=name,
+        owner="lib",
+        name=name,
+        default_branch="main",
+        remote_updated_at=datetime.now(UTC) - timedelta(days=400),
+    )
+    session.add(row)
+    session.flush()
+    art = Artifact(
+        repository_id=row.id,
+        name=name,
+        artifact_type="skill",
+        owner_user_id=owner_id,
+        shared=shared,
+        hidden=False,
+    )
+    session.add(art)
+    session.flush()
+    changes.record(session, "added", repository_id=row.id, artifact_id=art.id, title=name)
+    session.commit()
+    return art
+
+
+def test_changes_feed_hides_other_users_private_cards(session):
+    a = User(email="a@x.com", display_name="A", password_hash="h")
+    b = User(email="b@x.com", display_name="B", password_hash="h")
+    session.add_all([a, b])
+    session.flush()
+    _owned_card(session, "a-private", a.id, shared=False)
+    _owned_card(session, "shared-one", a.id, shared=True)
+
+    # Owner A sees both; user B sees only the shared one; unscoped (the local CLI) sees all.
+    assert {c.title for c in changes.recent(session, user_id=a.id)} == {"a-private", "shared-one"}
+    assert {c.title for c in changes.recent(session, user_id=b.id)} == {"shared-one"}
+    assert {c.title for c in changes.recent(session)} == {"a-private", "shared-one"}
+
+    # Stale scoping matches: B never sees A's private card as a stale candidate.
+    assert {i.artifact.name for i in changes.stale(session, user_id=b.id)} == {"shared-one"}
+    assert {i.artifact.name for i in changes.stale(session, user_id=a.id)} == {
+        "a-private",
+        "shared-one",
+    }

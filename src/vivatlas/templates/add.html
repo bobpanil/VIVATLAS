@@ -139,13 +139,16 @@
 
 <form method="post" action="/add/save" id="saveform" onsubmit="working(this)">
     <input type="hidden" name="artifact_id" value="{{ card.id }}">
+    {# Private is the default: adding something never publishes it to everyone unless
+       the creator deliberately picks "Shared". Matches the browser extension, which
+       also defaults to private. #}
     <label class="zone-opt">
-        <input type="radio" name="zone" value="shared" checked>
-        <span>{{ t('add.done.zone_shared') | safe }}</span>
+        <input type="radio" name="zone" value="private" checked>
+        <span>{{ t('add.done.zone_private') | safe }}</span>
     </label>
     <label class="zone-opt">
-        <input type="radio" name="zone" value="private">
-        <span>{{ t('add.done.zone_private') | safe }}</span>
+        <input type="radio" name="zone" value="shared">
+        <span>{{ t('add.done.zone_shared') | safe }}</span>
     </label>
 </form>
 {% endif %}

@@ -1364,12 +1364,14 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
     with session_scope() as session:
         user_id = getattr(request.state, "user_id", None)
         stale_mode = bool(stale)
-        stale_items = ch.stale(session) if stale_mode else []
+        # Scope every change/stale query to what THIS user may see: a person must never
+        # find another user's private cards (or drafts) through the changes feed.
+        stale_items = ch.stale(session, user_id=user_id) if stale_mode else []
         oldest, newest = ch.oldest_and_newest(session)
 
         by_kind = {}
         for k in ("added", "updated", "removed", "renamed"):
-            n = len(ch.recent(session, limit=9999, kind=k))
+            n = len(ch.recent(session, limit=9999, kind=k, user_id=user_id))
             if n:
                 by_kind[k] = n
 
@@ -1377,13 +1379,17 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
             request,
             "changes.html",
             {
-                "items": ch.recent(session, limit=100, kind=kind) if not stale_mode else [],
+                "items": (
+                    ch.recent(session, limit=100, kind=kind, user_id=user_id)
+                    if not stale_mode
+                    else []
+                ),
                 "kind": kind,
                 "counts_by_kind": by_kind,
                 "total": sum(by_kind.values()),
                 "stale_mode": stale_mode,
                 "stale_items": stale_items,
-                "stale_count": len(ch.stale(session)),
+                "stale_count": len(ch.stale(session, user_id=user_id)),
                 "stale_days": ch.STALE_DAYS,
                 "nav": "changes",
                 "oldest": oldest,
@@ -1807,7 +1813,7 @@ async def _import_github_capture(url: str, user_id: int, shared: bool) -> None:
 def add_save(
     request: Request,
     artifact_id: Annotated[int, Form()],
-    zone: Annotated[str, Form()] = "shared",
+    zone: Annotated[str, Form()] = "private",
 ) -> RedirectResponse:
     """The final step of creation: the card is marked private or shared and saved.
     Until then it's the creator's private draft."""

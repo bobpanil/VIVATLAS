@@ -285,13 +285,15 @@ def list_recent_changes(days: int = 30, kind: str = "") -> dict:
     kind: added | updated | removed | renamed — or empty
     """
     with session_scope() as session:
-        events = ch.since(session, days=days)
+        # MCP is unauthenticated: only ever surface shared cards (user_id=None), never
+        # anyone's private ones — same boundary as the rest of the MCP tools.
+        events = ch.since(session, days=days, user_id=None)
         if kind:
             events = [e for e in events if e.kind == kind]
         return {
             "days": days,
             "total": len(events),
-            "summary": ch.summary(session, days=days),
+            "summary": ch.summary(session, days=days, user_id=None),
             "items": [
                 {
                     "kind": e.kind,
@@ -312,7 +314,7 @@ def find_stale_artifacts(days: int = 365) -> dict:
     days: how many days counts as a long stretch
     """
     with session_scope() as session:
-        items = ch.stale(session, days=days)
+        items = ch.stale(session, days=days, user_id=None)
         oldest, newest = ch.oldest_and_newest(session)
         return {
             "threshold_days": days,

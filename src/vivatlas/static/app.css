@@ -2485,6 +2485,19 @@ summary:focus-visible {
     accent-color: var(--primary);
 }
 
+/* On a phone there's only room for one card across, so the grid is a single
+   full-width column and the size slider is hidden — it's a desktop/tablet knob.
+   Placed after .grid and .sizectl so it wins on source order (media queries
+   don't add specificity). */
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+    .sizectl {
+        display: none;
+    }
+}
+
 /* the kit's product-card: a white card on the cream canvas, a hair-thin olive
    border, 6px. No shadows — the kit forbids them outright; depth here comes
    from the contrast of white against cream, not an underlaid shadow. */

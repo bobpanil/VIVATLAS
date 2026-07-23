@@ -3785,12 +3785,24 @@ a.art-chip-pur:hover { border-color: currentColor; }
 @media (max-width: 767px) {
     .art-cols {
         flex-direction: column;
-        gap: var(--s-md);
+        gap: var(--s-sm);
     }
     .art-side > .art-sec:first-child {
         border-top: 1px solid var(--line);
-        margin-top: var(--s-md);
-        padding-top: var(--s-md);
+        margin-top: var(--s-sm);
+        padding-top: var(--s-sm);
+    }
+    /* Tighter section rhythm so the stacked sections don't read as an endless,
+       over-divided scroll; the separator lines get a lighter tone too. */
+    .art-sec {
+        margin-top: var(--s-sm);
+        padding-top: var(--s-sm);
+        border-top-color: var(--hairline);
+    }
+    .art-main .art-sec:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
     }
 }
 
@@ -6185,26 +6197,38 @@ html.modal-open {
 }
 
 @media (max-width: 768px) {
+    /* Keep the top bar visible while a card is open: the modal overlay starts
+       below it instead of covering the whole screen. */
+    .modalhost {
+        top: 56px;
+    }
+
     .modalpage {
         padding: 0;
     }
 
+    /* Size the card to its content (capped at the space under the top bar) so a
+       short card doesn't stretch full-height and leave a big empty void above the
+       footer. Taller cards scroll inside .modal-body as before. */
     .modalcard {
         width: 100%;
         max-width: 100%;
-        min-height: 100vh;
-        min-height: 100dvh;
-        max-height: 100vh;
+        min-height: 0;
         max-height: 100dvh;
         border: 0;
         border-radius: 0;
     }
 
+    .modal-body {
+        padding: var(--s-lg);
+    }
+
     /* The footer's text buttons don't fit across a phone, so they become a row of
-       icon-only square buttons (the labels are hidden; each keeps a title/aria). */
+       icon-only square buttons, spread across the width — Close on the left,
+       Delete (destructive) on the right. Labels are hidden; each keeps title/aria. */
     .modal-foot {
-        flex-wrap: wrap;
-        justify-content: flex-start;
+        flex-wrap: nowrap;
+        justify-content: space-between;
         gap: 8px;
     }
 

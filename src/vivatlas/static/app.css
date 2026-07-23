@@ -1895,13 +1895,28 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
         border-bottom: 1px solid var(--panel-line);
     }
 
+    /* The lockup is absolutely centred in the bar so it stays dead-centre
+       regardless of the burger's width; it can't crowd or overlap the burger. */
     .logo-sm {
-        margin: 0 auto 0 0;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
     }
 
-    .logo-sm img {
+    .topbar-mark {
         width: auto;
         height: 30px;
+        display: block;
+    }
+
+    .topbar-word {
+        width: auto;
+        height: 17px;
+        display: block;
     }
 
     .burger {
@@ -1937,15 +1952,22 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
         transform: translateX(-100%);
         transition: transform 0.18s ease-out;
         /* Above the sticky toolbar (.stickyhead, z-index 50), which is opaque and
-           would otherwise render on top of the open drawer. A right-edge shadow so
-           it reads as a drawer, not a floating panel. */
+           would otherwise render on top of the open drawer. */
         z-index: 60;
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
         width: min(300px, 86vw);
     }
 
+    /* The right-edge shadow only when the drawer is open. Off-screen (closed) its
+       24px spread bled onto the content's left edge as a dirty grey strip. */
     .navt:checked ~ .side {
         transform: none;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
+    }
+
+    /* No background scroll while the drawer is open (the drawer scrolls its own
+       list). Locks the root so the catalogue behind it stays put. */
+    html:has(.navt:checked) {
+        overflow: hidden;
     }
 
     /* The dimming backdrop must also sit above the toolbar (50) — below the drawer
@@ -5641,13 +5663,26 @@ a.art-chip-pur:hover { border-color: currentColor; }
 }
 
 @media (max-width: 768px) {
+    /* The filter window drops as a full-width panel flush under the toolbar —
+       no rounded corners, bled to both edges. .toolbar-right goes static so the
+       panel anchors to the (positioned) .stickyhead, not the narrow button. */
+    .toolbar-right {
+        position: static;
+    }
     .sheet {
-        position: fixed;
-        inset: auto 0 0 0;
-        width: 100%;
-        max-width: 100%;
-        max-height: 82vh;
-        border-radius: 14px 14px 0 0;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        inset: 100% 0 auto 0;
+        width: auto;
+        max-width: none;
+        margin: 0 calc(-1 * var(--s-lg));
+        max-height: 70vh;
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+        box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.4);
     }
 
     /* ONLY the filter sheet (#fscrim), not any .scrim: this rule used to catch
@@ -5665,6 +5700,140 @@ a.art-chip-pur:hover { border-color: currentColor; }
 
     body.sheet-open {
         overflow: hidden;
+    }
+}
+
+/* ==========================================================================
+   Phone toolbar actions (Add / Search) + drawer lockup. Base styles here;
+   the buttons and drawer logo are shown only inside the ≤768px block below.
+   ========================================================================== */
+.m-only { display: none; }
+
+.tbtn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.tbtn svg,
+.tbtn .ic {
+    width: 18px;
+    height: 18px;
+}
+
+.tbtn-add {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #23251d;
+    font-weight: 600;
+}
+
+.tbtn-plus {
+    font-size: 18px;
+}
+
+.side-logo-m {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* The toolbar sits flush under the 56px top bar and wraps: the buttons are
+       row one; an opened search field or filter panel becomes a full-width row
+       directly beneath them. */
+    .stickyhead {
+        top: 56px;
+    }
+
+    /* One row, no wrapping: Add on the left, Search + Filter on the right. The
+       search field and the filter panel are absolute dropdowns (below), so the
+       button row itself never wraps. */
+    .toolbar {
+        flex-wrap: nowrap;
+        gap: var(--s-sm);
+        align-items: center;
+    }
+
+    .tbtn.m-only {
+        display: inline-flex;
+    }
+
+    .tbtn-search {
+        margin-left: auto;
+    }
+
+    /* The search field is hidden until the icon reveals it; then it drops as a
+       full-width panel flush under the toolbar — edge to edge, no rounded
+       corners. Absolute, anchored to the positioned .stickyhead. */
+    .searchform {
+        display: none;
+    }
+
+    body.search-open .searchform {
+        display: flex;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        width: auto;
+        margin: 0 calc(-1 * var(--s-lg));
+        padding: var(--s-md) var(--s-lg);
+        background: var(--canvas);
+        border-top: 1px solid var(--line);
+        box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.35);
+        z-index: 41;
+    }
+
+    body.search-open .searchbox {
+        flex: 1 1 auto;
+    }
+
+    body.search-open .searchbox input {
+        border-radius: 0;
+    }
+
+    .tbtn-search[aria-expanded="true"] {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #23251d;
+    }
+
+    /* Cards hidden by the live filter as you type. */
+    .card.q-hide {
+        display: none;
+    }
+
+    /* Drawer header: the vertical lockup, centred at the very top. Higher
+       specificity than ".side > .logo { display:none }" so it stays shown. */
+    .side > .logo.side-logo-m {
+        display: flex;
+        justify-content: center;
+        margin: 0 0 var(--s-md);
+        padding: 0;
+    }
+
+    .side-vr {
+        width: 62%;
+        max-width: 200px;
+        height: auto;
+    }
+
+    /* The vertical lockup already includes the tagline, so the separate
+       Organize·Connect·Empower line below it would be a duplicate on the phone. */
+    .logo-tagline {
+        display: none;
     }
 }
 
@@ -5712,39 +5881,9 @@ a.art-chip-pur:hover { border-color: currentColor; }
     margin: 0;
 }
 
-@media (max-width: 768px) {
-    /* On a phone there's no avatar and little room: we fold the row into a
-       column — search full width on top, "Filters" and size below it. */
-    .toolbar {
-        flex-wrap: wrap;
-        gap: var(--s-sm);
-    }
-
-    .toolbar-left {
-        display: none;   /* the centring spacer isn't needed on a phone */
-    }
-
-    .searchform {
-        flex-basis: 100%;
-    }
-
-    .toolbar-right {
-        flex-basis: 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: var(--s-sm);
-    }
-
-    .sizectl {
-        flex: 1;
-        justify-content: flex-end;
-    }
-
-    .sizectl input[type="range"] {
-        flex: 1;
-        max-width: 160px;
-    }
-}
+/* (The old phone toolbar — search full-width on top, Filters + size below —
+   was replaced by the Add / Search / Filter bar with dropdown panels defined
+   in the consolidated ≤768px block above. Kept removed to avoid overriding it.) */
 
 /* --- modal page -----------------------------------------------------------
    A dark background, a centred 880px card: head (title), body (scroll), footer
@@ -5953,6 +6092,30 @@ html.modal-open {
         max-height: 100dvh;
         border: 0;
         border-radius: 0;
+    }
+
+    /* The footer's row of actions doesn't fit across a phone, so it stacks —
+       one button per line, full width. Source order is left-to-right, so the
+       stack reads top-to-bottom the same way: Close (the left link) on top, the
+       actions (ending in Delete, the rightmost) below. */
+    .modal-foot {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .modal-foot > *,
+    .modal-foot form {
+        width: 100%;
+    }
+
+    .modal-foot form button {
+        width: 100%;
+    }
+
+    /* margin-right:auto only made sense pushing Close left in a row. */
+    .modal-foot .foot-left {
+        margin-right: 0;
     }
 }
 

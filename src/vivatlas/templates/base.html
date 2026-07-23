@@ -11,7 +11,7 @@
     <title>{% block title %}VIVATLAS{% endblock %}</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="{{ asset('app.css') }}">
     {# The theme is applied before paint so there's no flash of light. The choice
        is personal, living on the device (localStorage), like the card size. #}
     <script>
@@ -84,12 +84,13 @@
             </svg>
             <span class="vh-text">{{ t('nav.menu') }}</span>
         </label>
-        {# The same logo as in the panel. A separate text label alongside would
-           be a repeat: the words SKILL ATLAS are already in the image itself. #}
-        <a class="logo logo-sm" href="/">
-            <img src="/static/logo-dark.webp" width="640" height="197" alt="VIVATLAS">
+        {# The lockup, centred in the bar: the mark on the left, the wordmark to its
+           right. Grouped so they stay together and don't crowd the burger or the
+           toolbar below. Both are cream/orange SVGs made for the dark bar. #}
+        <a class="logo logo-sm" href="/" aria-label="{{ t('logo.home_alt') }}">
+            <img class="topbar-mark" src="/static/favicon-globe.svg" alt="" aria-hidden="true">
+            <img class="topbar-word" src="/static/vivatlas-logo_noicon.svg" alt="VIVATLAS">
         </a>
-        {% if nav != 'add' %}<a class="cta cta-sm" href="/add" data-modal>{{ t('nav.add') }}</a>{% endif %}
     </header>
 
     <label class="scrim" for="navt" aria-hidden="true"></label>
@@ -98,6 +99,12 @@
         {# The logo is pinned to the top of the panel — it doesn't scroll away
            when the sections and folders scroll. Only the middle part (.side-scroll)
            scrolls; the bottom (account, help/theme, "collapse") sticks to the base. #}
+        {# Mobile drawer header: the vertical lockup (mark over wordmark), centred
+           at the very top. Shown only on the phone (where the top-bar logo is
+           horizontal); the desktop webp logo below is hidden there. #}
+        <a class="logo side-logo-m" href="/" aria-label="{{ t('logo.home_alt') }}">
+            <img class="side-vr" src="/static/vivatlas_vr.svg" alt="VIVATLAS">
+        </a>
         {# The logo stacked and centred: icon, word, tagline. #}
         <a class="logo" href="/">
             <img class="logo-mark" src="/static/logo-mark.webp" width="166" height="220"

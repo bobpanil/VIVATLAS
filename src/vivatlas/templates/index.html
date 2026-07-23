@@ -24,6 +24,19 @@
            exactly at the centre of the app. #}
         <div class="toolbar-left" aria-hidden="true"></div>
 
+        {# Phone-only toolbar actions. Add is the primary (yellow) button; the search
+           icon toggles the full-width field below; Filter lives in .toolbar-right.
+           On desktop these are hidden and the search field is always shown. #}
+        <a class="tbtn tbtn-add m-only" href="/add" data-modal>
+            <span class="tbtn-plus" aria-hidden="true">+</span><span class="tbtn-txt">{{ t('nav.add') }}</span>
+        </a>
+        {% if not link %}
+        <button class="tbtn tbtn-search m-only" type="button" id="search-toggle"
+                aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">
+            {{ icons.ic('search') }}
+        </button>
+        {% endif %}
+
         <form class="searchform" action="/" method="get" role="search">
             <div class="searchbox">
                 <input type="search" name="q" id="q" value="{{ q }}" autocomplete="off"
@@ -326,6 +339,43 @@ function dismissRemoved() {
     document.addEventListener('click', function (e) {
         if (sheet.hidden) return;
         if (!sheet.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
+    });
+})();
+
+// Phone search: the toolbar icon reveals a full-width field below the bar; the
+// same icon hides it. Typing filters the shown cards live; Enter runs the full
+// server-side search (the form submits as before).
+(function () {
+    var toggle = document.getElementById('search-toggle');
+    var input = document.getElementById('q');
+    if (!toggle || !input) return;
+
+    toggle.addEventListener('click', function () {
+        var open = document.body.classList.toggle('search-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            input.focus();
+        } else if (input.value) {
+            // Closing an active search clears the live filter back to everything.
+            input.value = '';
+            liveFilter();
+        }
+    });
+
+    var grid = document.querySelector('.grid');
+    function liveFilter() {
+        if (!grid) return;
+        var term = input.value.trim().toLowerCase();
+        var cards = grid.querySelectorAll('.card');
+        for (var i = 0; i < cards.length; i++) {
+            var hit = !term || (cards[i].textContent || '').toLowerCase().indexOf(term) !== -1;
+            cards[i].classList.toggle('q-hide', !hit);
+        }
+    }
+    var timer;
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(liveFilter, 110);
     });
 })();
 

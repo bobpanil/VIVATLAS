@@ -74,6 +74,20 @@ templates.env.globals["caticon"] = caticons.caticon_svg
 templates.env.globals["kind_mark"] = lambda k: ch.KIND_MARKS.get(k, "·")
 
 
+def _asset(name: str) -> str:
+    """A static URL with a cache-busting ?v=<mtime>, so a stylesheet/script edit
+    shows up on the next load instead of being served from a stale browser cache
+    (notably the Android WebView, which reuses app.css aggressively)."""
+    try:
+        v = int((BASE / "static" / name).stat().st_mtime)
+    except OSError:
+        v = 0
+    return f"/static/{name}?v={v}"
+
+
+templates.env.globals["asset"] = _asset
+
+
 def _combine(params: dict, **extra) -> dict:
     """Add something else to the filter set (usually a search query)."""
     out = dict(params)

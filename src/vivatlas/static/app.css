@@ -350,6 +350,14 @@ optgroup {
     pointer-events: none;
 }
 
+/* At desktop the panel is the persistent sidebar, so this toggle does nothing —
+   remove it from the a11y tree and the tab order there. Otherwise it's an
+   orphaned, unlabelled tab stop: its only label (the burger) is display:none on
+   desktop, which reads to a screen reader as an unnamed checkbox. */
+@media (min-width: 769px) {
+    .navt { display: none; }
+}
+
 .vh-text {
     position: absolute;
     width: 1px;
@@ -493,7 +501,7 @@ optgroup {
 /* Collapsed — desktop only: on a phone the panel already slides out via the
    burger. The panel stays visible and working — we hide ONLY the labels, the
    icons live on. */
-@media (min-width: 641px) {
+@media (min-width: 769px) {
     html.side-collapsed .side {
         width: var(--sidebar-rail);
         padding-inline: 8px;
@@ -555,7 +563,7 @@ optgroup {
 
 /* On a phone the panel opens via the burger — "collapse" is pointless here.
    The .side selector is there to override the later .side-icon{display:inline-flex}. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .side .side-collapse {
         display: none;
     }
@@ -1870,7 +1878,7 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
    768px: on a tablet and in a narrow desktop window the panel (240px) fits
    comfortably next to the catalogue, and there's no need to hide it behind a
    burger there. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     /* The bar is dark, like the panel: the logo arrives with its own black
        background, and on a cream bar it would be a black rectangle. The frame
        is dark, the content cream — that way it reads as intent, not a patch. */
@@ -1928,7 +1936,11 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
     .side {
         transform: translateX(-100%);
         transition: transform 0.18s ease-out;
-        box-shadow: none;
+        /* Above the sticky toolbar (.stickyhead, z-index 50), which is opaque and
+           would otherwise render on top of the open drawer. A right-edge shadow so
+           it reads as a drawer, not a floating panel. */
+        z-index: 60;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
         width: min(300px, 86vw);
     }
 
@@ -1936,11 +1948,15 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
         transform: none;
     }
 
+    /* The dimming backdrop must also sit above the toolbar (50) — below the drawer
+       (60), above everything else — so the whole screen dims, not just the grid.
+       Scoped by ".navt:checked ~ .scrim" to the body-level drawer scrim only; the
+       filter sheet's #fscrim lives inside <main> and is untouched. */
     .navt:checked ~ .scrim {
         display: block;
         position: fixed;
         inset: 0;
-        z-index: 25;
+        z-index: 59;
         background: rgba(35, 37, 29, 0.4);
     }
 
@@ -1997,7 +2013,7 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
    out by the full -s-xl spilled 8px past the edge and the whole page shifted
    sideways. We bring it in line with .main's padding. IMPORTANT: after the
    base rule above — otherwise it would be overridden by order. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .stickyhead {
         margin-left: calc(-1 * var(--s-lg));
         margin-right: calc(-1 * var(--s-lg));
@@ -3122,6 +3138,10 @@ html.card-dragging .side-folders-head {
     z-index: 2;
     text-decoration: none;
     cursor: pointer;
+    /* A real tap target: the clickable purpose chip was ~18px tall (fails WCAG 2.5.8
+       and awkward to tap on a phone). The extra height is centred so the footer row
+       doesn't grow. */
+    min-height: 24px;
 }
 
 .pur-link:hover .card-cat-name {
@@ -5938,7 +5958,7 @@ html.modal-open {
     transform: rotate(90deg);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     /* The menu sheet slides out from the left; in rtl — from the right. The
        threshold is the same as the panel's. */
     [dir="rtl"] .side {

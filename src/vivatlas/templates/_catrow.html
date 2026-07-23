@@ -2,7 +2,9 @@
    instant insertion after creation (the categories endpoint returns its HTML). Expects
    in context: c (folder), cat_icons, back. #}
 <li class="catrow" data-id="{{ c.value }}">
-    <span class="catrow-grip" draggable="true" title="{{ t('settings.drag') }}" aria-label="{{ t('settings.drag_reorder_aria') }}">⠿</span>
+    {# Mouse affordance only — keyboard users reorder with the ↑/↓ buttons below,
+       so the grip is hidden from assistive tech (WCAG 2.5.7 / 2.1.1). #}
+    <span class="catrow-grip" draggable="true" title="{{ t('settings.drag') }}" aria-hidden="true">⠿</span>
     <form method="post" action="/settings/categories/{{ c.value }}/update" class="catrow-form">
         <input type="hidden" name="next" value="{{ back }}">
         <button type="button" class="cat-pick" data-target="ic{{ c.value }}"
@@ -11,6 +13,14 @@
         <input type="text" name="name" value="{{ c.label }}" maxlength="128"
                aria-label="{{ t('settings.category_name_aria') }}">
         <span class="catrow-count" title="{{ t('settings.cards_in_folder') }}">{{ c.count }}</span>
+        {# Keyboard reorder (the non-drag alternative). Plain submit buttons to the
+           move endpoint, enhanced by catmanage.js to reorder without a reload. #}
+        <button type="submit" class="catrow-btn catrow-move" formaction="/settings/categories/{{ c.value }}/move"
+                name="dir" value="up" title="{{ t('settings.move_up') }}"
+                aria-label="{{ t('settings.move_up_aria', name=c.label) }}">↑</button>
+        <button type="submit" class="catrow-btn catrow-move" formaction="/settings/categories/{{ c.value }}/move"
+                name="dir" value="down" title="{{ t('settings.move_down') }}"
+                aria-label="{{ t('settings.move_down_aria', name=c.label) }}">↓</button>
         <button type="submit" class="catrow-btn" title="{{ t('settings.save_name') }}">✓</button>
         <button type="submit" class="catrow-btn catrow-del"
                 formaction="/settings/categories/{{ c.value }}/delete" title="{{ t('settings.delete') }}">✕</button>

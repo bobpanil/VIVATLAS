@@ -6239,11 +6239,14 @@ html.modal-open {
 
     .modal-foot .btn-secondary,
     .modal-foot .btn-danger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         width: 44px;
         min-width: 44px;
         height: 44px;
         padding: 0;
-        justify-content: center;
+        line-height: 0;
     }
 
     .modal-foot .mf-txt {

@@ -493,7 +493,7 @@ optgroup {
 /* Collapsed — desktop only: on a phone the panel already slides out via the
    burger. The panel stays visible and working — we hide ONLY the labels, the
    icons live on. */
-@media (min-width: 641px) {
+@media (min-width: 769px) {
     html.side-collapsed .side {
         width: var(--sidebar-rail);
         padding-inline: 8px;
@@ -555,7 +555,7 @@ optgroup {
 
 /* On a phone the panel opens via the burger — "collapse" is pointless here.
    The .side selector is there to override the later .side-icon{display:inline-flex}. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .side .side-collapse {
         display: none;
     }
@@ -1870,7 +1870,7 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
    768px: on a tablet and in a narrow desktop window the panel (240px) fits
    comfortably next to the catalogue, and there's no need to hide it behind a
    burger there. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     /* The bar is dark, like the panel: the logo arrives with its own black
        background, and on a cream bar it would be a black rectangle. The frame
        is dark, the content cream — that way it reads as intent, not a patch. */
@@ -2005,7 +2005,7 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
    out by the full -s-xl spilled 8px past the edge and the whole page shifted
    sideways. We bring it in line with .main's padding. IMPORTANT: after the
    base rule above — otherwise it would be overridden by order. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .stickyhead {
         margin-left: calc(-1 * var(--s-lg));
         margin-right: calc(-1 * var(--s-lg));
@@ -5946,7 +5946,7 @@ html.modal-open {
     transform: rotate(90deg);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     /* The menu sheet slides out from the left; in rtl — from the right. The
        threshold is the same as the panel's. */
     [dir="rtl"] .side {

@@ -3499,19 +3499,35 @@ html.card-dragging .side-folders-head {
     min-width: 0;
 }
 
+/* Heading for the visibility step: a clear "who can see this?" prompt. */
+.zone-q {
+    font-weight: 700;
+    color: var(--ink);
+    margin: var(--s-lg) 0 var(--s-sm);
+}
+
+/* Two tappable option cards, not tiny radios — the selected one is outlined. */
 .zone-opt {
     display: flex;
     gap: var(--s-sm);
     align-items: flex-start;
-    padding: 12px 2px;
-    border-top: 1px solid var(--hairline-soft);
+    padding: 14px 16px;
+    margin-top: var(--s-sm);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
     font-size: 14px;
     color: var(--body-ink);
     cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
 }
 
 .zone-opt:first-of-type {
-    border-top: 0;
+    margin-top: 0;
+}
+
+.zone-opt:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--surface-soft);
 }
 
 .zone-opt input {
@@ -3521,6 +3537,31 @@ html.card-dragging .side-folders-head {
 
 .zone-opt b {
     color: var(--ink);
+}
+
+/* --- toast: a brief confirmation banner (e.g. "added"), auto-dismissing ---- */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(8px);
+    z-index: 200;
+    max-width: calc(100vw - 32px);
+    padding: 12px 18px;
+    border-radius: var(--r-md);
+    background: #23251d;
+    color: #fdf7ea;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 /* --- tool card in the modal ----------------------------------------------

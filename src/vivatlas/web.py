@@ -1951,4 +1951,5 @@ def add_save(
         if art is not None and art.owner_user_id in (user_id, None):
             art.owner_user_id = user_id
             art.shared = zone != "private"
-    return RedirectResponse("/", status_code=303)
+    # ?added=1 → the catalogue shows a brief "added" toast.
+    return RedirectResponse("/?added=1", status_code=303)

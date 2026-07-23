@@ -88,12 +88,26 @@ async def list_available_models(api_key: str, timeout: float = 30.0) -> dict:
         name = (m.get("name") or "").split("/", 1)[-1]
         if not name:
             continue
-        methods = m.get("supportedGenerationMethods") or []
-        if "generateContent" in methods:
-            text.append(name)
-        if "embedContent" in methods:
+        # `supportedGenerationMethods` is the documented field; accept a couple of
+        # alternates in case the API shape shifts. If none are reported, fall back
+        # to the name so the dropdowns still fill (embedding models are named as
+        # such; everything else is a text model).
+        methods = (
+            m.get("supportedGenerationMethods")
+            or m.get("supportedActions")
+            or m.get("supported_generation_methods")
+            or []
+        )
+        if methods:
+            if "generateContent" in methods:
+                text.append(name)
+            if "embedContent" in methods:
+                embed.append(name)
+        elif "embed" in name.lower():
             embed.append(name)
-    return {"text": sorted(text), "embedding": sorted(embed)}
+        else:
+            text.append(name)
+    return {"text": sorted(set(text)), "embedding": sorted(set(embed))}
 
 
 class GoogleTextModel(_GoogleClient):

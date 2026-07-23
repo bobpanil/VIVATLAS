@@ -234,6 +234,9 @@
             {% for c in config if c.attr == 'llm_model' %}{{ model_select(c, 'text') }}{% endfor %}
             {% for c in config if c.attr == 'embedding_model' %}{{ model_select(c, 'embedding') }}{% endfor %}
         </div>
+        {# Status of the live model-list fetch (filled by the loader script): how
+           many models the key exposed, or why the list couldn't be loaded. #}
+        <p class="legend" id="ai-models-msg" role="status" aria-live="polite" hidden></p>
     </form>
 </div>
 </section>
@@ -276,9 +279,17 @@ document.addEventListener('submit', function (e) {
 (function () {
     var selects = document.querySelectorAll('select[data-model-select]');
     if (!selects.length) return;
+    var msg = document.getElementById('ai-models-msg');
+    function say(text, isErr) {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.hidden = !text;
+        msg.classList.toggle('auth-err', !!isErr);
+    }
     fetch('/admin/ai/models', { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.json(); })
         .then(function (d) {
+            var total = (d.text || []).length + (d.embedding || []).length;
             selects.forEach(function (sel) {
                 var list = (d[sel.getAttribute('data-model-select')] || []).slice();
                 if (!list.length) return;   // keep the saved value as-is
@@ -292,8 +303,20 @@ document.addEventListener('submit', function (e) {
                     sel.appendChild(o);
                 });
             });
+            // Tell the admin what happened, so an empty list isn't a silent mystery.
+            if (total) {
+                say('Loaded ' + total + ' models from your Google key.', false);
+            } else if (d.error === 'no-key') {
+                say('No Google key saved yet — save the key first, then the models load.', true);
+            } else if (d.error) {
+                say("Couldn't load models from Google: " + d.error + ' (kept the saved model).', true);
+            } else {
+                say('Google returned no usable models for this key (kept the saved model).', true);
+            }
         })
-        .catch(function () { /* leave the manual value */ });
+        .catch(function (e) {
+            say("Couldn't reach the model list: " + (e && e.message ? e.message : e), true);
+        });
 })();
 </script>
 {% endblock %}

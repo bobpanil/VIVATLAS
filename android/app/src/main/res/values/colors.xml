@@ -5,6 +5,6 @@
     <color name="brand_dark">#04060D</color>
     <color name="brand_ink">#23251D</color>
     <color name="brand_canvas">#EEEFE9</color>
-    <!-- Matches the icon's navy squircle so no seam shows if the mask exceeds it. -->
-    <color name="ic_launcher_background">#0C111C</color>
+    <!-- Matches android.svg's navy so no seam shows if the mask exceeds it. -->
+    <color name="ic_launcher_background">#0F141F</color>
 </resources>

@@ -517,6 +517,36 @@ class Setting(Base):
     )
 
 
+class OAuthClient(Base):
+    """An OAuth client registered (dynamically, RFC 7591) by an MCP client such as
+    ChatGPT. The full client metadata is kept verbatim as JSON so the mcp SDK can
+    round-trip it — we don't interpret it ourselves."""
+
+    __tablename__ = "oauth_clients"
+
+    client_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    info_json: Mapped[str] = mapped_column(Text)  # OAuthClientInformationFull, verbatim
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class OAuthToken(Base):
+    """An issued OAuth access or refresh token, bound to a user. Like UserSession,
+    only the token's hash is stored; `user_id` is the subject the token acts as, and
+    every MCP tool scopes to it."""
+
+    __tablename__ = "oauth_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # "access" | "refresh"
+    client_id: Mapped[str] = mapped_column(String(255), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    scopes: Mapped[str] = mapped_column(String(512), default="")  # space-separated
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Category(Base):
     """A category-folder for the catalogue.
 

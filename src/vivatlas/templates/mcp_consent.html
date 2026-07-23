@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#04060d">
+    <title>{{ t('mcp.consent.title') }} — VIVATLAS</title>
+    <link rel="icon" href="/static/favicon.png" sizes="32x32">
+    <link rel="stylesheet" href="/static/app.css">
+    <script>
+    if (window.self !== window.top) { try { window.top.location = window.location.href; } catch (e) {} }
+    </script>
+</head>
+<body class="auth-body">
+    <main class="auth-wrap">
+        <img class="auth-logo" src="/static/logo-dark.webp" width="640" height="197" alt="VIVATLAS">
+
+        {% if state == 'ask' %}
+        <div class="auth-card">
+            <h1>{{ t('mcp.consent.title') }}</h1>
+            <p class="auth-lede">{{ t('mcp.consent.lede', client=client_name) }}</p>
+            <p class="auth-note">{{ t('mcp.consent.scope') }}</p>
+            <p class="auth-note">{{ t('mcp.consent.account', account=account) }}</p>
+            <form method="post" action="/mcp/consent" class="mcp-consent-actions">
+                <input type="hidden" name="req" value="{{ req }}">
+                <button class="cta" type="submit" name="decision" value="allow">{{ t('mcp.consent.allow') }}</button>
+                <button class="btn-secondary" type="submit" name="decision" value="deny">{{ t('mcp.consent.deny') }}</button>
+            </form>
+        </div>
+        {% else %}
+        <div class="auth-card">
+            <h1>{{ t('mcp.consent.expired.title') }}</h1>
+            <p class="auth-lede">{{ t('mcp.consent.expired.lede') }}</p>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>

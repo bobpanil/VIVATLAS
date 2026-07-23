@@ -23,6 +23,7 @@
     <button class="settab" type="button" data-tab="folders">{{ t('settings.tab_folders') }}</button>
     <button class="settab" type="button" data-tab="repos">{{ t('settings.tab_repos') }}</button>
     <button class="settab" type="button" data-tab="extension">{{ t('settings.tab_extension') }}</button>
+    <button class="settab" type="button" data-tab="chatgpt">{{ t('settings.tab_chatgpt') }}</button>
 </nav>
 
 <section class="setpanel" data-panel="profile">
@@ -272,6 +273,52 @@
     <p class="note">{{ t('settings.ext_note_chrome') }}</p>
     {% else %}
     <p class="warn">{{ t('settings.ext_unavailable') }}</p>
+    {% endif %}
+</div>
+</section>
+
+<section class="setpanel" data-panel="chatgpt" hidden>
+<div class="box wide">
+    {{ sechead(t('settings.mcp_title'), t('settings.mcp_tip')) }}
+    <p class="legend">{{ t('settings.mcp_intro') }}</p>
+
+    {% if mcp_enabled %}
+    <ol class="ext-steps">
+        <li>
+            <span class="ext-step-text">{{ t('settings.mcp_step_url') }}</span>
+            <span class="ext-copyrow">
+                <code>{{ mcp_url }}</code>
+                <button type="button" class="btn-secondary ext-copy" data-copy="{{ mcp_url }}"
+                        data-done="{{ t('settings.ext_copied') }}"
+                        onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
+            </span>
+        </li>
+        <li>{{ t('settings.mcp_step_devmode') }}</li>
+        <li>{{ t('settings.mcp_step_add') }}</li>
+        <li>{{ t('settings.mcp_step_use') }}</li>
+    </ol>
+    <p class="note">{{ t('settings.mcp_task_hint') }}</p>
+
+    <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.mcp_authorized') }}</h3></div>
+    {% if mcp_grants %}
+    <ul class="src-manage">
+        {% for g in mcp_grants %}
+        <li class="src-row">
+            <div class="src-summary">
+                <div class="src-summary-text"><span class="src-summary-name">{{ g.name }}</span></div>
+                <form method="post" action="/settings/mcp/revoke">
+                    <input type="hidden" name="client_id" value="{{ g.client_id }}">
+                    <button type="submit" class="btn-secondary btn-danger">{{ t('settings.mcp_revoke') }}</button>
+                </form>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="legend">{{ t('settings.mcp_none') }}</p>
+    {% endif %}
+    {% else %}
+    <p class="warn">{{ t('settings.mcp_unavailable') }}</p>
     {% endif %}
 </div>
 </section>

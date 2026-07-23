@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = 30.0
     llm_timeout_seconds: float = 120.0
 
+    # The public HTTPS base URL of this VIVATLAS (e.g. https://vivatlas.example.com),
+    # no trailing slash. Only needed to let ChatGPT (or another MCP client) connect
+    # over OAuth: it becomes the OAuth issuer/resource identifier, which must be a
+    # stable absolute HTTPS URL known before the first request. Empty → the MCP stays
+    # anonymous (shared cards only), exactly as before.
+    public_url: str = ""
+
     # How many repositories a scan builds at once. Each card is mostly waiting —
     # on a download and on the AI — so overlapping several fills that idle time and
     # is the difference between a scan taking minutes and taking an hour. The ceiling

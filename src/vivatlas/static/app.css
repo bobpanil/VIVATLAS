@@ -1907,9 +1907,11 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
         margin: 0;
     }
 
+    /* 1:1 square box; object-fit keeps the globe undistorted inside it. */
     .topbar-mark {
-        width: auto;
-        height: 30px;
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
         display: block;
     }
 

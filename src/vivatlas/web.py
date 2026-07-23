@@ -1503,8 +1503,10 @@ def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
 
 
 @router.get("/add", response_class=HTMLResponse)
-def add_start(request: Request) -> HTMLResponse:
-    return _add_page(request, "start")
+def add_start(request: Request, source: str = "") -> HTMLResponse:
+    # `?source=` lets a share target (e.g. the Android shell) open the Add form
+    # with the link already filled in, so the capture lands visibly.
+    return _add_page(request, "start", source=source.strip())
 
 
 @router.post("/add", response_class=HTMLResponse)

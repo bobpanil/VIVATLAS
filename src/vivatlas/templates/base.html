@@ -362,6 +362,49 @@
     </script>
 
     <script>
+    // Edge-swipe to open the drawer, swipe-back to close — like a native app.
+    // Mobile only (on desktop the sidebar is always shown). A threshold snap, not a
+    // finger-follow: simple and jank-free, the panel's own 0.18s transition carries it.
+    (function () {
+        var navt = document.getElementById('navt');
+        if (!navt) return;
+        var host = document.getElementById('modalhost');
+        var mq = window.matchMedia('(max-width: 768px)');
+        var EDGE = 28;   // how close to the screen edge an opening swipe must start (px)
+        var OPEN = 45;   // horizontal travel needed to commit (px)
+        var startX = 0, startY = 0, tracking = false, fromEdge = false;
+
+        function rtl() { return document.documentElement.dir === 'rtl'; }
+        function modalOpen() { return host && host.classList.contains('open'); }
+
+        document.addEventListener('touchstart', function (e) {
+            if (!mq.matches || modalOpen() || e.touches.length !== 1) { tracking = false; return; }
+            var t = e.touches[0];
+            startX = t.clientX; startY = t.clientY;
+            // The panel lives on the left (rtl: right); an opening swipe starts from that edge.
+            fromEdge = rtl() ? (startX >= window.innerWidth - EDGE) : (startX <= EDGE);
+            // Closed → only track from the edge; open → track anywhere so a swipe-back closes it.
+            tracking = navt.checked || fromEdge;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function (e) {
+            if (!tracking) return;
+            tracking = false;
+            var t = e.changedTouches && e.changedTouches[0];
+            if (!t) return;
+            var dx = t.clientX - startX, dy = t.clientY - startY;
+            if (Math.abs(dx) < OPEN || Math.abs(dx) <= Math.abs(dy)) return;  // not a clear horizontal swipe
+            var opening = rtl() ? dx < 0 : dx > 0;   // toward the panel
+            if (!navt.checked && opening && fromEdge) {
+                navt.checked = true;
+            } else if (navt.checked && !opening) {
+                navt.checked = false;
+            }
+        }, { passive: true });
+    })();
+    </script>
+
+    <script>
     // Theme in the sidebar: a tap CYCLES the mode round (no menu). The choice lives
     // on the device (localStorage), applied at once; a yellow chip flies out and
     // names the chosen mode for a second.

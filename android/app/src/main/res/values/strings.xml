@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VIVATLAS</string>
+
+    <string name="server_title">VIVATLAS server</string>
+    <string name="server_message">Enter the address of your VIVATLAS server.</string>
+    <string name="server_hint">http://host:port</string>
+    <string name="server_default">http://10.0.2.2:8710</string>
+    <string name="save">Save</string>
+
+    <string name="err_unreachable">Couldn\'t reach the server. Check the address and that it\'s running.</string>
+
+    <string name="leave_title">Leave VIVATLAS?</string>
+    <string name="leave_exit">Exit</string>
+    <string name="change_server">Change server</string>
+
+    <string name="download_started">Download started</string>
+    <string name="download_failed">Download failed</string>
+
+    <string name="share_added">Added to VIVATLAS</string>
+    <string name="share_failed">Couldn\'t add — open VIVATLAS and sign in</string>
+</resources>

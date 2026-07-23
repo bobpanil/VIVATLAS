@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand palette, lifted from the web UI (app.css). -->
+    <color name="brand_gold">#F7A501</color>
+    <color name="brand_dark">#04060D</color>
+    <color name="brand_ink">#23251D</color>
+    <color name="brand_canvas">#EEEFE9</color>
+    <color name="ic_launcher_background">#16181A</color>
+</resources>

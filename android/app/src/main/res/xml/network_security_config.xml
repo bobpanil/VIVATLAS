@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Self-hosted VIVATLAS usually runs on a home LAN, often over plain HTTP, so
+  cleartext is permitted by default. If you serve over HTTPS with a valid
+  certificate, tighten this: set cleartextTrafficPermitted="false" and add a
+  <domain-config> only for the hosts that genuinely need cleartext.
+
+  10.0.2.2 is the host machine as seen from the Android emulator.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

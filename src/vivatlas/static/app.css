@@ -1909,16 +1909,74 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
 
     /* 1:1 square box; object-fit keeps the globe undistorted inside it. */
     .topbar-mark {
-        width: 34px;
-        height: 34px;
+        width: 28px;
+        height: 28px;
         object-fit: contain;
         display: block;
     }
 
     .topbar-word {
         width: auto;
-        height: 17px;
+        height: 14px;
         display: block;
+    }
+
+    /* Page actions on the right of the bar (Search, Filter). */
+    .topbar-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .tnav-btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        background: none;
+        border-radius: var(--r-sm);
+        color: var(--panel-bright);
+        cursor: pointer;
+    }
+
+    .tnav-btn svg,
+    .tnav-btn .ic {
+        width: 20px;
+        height: 20px;
+        color: var(--panel-bright);
+    }
+
+    .tnav-btn:hover {
+        background: #131727;
+    }
+
+    .tnav-btn.on {
+        color: var(--primary);
+    }
+
+    .tnav-btn[aria-expanded="true"] {
+        background: #131727;
+    }
+
+    /* Active-filter count badge on the top-bar Filter button. */
+    .tnav-btn .fbadge {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        min-width: 15px;
+        height: 15px;
+        padding: 0 3px;
+        border-radius: 8px;
+        background: var(--primary);
+        color: #23251d;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 15px;
+        text-align: center;
     }
 
     .burger {
@@ -5665,26 +5723,20 @@ a.art-chip-pur:hover { border-color: currentColor; }
 }
 
 @media (max-width: 768px) {
-    /* The filter window drops as a full-width panel flush under the toolbar —
-       no rounded corners, bled to both edges. .toolbar-right goes static so the
-       panel anchors to the (positioned) .stickyhead, not the narrow button. */
-    .toolbar-right {
-        position: static;
-    }
+    /* The Filter button lives in the top bar, so its panel drops fixed, flush
+       under the 56px top bar — full width, edge to edge, no rounded corners. */
     .sheet {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        inset: 100% 0 auto 0;
-        width: auto;
-        max-width: none;
-        margin: 0 calc(-1 * var(--s-lg));
-        max-height: 70vh;
+        position: fixed;
+        inset: 56px 0 auto 0;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        max-height: calc(100dvh - 56px);
         border-left: 0;
         border-right: 0;
         border-radius: 0;
         box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.4);
+        z-index: 44;
     }
 
     /* ONLY the filter sheet (#fscrim), not any .scrim: this rule used to catch
@@ -5762,40 +5814,43 @@ a.art-chip-pur:hover { border-color: currentColor; }
     /* One row, no wrapping: Add on the left, Search + Filter on the right. The
        search field and the filter panel are absolute dropdowns (below), so the
        button row itself never wraps. */
+    /* Search + Filter now live in the top bar, so the stickyhead toolbar is empty
+       on a phone — collapse it to nothing and hide the leftover desktop controls,
+       so the grid starts right under the top bar. */
+    .stickyhead {
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-bottom: var(--s-md);
+        border-bottom: 0;
+        min-height: 0;
+    }
+
     .toolbar {
-        flex-wrap: nowrap;
-        gap: var(--s-sm);
-        align-items: center;
+        min-height: 0;
     }
 
-    .tbtn.m-only {
-        display: inline-flex;
+    .toolbar-left,
+    .filters-btn {
+        display: none;
     }
 
-    .tbtn-search {
-        margin-left: auto;
-    }
-
-    /* The search field is hidden until the icon reveals it; then it drops as a
-       full-width panel flush under the toolbar — edge to edge, no rounded
-       corners. Absolute, anchored to the positioned .stickyhead. */
+    /* The search field is hidden until the top-bar icon reveals it; then it drops
+       fixed, flush under the 56px top bar — full width, no rounded corners. */
     .searchform {
         display: none;
     }
 
     body.search-open .searchform {
         display: flex;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        width: auto;
-        margin: 0 calc(-1 * var(--s-lg));
+        position: fixed;
+        inset: 56px 0 auto 0;
+        width: 100%;
+        margin: 0;
         padding: var(--s-md) var(--s-lg);
         background: var(--canvas);
-        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
         box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.35);
-        z-index: 41;
+        z-index: 45;
     }
 
     body.search-open .searchbox {
@@ -5804,12 +5859,6 @@ a.art-chip-pur:hover { border-color: currentColor; }
 
     body.search-open .searchbox input {
         border-radius: 0;
-    }
-
-    .tbtn-search[aria-expanded="true"] {
-        background: var(--primary);
-        border-color: var(--primary);
-        color: #23251d;
     }
 
     /* Cards hidden by the live filter as you type. */
@@ -5835,6 +5884,53 @@ a.art-chip-pur:hover { border-color: currentColor; }
     /* The vertical lockup already includes the tagline, so the separate
        Organize·Connect·Empower line below it would be a duplicate on the phone. */
     .logo-tagline {
+        display: none;
+    }
+
+    /* Drawer footer: the Add button on its own row on top, then the account
+       (left), theme (middle) and help (right) side by side. */
+    .side-user {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--s-sm);
+    }
+
+    .side-cta {
+        display: inline-flex;
+        flex-basis: 100%;
+        order: 0;
+        margin: 0 0 var(--s-sm);
+    }
+
+    .side-sep-foot {
+        display: none;
+    }
+
+    .side-acct {
+        order: 1;
+        min-width: 0;
+    }
+
+    .side-acct-btn {
+        width: auto;
+    }
+
+    /* Flatten .side-utility so help + theme join the account row. */
+    .side-utility {
+        display: contents;
+    }
+
+    .side-utility > .side-theme {
+        order: 2;
+    }
+
+    .side-utility > a.side-icon {
+        order: 3;
+    }
+
+    .side-collapse {
         display: none;
     }
 }

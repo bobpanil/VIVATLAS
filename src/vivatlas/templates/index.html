@@ -5,6 +5,18 @@
 <a class="filter" href="/?{{ params|urlencode }}" {% if current %}aria-current="true"{% endif %}>{{ label }} <b>{{ count }}</b></a>
 {% endmacro %}
 
+{# Phone top bar (right side): Search toggle + Filter. They drive the same search
+   field and filter sheet the desktop toolbar uses; both are icon buttons. #}
+{% block topbar_actions %}
+{% if not link %}
+{% set sa = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) + (1 if f.purpose else 0) %}
+<button class="tnav-btn" type="button" id="search-toggle"
+        aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">{{ icons.ic('search') }}</button>
+<button class="tnav-btn{% if sa %} on{% endif %}" type="button" id="filters-btn-top"
+        aria-expanded="false" aria-controls="sheet" aria-label="{{ t('index.filters') }}">{{ icons.ic('filter') }}{% if sa %}<b class="fbadge">{{ sa }}</b>{% endif %}</button>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 {# Page heading for accessibility: not visible on screen (the logo already
    says where we are), but it drives heading navigation in the screen reader and
@@ -23,19 +35,6 @@
         {# Empty spacer on the left, matching the right column: search with "Find" land
            exactly at the centre of the app. #}
         <div class="toolbar-left" aria-hidden="true"></div>
-
-        {# Phone-only toolbar actions. Add is the primary (yellow) button; the search
-           icon toggles the full-width field below; Filter lives in .toolbar-right.
-           On desktop these are hidden and the search field is always shown. #}
-        <a class="tbtn tbtn-add m-only" href="/add" data-modal>
-            <span class="tbtn-plus" aria-hidden="true">+</span><span class="tbtn-txt">{{ t('nav.add') }}</span>
-        </a>
-        {% if not link %}
-        <button class="tbtn tbtn-search m-only" type="button" id="search-toggle"
-                aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">
-            {{ icons.ic('search') }}
-        </button>
-        {% endif %}
 
         <form class="searchform" action="/" method="get" role="search">
             <div class="searchbox">
@@ -310,35 +309,43 @@ function dismissRemoved() {
 // Without the script it stays hidden, but "Type" at the top and the active filters are visible and
 // cleared by links — so you can filter that way too.
 (function () {
-    var btn = document.getElementById('filters-btn');
+    // Two triggers: the desktop toolbar button and the phone top-bar button.
+    var btns = ['filters-btn', 'filters-btn-top'].map(function (id) {
+        return document.getElementById(id);
+    }).filter(Boolean);
     var sheet = document.getElementById('sheet');
     var scrim = document.getElementById('fscrim');
-    if (!btn || !sheet) return;
+    if (!btns.length || !sheet) return;
 
+    function setExpanded(v) {
+        btns.forEach(function (b) { b.setAttribute('aria-expanded', v); });
+    }
     function open() {
         sheet.hidden = false;
         scrim.hidden = false;
-        btn.setAttribute('aria-expanded', 'true');
+        setExpanded('true');
         document.body.classList.add('sheet-open');
     }
     function close() {
         sheet.hidden = true;
         scrim.hidden = true;
-        btn.setAttribute('aria-expanded', 'false');
+        setExpanded('false');
         document.body.classList.remove('sheet-open');
     }
-    btn.addEventListener('click', function () {
-        sheet.hidden ? open() : close();
+    btns.forEach(function (b) {
+        b.addEventListener('click', function () {
+            sheet.hidden ? open() : close();
+        });
     });
     scrim.addEventListener('click', close);
     document.getElementById('sheet-x').addEventListener('click', close);
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !sheet.hidden) close();
     });
-    // Click outside the sheet on desktop — close.
+    // Click outside the sheet (and not on a trigger) on desktop — close.
     document.addEventListener('click', function (e) {
         if (sheet.hidden) return;
-        if (!sheet.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
+        if (!sheet.contains(e.target) && !btns.some(function (b) { return b.contains(e.target); })) close();
     });
 })();
 

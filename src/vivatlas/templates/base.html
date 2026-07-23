@@ -89,8 +89,11 @@
            toolbar below. Both are cream/orange SVGs made for the dark bar. #}
         <a class="logo logo-sm" href="/" aria-label="{{ t('logo.home_alt') }}">
             <img class="topbar-mark" src="/static/favicon-globe-dark.svg" alt="" aria-hidden="true">
-            <img class="topbar-word" src="/static/vivatlas-logo_noicon.svg" alt="VIVATLAS">
+            <img class="topbar-word" src="/static/vivatlas-logo_noicon_clean.svg" alt="VIVATLAS">
         </a>
+        {# Page actions on the right of the bar (phone): the catalogue fills this
+           with its Search and Filter toggles. #}
+        <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
     </header>
 
     <label class="scrim" for="navt" aria-hidden="true"></label>

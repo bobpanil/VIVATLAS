@@ -187,7 +187,7 @@
      data-source="{{ scan.source }}"{% endif %}>
     <div class="scanbar-row">
         <span class="scanbar-spin" aria-hidden="true"></span>
-        <div class="scanbar-text">
+        <div class="scanbar-text" role="status" aria-live="polite">
             <b class="scanbar-title">{{ t('index.scan_collecting') }}</b>
             <span class="scanbar-sub"></span>
         </div>

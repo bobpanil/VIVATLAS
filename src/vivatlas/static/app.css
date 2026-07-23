@@ -2516,6 +2516,14 @@ summary:focus-visible {
 .card[data-zone="common"]:hover { border-color: #177a5a; }
 .card[data-zone="private"]:hover { border-color: #a06f00; }
 
+/* When Tab-focus scrolls a card (or one of its controls) into view, keep it
+   clear of the sticky search/filter header instead of tucked under it. (2.4.11) */
+.grid .card,
+.grid .card a,
+.grid .card button {
+    scroll-margin-top: 6rem;
+}
+
 /* While a card is dragged — it shrinks a bit: you can see it's been "grabbed". */
 .card.dragging {
     opacity: 0.6;
@@ -2802,12 +2810,15 @@ html.card-dragging .side-folders-head {
 }
 
 .fav-btn.on {
-    color: #f7a501;
+    color: #b87700;
 }
 
+/* Bright brand gold fill, but ringed with a darker gold so the star's edge
+   clears WCAG 1.4.11 (3:1) against the white card — the fill alone is ~1.7:1. */
 .fav-btn.on svg {
     fill: #f7a501;
-    stroke: #f7a501;
+    stroke: #8a5f00;
+    stroke-width: 1.6;
 }
 
 /* Delete a card — a small button in the footer, like "favourites". Red on

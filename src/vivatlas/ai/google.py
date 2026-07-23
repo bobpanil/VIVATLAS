@@ -52,15 +52,23 @@ class _GoogleClient:
         raise GoogleAIError("unreachable")
 
     async def list_models(self) -> list[dict]:
-        """Every model the key can see, across pages. Read-only, no retry — a listing
-        that fails just leaves the manual field."""
+        """Every model the key can see, across pages. Retries a rate-limited/temporary
+        failure a few times (429/503) so a transient limit doesn't leave the dropdown
+        empty; other errors raise and the caller falls back to the manual field."""
         out: list[dict] = []
         page_token = ""
         for _ in range(10):  # a safety bound on pagination, never really reached
             params: dict = {"pageSize": 200}
             if page_token:
                 params["pageToken"] = page_token
-            response = await self._client.get("/models", params=params)
+            delay = 1.5
+            for attempt in range(_MAX_RETRIES):
+                response = await self._client.get("/models", params=params)
+                if response.status_code in (429, 503) and attempt < _MAX_RETRIES - 1:
+                    await asyncio.sleep(delay)
+                    delay *= 2
+                    continue
+                break
             response.raise_for_status()
             data = response.json()
             out.extend(data.get("models") or [])

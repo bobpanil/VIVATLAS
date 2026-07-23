@@ -226,3 +226,46 @@ async def test_oauth_token_roundtrip(make_session, monkeypatch):
 
     await prov.revoke_token(access)
     assert await prov.load_access_token(token.access_token) is None
+
+
+def test_oauth_discovery_documents_served_at_domain_root(monkeypatch):
+    """An MCP client (ChatGPT) discovers OAuth from the domain root — the mounted
+    /mcp-server app serves those documents under its own prefix, so we mirror them at
+    the root. Without this the auth middleware 303s /.well-known/* to the sign-in page
+    and the client reports "does not implement OAuth"."""
+    from fastapi.testclient import TestClient
+
+    from vivatlas.api import app
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "public_url", "https://vivatlas.example.com")
+    client = TestClient(app)  # no lifespan: these routes are open, need no DB
+
+    # The exact URL the 401 WWW-Authenticate header advertises (RFC 9728).
+    r = client.get(
+        "/.well-known/oauth-protected-resource/mcp-server/mcp", follow_redirects=False
+    )
+    assert r.status_code == 200, r.status_code  # not a 303 to /login
+    assert r.headers["content-type"].startswith("application/json")
+    pr = r.json()
+    assert pr["resource"] == "https://vivatlas.example.com/mcp-server/mcp"
+    assert pr["authorization_servers"] == ["https://vivatlas.example.com/mcp-server"]
+
+    # The authorization-server metadata (RFC 8414 path-insertion for the issuer).
+    r = client.get(
+        "/.well-known/oauth-authorization-server/mcp-server", follow_redirects=False
+    )
+    assert r.status_code == 200, r.status_code
+    md = r.json()
+    assert md["issuer"] == "https://vivatlas.example.com/mcp-server"
+    assert md["authorization_endpoint"] == "https://vivatlas.example.com/mcp-server/authorize"
+    assert md["token_endpoint"] == "https://vivatlas.example.com/mcp-server/token"
+    assert md["registration_endpoint"] == "https://vivatlas.example.com/mcp-server/register"
+
+    # No public URL configured → the MCP stays anonymous and advertises no OAuth
+    # (404, still not a login redirect).
+    monkeypatch.setattr(settings, "public_url", "")
+    r = client.get(
+        "/.well-known/oauth-protected-resource/mcp-server/mcp", follow_redirects=False
+    )
+    assert r.status_code == 404, r.status_code

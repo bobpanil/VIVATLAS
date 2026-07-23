@@ -148,6 +148,10 @@ _OPEN_PREFIXES = (
     # The OAuth consent page does its own sign-in check (so it can keep the ?req= id
     # across the login round-trip); require_login must not intercept it first.
     "/mcp/consent",
+    # OAuth discovery documents served at the domain root (mcp_web). An MCP client
+    # fetches these before it has any token, so they must stay public — otherwise
+    # they'd 303 to sign-in and the client reads that as "no OAuth".
+    "/.well-known/",
 )
 _OPEN_EXACT = {
     "/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa",

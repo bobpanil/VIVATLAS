@@ -273,20 +273,57 @@
             root.style.paddingRight = '';
         }
 
+        // While the dialog is open, everything behind it is made `inert`: it drops
+        // out of the tab order and can't be clicked or read, so focus can't escape
+        // the modal into the page behind it (WCAG 2.4.3 / 2.1.2 / 4.1.2).
+        var lastTrigger = null;
+        function backgroundInert(on) {
+            var kids = document.body.children;
+            for (var i = 0; i < kids.length; i++) {
+                if (kids[i] === host) continue;
+                if (on) kids[i].setAttribute('inert', '');
+                else kids[i].removeAttribute('inert');
+            }
+        }
+
         // Open/close — a simple visibility toggle, no history. History caused
         // races that sometimes made "Close" fail to fire.
-        window.openModalHost = function (url) {
+        window.openModalHost = function (url, trigger) {
+            lastTrigger = trigger || document.activeElement;
             frame.src = url;
             host.classList.add('open');
             host.setAttribute('aria-hidden', 'false');
+            backgroundInert(true);
             lock();
+            // Move focus into the dialog once its document has loaded (same-origin).
+            frame.addEventListener('load', function onload() {
+                frame.removeEventListener('load', onload);
+                try {
+                    var d = frame.contentDocument;
+                    var dlg = d.querySelector('[role="dialog"]');
+                    if (dlg) {
+                        if (!dlg.hasAttribute('tabindex')) dlg.setAttribute('tabindex', '-1');
+                        dlg.focus();
+                    } else {
+                        var f = d.querySelector('[autofocus]')
+                            || d.querySelector('a[href], button, input, select, textarea');
+                        (f || d.body).focus();
+                    }
+                } catch (e) { try { frame.focus(); } catch (_) {} }
+            });
         };
         window.closeModalHost = function (opts) {
             host.classList.remove('open');
             host.setAttribute('aria-hidden', 'true');
             frame.src = 'about:blank';
+            backgroundInert(false);
             unlock();
-            if (opts && opts.navigate) { location.href = opts.navigate; }
+            if (opts && opts.navigate) { location.href = opts.navigate; return; }
+            // Return focus to whatever opened the modal.
+            if (lastTrigger && document.contains(lastTrigger)) {
+                try { lastTrigger.focus(); } catch (e) {}
+            }
+            lastTrigger = null;
         };
 
         // A catalogue/card opened inside the frame hoists itself out.
@@ -298,7 +335,7 @@
             if (!a) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // new tab — don't interfere
             e.preventDefault();
-            window.openModalHost(a.getAttribute('href'));
+            window.openModalHost(a.getAttribute('href'), a);
         });
 
         scrim.addEventListener('click', function () { window.closeModalHost(); });

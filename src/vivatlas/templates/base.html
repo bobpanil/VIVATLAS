@@ -301,6 +301,14 @@
         // races that sometimes made "Close" fail to fire.
         window.openModalHost = function (url, trigger) {
             lastTrigger = trigger || document.activeElement;
+            // Close the mobile drawer (and its account menu) first — a modal opened
+            // from inside it (Settings/Admin/Help) must not leave the panel open behind.
+            var navt = document.getElementById('navt');
+            if (navt) navt.checked = false;
+            var acctMenu = document.getElementById('side-acct-menu');
+            if (acctMenu) acctMenu.hidden = true;
+            var acctBtn = document.getElementById('side-acct-btn');
+            if (acctBtn) acctBtn.setAttribute('aria-expanded', 'false');
             frame.src = url;
             host.classList.add('open');
             host.setAttribute('aria-hidden', 'false');

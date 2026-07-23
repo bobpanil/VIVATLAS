@@ -350,6 +350,14 @@ optgroup {
     pointer-events: none;
 }
 
+/* At desktop the panel is the persistent sidebar, so this toggle does nothing —
+   remove it from the a11y tree and the tab order there. Otherwise it's an
+   orphaned, unlabelled tab stop: its only label (the burger) is display:none on
+   desktop, which reads to a screen reader as an unnamed checkbox. */
+@media (min-width: 769px) {
+    .navt { display: none; }
+}
+
 .vh-text {
     position: absolute;
     width: 1px;

@@ -21,7 +21,7 @@
     </div>
     {% endif %}
     <div class="card-body">
-        <div class="card-name">{% if it.is_new %}<span class="card-new-dot" title="{{ t('card.new') }}" aria-label="{{ t('card.new') }}"></span>{% endif %}<span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
+        <div class="card-name">{% if it.is_new %}<span class="card-new-dot" role="img" title="{{ t('card.new') }}" aria-label="{{ t('card.new') }}"></span>{% endif %}<span class="card-owner">{{ it.owner }}/</span>{{ it.name }}</div>
         <p class="card-sum">{{ it.summary_short or t('card.no_summary') }}</p>
 
         {# Footer: bottom-left — folder (icon + name), or, if there are no

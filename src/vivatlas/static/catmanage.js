@@ -81,6 +81,50 @@
         if (order && form) { order.value = ids.join(','); form.submit(); }
     });
 
+    // --- keyboard reorder (the up/down buttons: the non-drag alternative) ------
+    // Plain submit buttons already work without a script (they POST to the move
+    // endpoint and the page reloads). Here we enhance them: swap the row in place,
+    // persist via fetch, and keep focus on the button so it can be pressed again.
+    function updateMoveEdges(list) {
+        var rows = list.querySelectorAll('.catrow');
+        rows.forEach(function (li, i) {
+            var up = li.querySelector('.catrow-move[value="up"]');
+            var dn = li.querySelector('.catrow-move[value="down"]');
+            if (up) up.disabled = (i === 0);
+            if (dn) dn.disabled = (i === rows.length - 1);
+        });
+    }
+    function initMoveEdges() {
+        document.querySelectorAll('.cat-manage').forEach(updateMoveEdges);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMoveEdges);
+    } else { initMoveEdges(); }
+
+    document.addEventListener('click', function (e) {
+        var mv = e.target.closest ? e.target.closest('.catrow-move') : null;
+        if (!mv || mv.disabled) return;
+        var row = mv.closest('.catrow');
+        var list = row ? row.closest('.cat-manage') : null;
+        if (!row || !list) return;
+        var dir = mv.value;   // 'up' | 'down'
+        var sib = dir === 'up' ? row.previousElementSibling : row.nextElementSibling;
+        if (!sib || !sib.classList.contains('catrow')) return;   // at the edge — no-op
+        e.preventDefault();
+        if (dir === 'up') list.insertBefore(row, sib); else list.insertBefore(sib, row);
+        updateMoveEdges(list);
+        // Keep focus for repeated presses; if this button is now at the edge and
+        // disabled, hand focus to the opposite one on the same row.
+        (mv.disabled ? (row.querySelector('.catrow-move:not([disabled])') || mv) : mv).focus();
+        var nextEl = mv.closest('form') && mv.closest('form').querySelector('[name="next"]');
+        var fd = new FormData();
+        fd.append('dir', dir);
+        fd.append('next', nextEl ? nextEl.value : '/settings');
+        fetch(mv.getAttribute('formaction'), {
+            method: 'POST', headers: { 'Accept': 'application/json' }, body: fd
+        }).catch(function () {});
+    });
+
     // --- create a folder without reloading ------------------------------------
     // We submit the form via fetch; the server returns the new row's HTML, and we
     // insert it into the list at once. Without script/network — a plain submit (server redirects).
@@ -102,6 +146,7 @@
             tmp.innerHTML = (d.html || '').trim();
             var row = tmp.firstElementChild;
             if (row) list.appendChild(row);
+            updateMoveEdges(list);
             // Reset the add form to its initial state.
             if (nameInput) nameInput.value = '';
             var iconInput = form.querySelector('input[name="icon"]');

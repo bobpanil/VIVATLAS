@@ -187,9 +187,12 @@ async def index(
     zone: str = "",
     sort: str = "",
 ) -> HTMLResponse:
+    # Default the catalogue to newest-added, and remember an explicit sort choice in a
+    # cookie so it holds across navigations, tabs and windows — no re-picking on return.
+    chosen_sort = sort or request.cookies.get("vivatlas_sort") or "added"
     f = flt.Filters(
         type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat,
-        purpose=purpose, draft=draft, zone=zone, sort=sort,
+        purpose=purpose, draft=draft, zone=zone, sort=chosen_sort,
     )
 
     # A link pasted into search — searching for it among names is pointless: such
@@ -244,7 +247,7 @@ async def index(
                     _card(session, a, [], fav_ids, lang, user_id) for a in session.scalars(query)
                 ]
 
-            return templates.TemplateResponse(
+            resp = templates.TemplateResponse(
                 request,
                 "index.html",
                 {
@@ -270,6 +273,11 @@ async def index(
                     "removed_notices": _removed_notices(session, user_id),
                 },
             )
+            if sort:  # an explicit sort choice — remember it for next time
+                resp.set_cookie(
+                    "vivatlas_sort", sort, max_age=180 * 24 * 3600, samesite="lax", path="/"
+                )
+            return resp
     finally:
         if model:
             await model.aclose()
@@ -1709,13 +1717,20 @@ def add_draft(
     summary: Annotated[str, Form()] = "",
     heard: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    """Didn't reduce to GitHub — we make a draft and lead to the same zone choice."""
+    """Didn't reduce to a Git repo — still add it as a real card (not a dead draft) and
+    lead to the same zone choice."""
     user_id = getattr(request.state, "user_id", None)
     with session_scope() as session:
         aid = _create_draft(
             session, user_id, source.strip(), name.strip(), summary.strip(), heard.strip()
         )
         art = session.get(Artifact, aid)
+        # A resource that isn't a Git repo (a Claude plugin, a docs page, a tool seen in
+        # a video) becomes a proper card and shows in the catalogue like anything else.
+        # The name/summary already read from it stand in until the AI deepens them.
+        art.artifact_type = "page"
+        art.is_new = True
+        art.hidden = False
         card = {
             "id": art.id,
             "name": art.name,

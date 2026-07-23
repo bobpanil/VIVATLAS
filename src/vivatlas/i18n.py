@@ -75,6 +75,23 @@ def label(prefix: str, slug: str, lang: str) -> str:
     return translate(key, lang) if key in CATALOG else slug
 
 
+from pathlib import Path as _Path
+
+_STATIC_DIR = _Path(__file__).parent / "static"
+
+
+def asset(name: str) -> str:
+    """A static URL with a cache-busting ?v=<mtime>, so a stylesheet/script edit
+    shows on the next load instead of a stale cache. Shared with every template
+    (base, modal, auth, consent) via the context processor below — the Android
+    WebView and desktop browsers both reuse app.css aggressively."""
+    try:
+        v = int((_STATIC_DIR / name).stat().st_mtime)
+    except OSError:
+        v = 0
+    return f"/static/{name}?v={v}"
+
+
 def template_context(request: Request) -> dict:
     """Passed into every template (via context_processors on Jinja2Templates):
     `t('key')`, the current `lang`, `dir`, the language list and language-dependent
@@ -85,6 +102,7 @@ def template_context(request: Request) -> dict:
         "lang": lang,
         "dir": dir_for(lang),
         "langs": LANGS,
+        "asset": asset,
         "type_name": lambda slug: label("type", slug, lang),
         "basis_name": lambda slug: label("basis", slug, lang),
         "status_name": lambda slug: label("status", slug, lang),

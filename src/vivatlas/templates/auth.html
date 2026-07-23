@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#04060d">
     <title>{% if step == 'setup' %}{{ t('auth.setup.title') }}{% else %}{{ t('auth.login.title') }}{% endif %} — VIVATLAS</title>
     <link rel="icon" href="/static/favicon.png" sizes="32x32">
-    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="{{ asset('app.css') }}">
     <script>
     // The door is always full-screen. If we end up inside a frame (e.g. a redirect to /login
     // after deleting our own account from the settings modal) — break out to the top.

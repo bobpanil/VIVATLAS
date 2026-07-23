@@ -72,20 +72,8 @@ templates.env.globals["caticon"] = caticons.caticon_svg
 # come from i18n.template_context (context_processors) and are taken from the catalogue.
 # Here only the neutral change mark (a symbol, language doesn't matter).
 templates.env.globals["kind_mark"] = lambda k: ch.KIND_MARKS.get(k, "·")
-
-
-def _asset(name: str) -> str:
-    """A static URL with a cache-busting ?v=<mtime>, so a stylesheet/script edit
-    shows up on the next load instead of being served from a stale browser cache
-    (notably the Android WebView, which reuses app.css aggressively)."""
-    try:
-        v = int((BASE / "static" / name).stat().st_mtime)
-    except OSError:
-        v = 0
-    return f"/static/{name}?v={v}"
-
-
-templates.env.globals["asset"] = _asset
+# `asset('app.css')` (cache-busting ?v=mtime) is provided to every template by
+# i18n.template_context, so modals/auth/consent get it too — not just base.html.
 
 
 def _combine(params: dict, **extra) -> dict:
@@ -1425,10 +1413,23 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
         if not (mine or (is_admin and art.shared)):
             raise HTTPException(403)
         is_draft = art.artifact_type == "draft"
-    if is_draft:
-        await reprocess_draft(artifact_id)
-    else:
-        await rescan_artifact(artifact_id)
+
+    # Run the rebuild in the background and return at once. A rescan can take tens
+    # of seconds (source download + AI, which retries hard on 429), and awaiting it
+    # here made the modal's iframe hang and sometimes go blank behind the backdrop
+    # (a proxy/browser timeout), forcing an F5. The card refreshes on the next view.
+    async def _run() -> None:
+        try:
+            if is_draft:
+                await reprocess_draft(artifact_id)
+            else:
+                await rescan_artifact(artifact_id)
+        except Exception:  # noqa: BLE001 — a failed rescan must not crash the task
+            log.exception("rescan failed for artifact %s", artifact_id)
+
+    task = asyncio.create_task(_run())
+    _SCAN_TASKS.add(task)
+    task.add_done_callback(_SCAN_TASKS.discard)
     return RedirectResponse(f"/a/{artifact_id}", status_code=303)
 
 

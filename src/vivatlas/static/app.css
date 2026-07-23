@@ -1928,7 +1928,11 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
     .side {
         transform: translateX(-100%);
         transition: transform 0.18s ease-out;
-        box-shadow: none;
+        /* Above the sticky toolbar (.stickyhead, z-index 50), which is opaque and
+           would otherwise render on top of the open drawer. A right-edge shadow so
+           it reads as a drawer, not a floating panel. */
+        z-index: 60;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
         width: min(300px, 86vw);
     }
 
@@ -1936,11 +1940,15 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
         transform: none;
     }
 
+    /* The dimming backdrop must also sit above the toolbar (50) — below the drawer
+       (60), above everything else — so the whole screen dims, not just the grid.
+       Scoped by ".navt:checked ~ .scrim" to the body-level drawer scrim only; the
+       filter sheet's #fscrim lives inside <main> and is untouched. */
     .navt:checked ~ .scrim {
         display: block;
         position: fixed;
         inset: 0;
-        z-index: 25;
+        z-index: 59;
         background: rgba(35, 37, 29, 0.4);
     }
 

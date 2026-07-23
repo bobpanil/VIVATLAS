@@ -24,13 +24,25 @@ object Prefs {
             .apply()
     }
 
-    /** Trim, add a scheme if the user typed a bare host, drop a trailing slash. */
+    /** Trim, add a scheme if the user typed a bare host, drop a trailing slash.
+     *  A bare public hostname defaults to https (that's where the session cookie is
+     *  Secure); localhost / LAN IPs default to http (typical dev servers). */
     fun normalize(raw: String): String {
         var url = raw.trim()
         if (url.isEmpty()) return url
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "http://$url"
+            val host = url.substringBefore('/').substringBefore(':')
+            url = (if (isLocalHost(host)) "http://" else "https://") + url
         }
         return url.trimEnd('/')
+    }
+
+    private fun isLocalHost(host: String): Boolean {
+        return host == "localhost" ||
+            host == "10.0.2.2" ||          // emulator -> host
+            host.startsWith("127.") ||
+            host.startsWith("192.168.") ||
+            host.startsWith("10.") ||
+            Regex("^172\\.(1[6-9]|2\\d|3[01])\\.").containsMatchIn(host)
     }
 }

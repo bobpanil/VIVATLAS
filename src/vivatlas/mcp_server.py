@@ -13,14 +13,17 @@ The tools only read. Nothing is written to Git or the database.
 
 import logging
 
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.fastmcp import FastMCP
 from sqlalchemy import func, select
 
 from vivatlas import changes as ch
 from vivatlas import filters as flt
 from vivatlas.ai import build_embedding_model, build_text_model
+from vivatlas.config import settings
 from vivatlas.db import session_scope
-from vivatlas.models import Artifact, ArtifactTag, Repository, Tag
+from vivatlas.mcp_oauth import SCOPE
+from vivatlas.models import Artifact, ArtifactTag, Repository, Tag, User
 from vivatlas.recommender import NO_MATCH_THRESHOLD
 from vivatlas.recommender import recommend as do_recommend
 from vivatlas.search import Mode
@@ -28,16 +31,73 @@ from vivatlas.search import search as do_search
 
 log = logging.getLogger(__name__)
 
-mcp = FastMCP(
-    "vivatlas",
-    instructions=(
-        "A catalogue of skills, design kits, and tools from personal "
-        "Git repositories. Tells you what's available, what each thing "
-        "does, and what to pick for a specific task. Read-only."
-    ),
+MAX_LIMIT = 20
+
+_INSTRUCTIONS = (
+    "A per-user catalogue of skills, design kits, and tools from Git repositories. "
+    "Signed in over OAuth you see your own private cards plus shared ones and can add "
+    "tools and edit or file cards; connected anonymously you see only shared cards, "
+    "read-only. When unsure what exists, list_folders / catalog_overview first."
 )
 
-MAX_LIMIT = 20
+
+def _build_mcp() -> FastMCP:
+    """OAuth-enabled when a public URL is configured (so ChatGPT can connect as a
+    specific user); otherwise the original anonymous, shared-only, read-only server."""
+    if not settings.public_url:
+        return FastMCP("vivatlas", instructions=_INSTRUCTIONS)
+
+    from mcp.server.auth.settings import (
+        AuthSettings,
+        ClientRegistrationOptions,
+        RevocationOptions,
+    )
+
+    from vivatlas.mcp_oauth import provider
+
+    base = settings.public_url.rstrip("/")
+    return FastMCP(
+        "vivatlas",
+        instructions=_INSTRUCTIONS,
+        auth_server_provider=provider,
+        auth=AuthSettings(
+            issuer_url=f"{base}/mcp-server",  # type: ignore[arg-type]
+            resource_server_url=f"{base}/mcp-server/mcp",  # type: ignore[arg-type]
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True, valid_scopes=[SCOPE], default_scopes=[SCOPE]
+            ),
+            revocation_options=RevocationOptions(enabled=True),
+        ),
+    )
+
+
+mcp = _build_mcp()
+
+
+def _caller_user_id() -> int | None:
+    """The signed-in user for this tool call (the OAuth token's subject), or None when
+    the connection is anonymous."""
+    tok = get_access_token()
+    if tok is None or not tok.subject:
+        return None
+    try:
+        return int(tok.subject)
+    except (TypeError, ValueError):
+        return None
+
+
+def _require_user() -> int:
+    uid = _caller_user_id()
+    if uid is None:
+        raise ValueError("Sign in first: writing needs an OAuth connection (anonymous is read-only).")
+    return uid
+
+
+def _is_admin(session, uid: int | None) -> bool:
+    if uid is None:
+        return False
+    u = session.get(User, uid)
+    return bool(u and (u.is_owner or u.is_admin))
 
 
 def _tags(session, artifact_id: int, limit: int = 8) -> list[str]:
@@ -80,7 +140,7 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
             )
             # MCP connects without sign-in, so it's anonymous — we return only
             # shared cards. Otherwise other people's private stuff would leak through it.
-            visible = set(session.scalars(flt.visible_ids(None)))
+            visible = set(session.scalars(flt.visible_ids(_caller_user_id())))
             hits = [h for h in hits if h.artifact_id in visible]
             return {
                 "query": query,
@@ -123,7 +183,7 @@ async def recommend_artifact(task: str) -> dict:
 
             # MCP without sign-in is anonymous: strip everything non-shared from the
             # recommendations, or the names of others' private cards would leak through them.
-            visible = set(session.scalars(flt.visible_ids(None)))
+            visible = set(session.scalars(flt.visible_ids(_caller_user_id())))
 
             def vis(o) -> bool:
                 return o.artifact.id in visible
@@ -162,11 +222,13 @@ def get_artifact(artifact_id: int) -> dict:
 
     artifact_id: number from search_artifacts or recommend_artifact
     """
+    uid = _caller_user_id()
     with session_scope() as session:
         a = session.get(Artifact, artifact_id)
-        # An anonymous user (MCP without sign-in) sees only shared cards. Others' private
-        # stuff is as if it didn't exist: the same response as for a nonexistent number.
-        if a is None or a.hidden or not a.shared:
+        # Shared to everyone, or private to the signed-in caller. Anyone else's private
+        # card is as if it didn't exist — the same response as a nonexistent number.
+        mine = a is not None and a.owner_user_id is not None and a.owner_user_id == uid
+        if a is None or a.hidden or not (a.shared or mine):
             return {"error": f"card {artifact_id} not found"}
 
         links = session.scalars(
@@ -214,7 +276,7 @@ def list_artifacts(type: str = "", limit: int = 20) -> dict:
     limit = max(1, min(limit, MAX_LIMIT))
     with session_scope() as session:
         # Shared cards only: MCP without sign-in is anonymous.
-        vis = flt.visible_ids(None)
+        vis = flt.visible_ids(_caller_user_id())
         query = select(Artifact).where(Artifact.id.in_(vis)).order_by(Artifact.name)
         count_q = select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
         if type:
@@ -248,7 +310,7 @@ def catalog_overview() -> dict:
     """What's in the catalogue at all: how much of what, from which repositories."""
     with session_scope() as session:
         # Anonymous (MCP without sign-in) — only shared cards in all counters.
-        vis = flt.visible_ids(None)
+        vis = flt.visible_ids(_caller_user_id())
         by_type = session.execute(
             select(Artifact.artifact_type, func.count())
             .where(Artifact.id.in_(vis))
@@ -285,15 +347,15 @@ def list_recent_changes(days: int = 30, kind: str = "") -> dict:
     kind: added | updated | removed | renamed — or empty
     """
     with session_scope() as session:
-        # MCP is unauthenticated: only ever surface shared cards (user_id=None), never
+        # MCP is unauthenticated: only ever surface shared cards (user_id=_caller_user_id()), never
         # anyone's private ones — same boundary as the rest of the MCP tools.
-        events = ch.since(session, days=days, user_id=None)
+        events = ch.since(session, days=days, user_id=_caller_user_id())
         if kind:
             events = [e for e in events if e.kind == kind]
         return {
             "days": days,
             "total": len(events),
-            "summary": ch.summary(session, days=days, user_id=None),
+            "summary": ch.summary(session, days=days, user_id=_caller_user_id()),
             "items": [
                 {
                     "kind": e.kind,
@@ -314,7 +376,7 @@ def find_stale_artifacts(days: int = 365) -> dict:
     days: how many days counts as a long stretch
     """
     with session_scope() as session:
-        items = ch.stale(session, days=days, user_id=None)
+        items = ch.stale(session, days=days, user_id=_caller_user_id())
         oldest, newest = ch.oldest_and_newest(session)
         return {
             "threshold_days": days,
@@ -335,6 +397,123 @@ def find_stale_artifacts(days: int = 365) -> dict:
                 for i in items[:MAX_LIMIT]
             ],
         }
+
+
+@mcp.tool()
+async def add_to_library(url: str, title: str = "", shared: bool = False) -> dict:
+    """Add a tool to your library from a link — a GitHub repo or any web page. It's
+    processed in the background (summarised, tagged, filed), so this returns at once.
+
+    url: the link to add
+    title: optional title (otherwise taken from the page/repo)
+    shared: true to put it in the shared catalogue; default false = your private zone
+    """
+    uid = _require_user()
+    from vivatlas.web import ext_capture
+
+    res = await ext_capture(url.strip(), title.strip(), "", uid, shared)
+    return {"status": "processing", "url": url.strip(), "shared": shared, **res}
+
+
+@mcp.tool()
+def edit_card(
+    artifact_id: int,
+    name: str = "",
+    type: str = "",
+    summary_short: str = "",
+    summary_normal: str = "",
+    summary_technical: str = "",
+) -> dict:
+    """Edit one of your cards — only the non-empty fields change. Allowed on a card you
+    own, or (as an admin) on a shared one.
+
+    artifact_id: the card to edit
+    name / type: rename / re-type (optional)
+    summary_short / summary_normal / summary_technical: the three descriptions (optional)
+    """
+    uid = _require_user()
+    from vivatlas.search import index_artifact_for_words
+
+    with session_scope() as session:
+        a = session.get(Artifact, artifact_id)
+        if a is None:
+            return {"error": f"card {artifact_id} not found"}
+        mine = a.owner_user_id is not None and a.owner_user_id == uid
+        if not (mine or (_is_admin(session, uid) and a.shared)):
+            return {"error": "not allowed to edit this card"}
+        if name.strip():
+            a.name = name.strip()[:200]
+        if type.strip():
+            a.artifact_type = type.strip()[:40]
+        if summary_short.strip():
+            a.summary_short = summary_short.strip()
+        if summary_normal.strip():
+            a.summary_normal = summary_normal.strip()
+        if summary_technical.strip():
+            a.summary_technical = summary_technical.strip()
+        a.summary_error = None
+        a.summary_model = "manual"
+        index_artifact_for_words(session, a)
+        return {
+            "ok": True,
+            "id": a.id,
+            "name": f"{a.repository.owner}/{a.name}",
+            "type": a.artifact_type,
+        }
+
+
+@mcp.tool()
+def list_folders() -> dict:
+    """Your folders (id + name) for filing cards — shared folders plus your personal
+    ones."""
+    uid = _require_user()
+    from vivatlas.models import Category
+
+    with session_scope() as session:
+        cats = (
+            session.query(Category)
+            .filter((Category.owner_user_id == uid) | (Category.owner_user_id.is_(None)))
+            .order_by(Category.owner_user_id.isnot(None), Category.position, Category.name)
+            .all()
+        )
+        return {
+            "items": [
+                {"id": c.id, "name": c.name, "shared": c.owner_user_id is None} for c in cats
+            ]
+        }
+
+
+@mcp.tool()
+def file_card(artifact_id: int, folder_id: int, op: str = "add") -> dict:
+    """Put a card into (or take it out of) one of your folders.
+
+    artifact_id: the card
+    folder_id: the folder (from list_folders)
+    op: "add" (default) or "remove"
+    """
+    uid = _require_user()
+    from vivatlas import categories as catperm
+    from vivatlas.models import ArtifactCategory, Category
+
+    with session_scope() as session:
+        a = session.get(Artifact, artifact_id)
+        cat = session.get(Category, folder_id)
+        if a is None or cat is None or not catperm.can_view(cat, uid):
+            return {"error": "card or folder not found"}
+        if not catperm.can_file(a, cat, uid, _is_admin(session, uid)):
+            return {"error": "not allowed to file this card here"}
+        link = (
+            session.query(ArtifactCategory)
+            .filter_by(artifact_id=a.id, category_id=cat.id)
+            .first()
+        )
+        if op == "remove":
+            if link:
+                session.delete(link)
+            return {"ok": True, "op": "remove", "artifact_id": a.id, "folder_id": cat.id}
+        if not link:
+            session.add(ArtifactCategory(artifact_id=a.id, category_id=cat.id))
+        return {"ok": True, "op": "add", "artifact_id": a.id, "folder_id": cat.id}
 
 
 def run_stdio() -> None:

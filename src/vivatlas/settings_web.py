@@ -22,8 +22,9 @@ from vivatlas import auth, avatars, caticons, catnames, i18n, runtime_settings, 
 from vivatlas import twofactor, usericons
 from vivatlas import categories as catperm
 from vivatlas import filters as flt
+from vivatlas.config import settings
 from vivatlas.db import session_scope
-from vivatlas.models import Avatar, Category, Source, User
+from vivatlas.models import Avatar, Category, OAuthToken, Source, User
 from vivatlas.web import _counts
 
 # Which hosts can be connected as your own source. Only Gitea works so far
@@ -145,6 +146,30 @@ def extension_zip(request: Request) -> Response:
     )
 
 
+def _mcp_grants(session, user_id: int) -> list[dict]:
+    """Apps (OAuth clients) that currently hold a live token for this user."""
+    from vivatlas import mcp_oauth
+
+    ids = [
+        cid
+        for (cid,) in session.query(OAuthToken.client_id)
+        .filter(OAuthToken.user_id == user_id, OAuthToken.revoked_at.is_(None))
+        .distinct()
+    ]
+    return [{"client_id": cid, "name": mcp_oauth.client_label(cid)} for cid in ids]
+
+
+@router.post("/settings/mcp/revoke", response_class=HTMLResponse)
+def mcp_revoke(request: Request, client_id: Annotated[str, Form()] = "") -> RedirectResponse:
+    """Cut off an authorized app: revoke all of its tokens for this user."""
+    with session_scope() as session:
+        me = _me(session, request)
+        session.query(OAuthToken).filter(
+            OAuthToken.user_id == me.id, OAuthToken.client_id == client_id
+        ).update({OAuthToken.revoked_at: datetime.now(UTC)})
+    return RedirectResponse("/settings", status_code=303)
+
+
 def _security_page(
     request: Request, session, me, error: str = "", **msgs
 ) -> HTMLResponse:
@@ -176,6 +201,10 @@ def _security_page(
         # whatever host this request came in on.
         server_url=runtime_settings.site_url(session) or str(request.base_url).rstrip("/"),
         extension_available=_extension_dir() is not None,
+        # ChatGPT / MCP connector: the URL to paste, and the apps currently authorized.
+        mcp_enabled=bool(settings.public_url),
+        mcp_url=(settings.public_url.rstrip("/") + "/mcp-server/mcp") if settings.public_url else "",
+        mcp_grants=_mcp_grants(session, me.id),
         error=error,
         **msgs,
     )

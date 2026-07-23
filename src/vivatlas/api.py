@@ -145,6 +145,9 @@ app = FastAPI(title="VIVATLAS", version="0.1.0", lifespan=_lifespan)
 _OPEN_PREFIXES = (
     "/static/", "/login", "/setup", "/logout", "/forgot", "/reset", "/register", "/join",
     "/lang/", "/mcp-server",
+    # The OAuth consent page does its own sign-in check (so it can keep the ?req= id
+    # across the login round-trip); require_login must not intercept it first.
+    "/mcp/consent",
 )
 _OPEN_EXACT = {
     "/health", "/favicon.png", "/apple-touch-icon.png", "/login/2fa",
@@ -223,6 +226,11 @@ app.include_router(auth_router)
 app.include_router(settings_router)
 app.include_router(admin_router)
 app.include_router(web_router)
+
+# The OAuth consent page for the MCP connector.
+from vivatlas.mcp_web import router as mcp_router  # noqa: E402
+
+app.include_router(mcp_router)
 
 # The browser extension's JSON API. Imported here (not at the top) so its dependency
 # on web.py is resolved after the web router is in place.

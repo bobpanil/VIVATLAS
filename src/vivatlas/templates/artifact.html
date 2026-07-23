@@ -228,15 +228,32 @@
     {% if can_edit %}
     <button type="button" class="btn-secondary art-edit-open" title="{{ t('artifact.edit') }}">{{ mf_edit }}<span class="mf-txt">{{ t('artifact.edit') }}</span></button>
     {% endif %}
+    {% set has_repo_copy = a.repository.html_url and not is_draft %}
+    {# Individual copy buttons: desktop always; on a phone only when there's just
+       one source (with two, they collapse into the pick-menu below). #}
     {% if gh %}
-    <button class="btn-secondary art-copy" type="button" data-copy="{{ gh }}"
+    <button class="btn-secondary art-copy art-copy-one" type="button" data-copy="{{ gh }}"
             title="{{ t('artifact.copy_source') }}"
             data-done="{{ t('artifact.source_copied') }}">{{ mf_copy }}<span class="mf-txt">{{ t('artifact.copy_source') }}</span></button>
     {% endif %}
-    {% if a.repository.html_url and not is_draft %}
-    <button class="btn-secondary art-copy" type="button" data-copy="{{ a.repository.html_url }}"
+    {% if has_repo_copy %}
+    <button class="btn-secondary art-copy art-copy-one" type="button" data-copy="{{ a.repository.html_url }}"
             title="{{ t('artifact.copy_repo') }}"
             data-done="{{ t('artifact.repo_copied') }}">{{ mf_copy }}<span class="mf-txt">{{ t('artifact.copy_repo') }}</span></button>
+    {% endif %}
+    {# Phone-only: with more than one source, a single copy button opens an upward
+       menu to pick which link to copy. #}
+    {% if gh and has_repo_copy %}
+    <div class="art-copy-pick">
+        <button class="btn-secondary art-copy-pick-btn" type="button" aria-haspopup="true"
+                aria-expanded="false" title="{{ t('artifact.copy_source') }}">{{ mf_copy }}</button>
+        <div class="art-copy-menu" role="menu" hidden>
+            <button class="art-copy art-copy-item" type="button" role="menuitem" data-copy="{{ gh }}"
+                    data-done="{{ t('artifact.source_copied') }}">{{ t('artifact.copy_source') }}</button>
+            <button class="art-copy art-copy-item" type="button" role="menuitem" data-copy="{{ a.repository.html_url }}"
+                    data-done="{{ t('artifact.repo_copied') }}">{{ t('artifact.copy_repo') }}</button>
+        </div>
+    </div>
     {% endif %}
     {% if can_delete %}
     {# Delete the card from the catalogue. data-confirm — so the modal doesn't intercept
@@ -310,6 +327,32 @@
             });
         });
     });
+
+    // Phone: the single copy button opens a menu to pick the source (opens
+    // upward). The items themselves are .art-copy, so the handler above copies;
+    // here we just open/close the menu.
+    var pick = document.querySelector('.art-copy-pick');
+    if (pick) {
+        var pbtn = pick.querySelector('.art-copy-pick-btn');
+        var menu = pick.querySelector('.art-copy-menu');
+        var setOpen = function (open) {
+            menu.hidden = !open;
+            pbtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        pbtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setOpen(menu.hidden);
+        });
+        menu.querySelectorAll('.art-copy-item').forEach(function (item) {
+            item.addEventListener('click', function () { setTimeout(function () { setOpen(false); }, 250); });
+        });
+        document.addEventListener('click', function (e) {
+            if (!menu.hidden && !pick.contains(e.target)) setOpen(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !menu.hidden) setOpen(false);
+        });
+    }
 })();
 </script>
 {% endblock %}

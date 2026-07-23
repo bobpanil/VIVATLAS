@@ -6191,6 +6191,53 @@ html.modal-open {
     flex: none;
 }
 
+/* Phone-only "pick a copy source" control: one copy button with an upward menu.
+   Hidden on desktop (there the two copy buttons show individually). */
+.art-copy-pick {
+    display: none;
+    position: relative;
+}
+
+.art-copy-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    padding: 4px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: 0 -10px 28px -10px rgba(0, 0, 0, 0.35);
+    z-index: 50;
+}
+
+.art-copy-menu[hidden] {
+    display: none;
+}
+
+.art-copy-item {
+    display: block;
+    width: 100%;
+    text-align: start;
+    padding: 9px 11px;
+    border: 0;
+    background: none;
+    border-radius: var(--r-sm);
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--body-ink);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.art-copy-item:hover {
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
 /* The back link in the footer moves left, the action — right. */
 .modal-foot .foot-left {
     margin-right: auto;
@@ -6255,6 +6302,16 @@ html.modal-open {
 
     .modal-foot .mf-ic {
         display: block;
+    }
+
+    /* With two copy sources present, hide the individual copy buttons and show
+       the single pick-a-source copy button instead. */
+    .modal-foot:has(.art-copy-pick) .art-copy-one {
+        display: none;
+    }
+
+    .art-copy-pick {
+        display: inline-flex;
     }
 
     /* Close stays on the left; the rest follow. */

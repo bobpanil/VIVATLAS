@@ -1,5 +1,20 @@
 # VIVATLAS Android shell
 
+> **Toolchain is already installed on this PC** (headless, no Android Studio):
+> JDK 17 `D:\Android\jdk\jdk-17.0.19+10` · SDK `D:\Android\sdk` · Gradle
+> `D:\Android\gradle-8.7` · AVD `vivatlas` (Pixel 6, API 34). A debug APK is built
+> at `app/build/outputs/apk/debug/app-debug.apk`. Rebuild + install:
+>
+> ```bash
+> JAVA_HOME=/d/Android/jdk/jdk-17.0.19+10 /d/Android/gradle-8.7/bin/gradle -p android assembleDebug
+> /d/Android/sdk/platform-tools/adb.exe -s <device> install -r android/app/build/outputs/apk/debug/app-debug.apk
+> ```
+>
+> Phone (wireless adb): pair once with the code from the phone's *Wireless
+> debugging → Pair device with pairing code*, then `adb connect <lan-ip>:<port>`.
+> For the phone, set the server URL to the host's **LAN IP** (`http://<host-lan-ip>:8710`),
+> and run the server with `--host 0.0.0.0`.
+
 A deliberately thin **Kotlin WebView** app. It is two things at once:
 
 1. **The mobile/tablet UI** — a full-screen WebView onto your VIVATLAS server, so

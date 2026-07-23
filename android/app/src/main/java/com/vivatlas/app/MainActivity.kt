@@ -19,6 +19,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 /**
  * The entire browsing UI: a full-screen WebView pointed at the user's VIVATLAS
@@ -30,6 +31,7 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var swipe: SwipeRefreshLayout
     private var serverUrl: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -38,6 +40,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
+        swipe = findViewById(R.id.swipe)
+        // Pull down at the top of the page to reload (SwipeRefreshLayout only fires
+        // when the WebView can't scroll up any further, so it doesn't fight scrolling).
+        swipe.setColorSchemeColors(0xFFE7940E.toInt())
+        swipe.setOnRefreshListener { webView.reload() }
         configureWebView()
         wireBackButton()
 
@@ -121,6 +128,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 // Only surface failures of the top-level page, not sub-resources.
                 if (request.isForMainFrame) {
+                    swipe.isRefreshing = false
                     Toast.makeText(
                         this@MainActivity,
                         getString(R.string.err_unreachable),
@@ -128,6 +136,10 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                     promptForServer(initial = false)
                 }
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                swipe.isRefreshing = false
             }
         }
 

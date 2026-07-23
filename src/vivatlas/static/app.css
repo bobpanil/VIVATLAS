@@ -5815,12 +5815,12 @@ a.art-chip-pur:hover { border-color: currentColor; }
        search field and the filter panel are absolute dropdowns (below), so the
        button row itself never wraps. */
     /* Search + Filter now live in the top bar, so the stickyhead toolbar is empty
-       on a phone — collapse it to nothing and hide the leftover desktop controls,
-       so the grid starts right under the top bar. */
+       on a phone — collapse it to nothing (zero margins too, so it doesn't eat the
+       gap) and let .main's top padding set the space above the first card, equal
+       to the side padding. */
     .stickyhead {
-        padding-top: 0;
-        padding-bottom: 0;
-        margin-bottom: var(--s-md);
+        margin: 0;
+        padding: 0;
         border-bottom: 0;
         min-height: 0;
     }
@@ -6171,6 +6171,14 @@ html.modal-open {
     background: var(--surface-doc);
 }
 
+/* Footer buttons are text-only on desktop; the icons only surface on the phone. */
+.mf-ic {
+    display: none;
+    width: 18px;
+    height: 18px;
+    flex: none;
+}
+
 /* The back link in the footer moves left, the action — right. */
 .modal-foot .foot-left {
     margin-right: auto;
@@ -6192,26 +6200,37 @@ html.modal-open {
         border-radius: 0;
     }
 
-    /* The footer's row of actions doesn't fit across a phone, so it stacks —
-       one button per line, full width. Source order is left-to-right, so the
-       stack reads top-to-bottom the same way: Close (the left link) on top, the
-       actions (ending in Delete, the rightmost) below. */
+    /* The footer's text buttons don't fit across a phone, so they become a row of
+       icon-only square buttons (the labels are hidden; each keeps a title/aria). */
     .modal-foot {
-        flex-direction: column;
-        align-items: stretch;
+        flex-wrap: wrap;
+        justify-content: flex-start;
         gap: 8px;
     }
 
-    .modal-foot > *,
+    /* Flatten the rescan/delete forms so their buttons sit in the same row. */
     .modal-foot form {
-        width: 100%;
+        display: contents;
     }
 
-    .modal-foot form button {
-        width: 100%;
+    .modal-foot .btn-secondary,
+    .modal-foot .btn-danger {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        padding: 0;
+        justify-content: center;
     }
 
-    /* margin-right:auto only made sense pushing Close left in a row. */
+    .modal-foot .mf-txt {
+        display: none;
+    }
+
+    .modal-foot .mf-ic {
+        display: block;
+    }
+
+    /* Close stays on the left; the rest follow. */
     .modal-foot .foot-left {
         margin-right: 0;
     }

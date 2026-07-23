@@ -10,10 +10,10 @@
 {% block topbar_actions %}
 {% if not link %}
 {% set sa = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) + (1 if f.purpose else 0) %}
-<button class="tnav-btn" type="button" id="search-toggle"
-        aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">{{ icons.ic('search') }}</button>
 <button class="tnav-btn{% if sa %} on{% endif %}" type="button" id="filters-btn-top"
         aria-expanded="false" aria-controls="sheet" aria-label="{{ t('index.filters') }}">{{ icons.ic('filter') }}{% if sa %}<b class="fbadge">{{ sa }}</b>{% endif %}</button>
+<button class="tnav-btn" type="button" id="search-toggle"
+        aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">{{ icons.ic('search') }}</button>
 {% endif %}
 {% endblock %}
 

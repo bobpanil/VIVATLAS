@@ -3130,6 +3130,10 @@ html.card-dragging .side-folders-head {
     z-index: 2;
     text-decoration: none;
     cursor: pointer;
+    /* A real tap target: the clickable purpose chip was ~18px tall (fails WCAG 2.5.8
+       and awkward to tap on a phone). The extra height is centred so the footer row
+       doesn't grow. */
+    min-height: 24px;
 }
 
 .pur-link:hover .card-cat-name {

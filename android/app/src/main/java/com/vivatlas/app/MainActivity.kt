@@ -5,6 +5,7 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
@@ -141,8 +142,12 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-        // No blue edge glow — a browser tell; pull-to-refresh is the SwipeRefreshLayout.
+        // Strip the browser tells so it reads as a native app: no edge glow, no
+        // scrollbars, no zoom (the page is responsive). Pull-to-refresh stays —
+        // that's the SwipeRefreshLayout, a native gesture.
         webView.overScrollMode = View.OVER_SCROLL_NEVER
+        webView.isVerticalScrollBarEnabled = false
+        webView.isHorizontalScrollBarEnabled = false
 
         val cookies = CookieManager.getInstance()
         cookies.setAcceptCookie(true)
@@ -155,6 +160,11 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             mediaPlaybackRequiresUserGesture = true
             cacheMode = WebSettings.LOAD_DEFAULT
+            // No pinch- or double-tap zoom — a browser behaviour the responsive
+            // layout doesn't need, and its absence reads as native.
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
             // Harden: this is our own trusted origin, but there is no reason to let
             // page JS reach the local filesystem.
             allowFileAccess = false
@@ -212,9 +222,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                applyNativeFeel(view) // as early as the first paint, before any long-press
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 swipe.isRefreshing = false
                 topProgress.visibility = View.GONE
+                applyNativeFeel(view)
                 if (!isAuthPage(url)) {
                     firstPaintDone = true
                     hideLoading()
@@ -252,6 +267,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun recentlyAuthed(): Boolean = SystemClock.elapsedRealtime() - lastAuthAt < 4000L
+
+    /**
+     * Paint over the browser tells that CSS can reach — no tap highlight, and no
+     * long-press text-selection or callout on content (inputs stay selectable so
+     * paste still works) — and sync the WebView backdrop to the page colour so a
+     * navigation doesn't flash white. Injected on every page, idempotently.
+     */
+    private fun applyNativeFeel(view: WebView) {
+        view.evaluateJavascript(NATIVE_FEEL_JS, null)
+        view.evaluateJavascript(PAGE_BG_JS) { raw ->
+            val s = raw?.trim('"') ?: return@evaluateJavascript
+            val m = Regex("""rgb\((\d+),\s*(\d+),\s*(\d+)""").find(s) ?: return@evaluateJavascript
+            try {
+                view.setBackgroundColor(
+                    Color.rgb(
+                        m.groupValues[1].toInt(),
+                        m.groupValues[2].toInt(),
+                        m.groupValues[3].toInt(),
+                    ),
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     private fun sameHostAsServer(uri: Uri): Boolean {
         val host = serverUrl?.let { Uri.parse(it).host } ?: return false
@@ -310,5 +349,25 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_SHARE_URL = "com.vivatlas.app.SHARE_URL"
+
+        // Injected into every page: kill the tap-highlight flash and stop
+        // long-press selection/callout on content, while keeping form fields
+        // selectable (paste). Idempotent via the style element's id.
+        private const val NATIVE_FEEL_JS =
+            "(function(){if(document.getElementById('__viv_native'))return;" +
+                "var s=document.createElement('style');s.id='__viv_native';" +
+                "s.textContent='*{-webkit-tap-highlight-color:transparent!important;}'+" +
+                "'html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none;}'+" +
+                "'input,textarea,select,[contenteditable]{-webkit-user-select:text!important;user-select:text!important;}';" +
+                "(document.head||document.documentElement).appendChild(s);})();"
+
+        // The page's effective opaque background (body, else html), or "" when
+        // transparent — so we only recolour the WebView backdrop when there's a
+        // real colour to match, never flashing it to black.
+        private const val PAGE_BG_JS =
+            "(function(){function o(c){return c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)';}" +
+                "var b=getComputedStyle(document.body).backgroundColor;" +
+                "var h=getComputedStyle(document.documentElement).backgroundColor;" +
+                "return o(b)?b:(o(h)?h:'');})()"
     }
 }

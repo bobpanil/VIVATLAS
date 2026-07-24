@@ -1,4 +1,4 @@
-# VIVATLAS Clipper (Chrome extension)
+# VIVATLAS Clipper (browser extension)
 
 A one-click "add tool" for [VIVATLAS](https://github.com/bobpanil/vivatlas). Grab the
 page you're on (or paste a link), choose public or private, and send it to your
@@ -6,9 +6,10 @@ catalogue — then keep browsing while VIVATLAS processes it.
 
 ## What it does
 
-- **Sign in once** — server address → email + password → MFA code, one step at a time.
-  The extension keeps a session token and also signs the web UI in, so **Open VIVATLAS**
-  lands you inside with no second login.
+- **Signed in automatically** — the clipper adopts your browser's own VIVATLAS session
+  (it reads the `vivatlas_session` cookie), so if you're signed in on the site you're
+  signed in here, with no separate extension login. Not signed in in the browser? It
+  falls back to email + password → MFA, one step at a time.
 - **Capture the current page** — reads the readable text (like a read-later clipper) in
   the background and sends the URL, title and text. **Rescan** re-reads the page if it
   changed. Pages that can't be read (`chrome://`, the Web Store, the PDF viewer) still
@@ -33,19 +34,24 @@ The gear in the top-right holds the things you set once and forget:
 ## Install
 
 **Easiest — from VIVATLAS.** Open your VIVATLAS, go to **Settings → Browser extension**,
-click **Download extension**, and follow the short steps there (it even copies the
-`chrome://extensions` address and your server URL for you).
+and use the **Chrome/Edge** or **Firefox** download. That build is pre-wired to your
+server (no "enter server" step) and signs in from your browser session (no extension
+login) — the page walks you through the one-time load.
 
-**Manually (unpacked):**
+**Chrome / Edge / Brave (unpacked):**
 
-1. Open `chrome://extensions`.
-2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick this `extension/` folder.
-4. Pin the VIVATLAS icon, click it, and enter your server address (e.g.
-   `https://vivatlas.example.com`). Chrome will ask permission for that server —
-   approve it. Then sign in.
+1. Open `chrome://extensions`, turn on **Developer mode** (top right).
+2. Click **Load unpacked** and pick the unzipped `vivatlas-clipper` folder.
 
-Works in any Chromium browser (Chrome, Edge, Brave) with Manifest V3. Firefox is coming.
+**Firefox (temporary add-on):**
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on** and choose `manifest.json` in the folder. Firefox
+   drops temporary add-ons on restart — to keep it, sign the folder into an `.xpi` at
+   [addons.mozilla.org](https://addons.mozilla.org) (free Mozilla account) and install that.
+
+Manifest V3, cross-browser (Chromium `chrome.*` and Firefox `browser.*` via one shim).
+A source checkout leaves the server blank; the popup then asks for it once.
 
 ## How it talks to VIVATLAS
 

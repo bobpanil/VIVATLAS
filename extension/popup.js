@@ -4,8 +4,15 @@
 // or a pasted link. The cog panel holds the account, the server, the default "Save as"
 // and sign-out; the capture view keeps only what you touch per clip.
 //
-// Auth: /api/ext/login returns a token stored here and sent as a Bearer header. The same
-// token is also set as the vivatlas_session cookie, so "Open VIVATLAS" lands signed in.
+// Auth: normally the extension just adopts your BROWSER's VIVATLAS session — it reads
+// the vivatlas_session cookie for the configured server and signs in as you, no separate
+// extension login. If you're not signed in in the browser, it falls back to /api/ext/login
+// (with MFA), which returns a token stored here and sent as a Bearer header.
+//
+// Cross-browser: `ext` is Firefox's promise-based `browser` when present, else Chrome's
+// `chrome` (whose MV3 APIs also return promises), so the same code runs on both.
+
+const ext = (typeof browser !== 'undefined') ? browser : chrome;
 
 const COOKIE_NAME = 'vivatlas_session';
 const SESSION_DAYS = 30;
@@ -20,22 +27,20 @@ const $ = (id) => document.getElementById(id);
 
 // --- storage -------------------------------------------------------------
 
-function load() {
-  return new Promise((res) => {
-    chrome.storage.local.get(['server', 'token', 'email', 'name', 'defaultVis'], (v) => {
-      state = {
-        server: v.server || '',
-        token: v.token || '',
-        email: v.email || '',
-        name: v.name || '',
-        defaultVis: v.defaultVis === 'public' ? 'public' : 'private',
-      };
-      res();
-    });
-  });
+async function load() {
+  const v = await ext.storage.local.get(['server', 'token', 'email', 'name', 'defaultVis']);
+  state = {
+    // The download from Settings wires in the server (config.js); the source
+    // checkout leaves it blank and the popup asks once.
+    server: v.server || (window.VIVATLAS_SERVER || ''),
+    token: v.token || '',
+    email: v.email || '',
+    name: v.name || '',
+    defaultVis: v.defaultVis === 'public' ? 'public' : 'private',
+  };
 }
-function save() {
-  return new Promise((res) => chrome.storage.local.set(state, res));
+async function save() {
+  await ext.storage.local.set(state);
 }
 
 // --- ui helpers ----------------------------------------------------------
@@ -85,29 +90,42 @@ async function api(path, method, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
-// Set/clear the session cookie so the web UI opens authenticated.
-function setSessionCookie() {
-  if (!chrome.cookies) return;
-  chrome.cookies.set({
-    url: state.server,
-    name: COOKIE_NAME,
-    value: state.token,
-    path: '/',
-    httpOnly: true,
-    secure: state.server.startsWith('https'),
-    sameSite: 'lax',
-    expirationDate: Math.floor(Date.now() / 1000) + SESSION_DAYS * 24 * 3600,
-  }, () => void chrome.runtime.lastError);
+// --- session cookie ------------------------------------------------------
+
+// Adopt the browser's own VIVATLAS session: read the (HttpOnly) session cookie —
+// which the cookies API can see even though page JS can't — and use it as the token.
+async function readSessionCookie() {
+  if (!ext.cookies || !state.server) return '';
+  try {
+    const c = await ext.cookies.get({ url: state.server, name: COOKIE_NAME });
+    return (c && c.value) || '';
+  } catch (e) { return ''; }
 }
-function clearSessionCookie() {
-  if (!chrome.cookies) return;
-  chrome.cookies.remove({ url: state.server, name: COOKIE_NAME }, () => void chrome.runtime.lastError);
+// Set/clear the session cookie so "Open VIVATLAS" lands authenticated.
+async function setSessionCookie() {
+  if (!ext.cookies) return;
+  try {
+    await ext.cookies.set({
+      url: state.server,
+      name: COOKIE_NAME,
+      value: state.token,
+      path: '/',
+      httpOnly: true,
+      secure: state.server.startsWith('https'),
+      sameSite: 'lax',
+      expirationDate: Math.floor(Date.now() / 1000) + SESSION_DAYS * 24 * 3600,
+    });
+  } catch (e) { /* cookie not settable — Bearer still works */ }
+}
+async function clearSessionCookie() {
+  if (!ext.cookies) return;
+  try { await ext.cookies.remove({ url: state.server, name: COOKIE_NAME }); } catch (e) { /* ignore */ }
 }
 
 // --- capture -------------------------------------------------------------
 
 async function activeTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabs = await ext.tabs.query({ active: true, currentWindow: true });
   return tabs && tabs[0] ? tabs[0] : null;
 }
 
@@ -118,7 +136,7 @@ async function grab() {
   const out = { url: (tab && tab.url) || '', title: (tab && tab.title) || '', text: '' };
   if (tab && tab.id != null) {
     try {
-      const results = await chrome.scripting.executeScript({
+      const results = await ext.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
           const el = document.querySelector('main, article') || document.body;
@@ -197,20 +215,37 @@ function closeCog() {
 
 // --- flow ----------------------------------------------------------------
 
+// True once /session confirms the current token; fills in the account and shows main.
+async function trySession() {
+  const r = await api('/session');
+  if (!r.ok) return false;
+  if (r.data.user) {
+    state.email = r.data.user.email || state.email;
+    state.name = r.data.user.name || state.name;
+    await save();
+  }
+  show('step-main');
+  await initMain();
+  return true;
+}
+
 async function decideStart() {
   if (!state.server) return show('step-server');
-  if (!state.token) { $('login-server').textContent = state.server; return show('step-login'); }
-  const r = await api('/session');
-  if (r.ok) {
-    if (r.data.user) {
-      state.email = r.data.user.email || state.email;
-      state.name = r.data.user.name || state.name;
-      await save();
-    }
-    show('step-main');
-    return initMain();
+  // Auto-login: adopt the browser's VIVATLAS session if there is one, so there's
+  // no separate extension sign-in.
+  if (!state.token) {
+    const cookieTok = await readSessionCookie();
+    if (cookieTok) { state.token = cookieTok; await save(); }
   }
-  // token no longer valid — sign in again, keep the server.
+  if (state.token && await trySession()) return;
+  // Stored token is stale — maybe the browser has a fresher session (you signed in
+  // again on the site). Try that once before asking for a password.
+  const fresh = await readSessionCookie();
+  if (fresh && fresh !== state.token) {
+    state.token = fresh;
+    await save();
+    if (await trySession()) return;
+  }
   state.token = '';
   await save();
   $('login-server').textContent = state.server;
@@ -222,14 +257,17 @@ async function onServerGo() {
   if (!server) return banner('Enter a server address.', 'err');
   let origin;
   try { origin = new URL(server).origin; } catch (e) { return banner('That address looks off.', 'err'); }
-  const granted = await new Promise((res) =>
-    chrome.permissions.request({ origins: [origin + '/*'] }, res));
+  let granted = true;
+  try {
+    granted = await ext.permissions.request({ origins: [origin + '/*'] });
+  } catch (e) { granted = false; }
   if (!granted) return banner('Permission for that server was declined.', 'err');
   state.server = server;
   await save();
   $('login-server').textContent = server;
   $('server').value = '';
-  show('step-login');
+  // Adopt the browser session for the new server if there is one.
+  await decideStart();
 }
 
 async function onLoginGo() {
@@ -276,7 +314,7 @@ async function onSignedIn(data) {
   state.email = (data.user && data.user.email) || state.email;
   state.name = (data.user && data.user.name) || state.name;
   await save();
-  setSessionCookie();
+  await setSessionCookie();
   $('password').value = '';
   show('step-main');
   await initMain();
@@ -306,7 +344,7 @@ async function onRescan() {
 
 async function onLogout() {
   await api('/logout', 'POST');
-  clearSessionCookie();
+  await clearSessionCookie();
   state.token = '';
   state.email = '';
   state.name = '';
@@ -315,7 +353,7 @@ async function onLogout() {
   $('login-server').textContent = state.server;
 }
 
-function onOpenWeb() { chrome.tabs.create({ url: state.server }); }
+function onOpenWeb() { ext.tabs.create({ url: state.server }); }
 
 // --- wire up -------------------------------------------------------------
 

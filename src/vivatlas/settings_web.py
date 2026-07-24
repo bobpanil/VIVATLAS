@@ -5,6 +5,7 @@ its sections grow.
 """
 
 import io
+import json
 import logging
 import os
 import zipfile
@@ -94,6 +95,7 @@ def _valid_url(u: str) -> bool:
 # Only the runtime files (not the multi-MB source art) go into the zip.
 _EXT_FILES = [
     "manifest.json",
+    "config.js",
     "popup.html",
     "popup.css",
     "popup.js",
@@ -124,25 +126,64 @@ def _extension_dir() -> Path | None:
     return None
 
 
+def _ext_config_js(server_url: str) -> str:
+    """config.js pre-wired to this server (json.dumps handles quoting/escaping)."""
+    return (
+        "'use strict';\n"
+        "// Pre-wired to this VIVATLAS by the download in Settings — no 'enter server' step.\n"
+        f"window.VIVATLAS_SERVER = {json.dumps(server_url)};\n"
+    )
+
+
+def _ext_manifest(path: Path, server_url: str, firefox: bool) -> str:
+    """The manifest with this server granted at install (host_permissions), and the
+    Firefox add-on id added for the Firefox build."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    host = server_url.rstrip("/") + "/*"
+    hosts = list(data.get("host_permissions", []))
+    if host not in hosts:
+        hosts.append(host)
+    data["host_permissions"] = hosts
+    if firefox:
+        data["browser_specific_settings"] = {
+            "gecko": {"id": "vivatlas-clipper@vivatlas.app", "strict_min_version": "115.0"}
+        }
+    else:
+        data.pop("browser_specific_settings", None)
+    return json.dumps(data, indent=2)
+
+
 @router.get("/settings/extension.zip")
-def extension_zip(request: Request) -> Response:
-    """Download the browser clipper as a ready-to-load unpacked extension (zipped)."""
+def extension_zip(request: Request, browser: str = "chrome") -> Response:
+    """Download the browser clipper, pre-wired to this server. `browser=firefox`
+    adds the Firefox add-on id; otherwise a Chrome/Edge build. Loaded unpacked, it
+    signs in from your browser's own VIVATLAS session — no separate extension login."""
     with session_scope() as session:
         if _me(session, request) is None:
             raise HTTPException(401, "Sign in first.")
+        server_url = runtime_settings.site_url(session) or str(request.base_url).rstrip("/")
     ext = _extension_dir()
     if ext is None:
         raise HTTPException(404, "The extension files are not bundled with this server.")
+    firefox = browser.lower() == "firefox"
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for rel in _EXT_FILES:
             p = ext / rel
-            if p.is_file():
-                z.write(p, arcname="vivatlas-clipper/" + rel)
+            if not p.is_file():
+                continue
+            arc = "vivatlas-clipper/" + rel
+            if rel == "manifest.json":
+                z.writestr(arc, _ext_manifest(p, server_url, firefox))
+            elif rel == "config.js":
+                z.writestr(arc, _ext_config_js(server_url))
+            else:
+                z.write(p, arcname=arc)
+    name = "vivatlas-clipper-firefox.zip" if firefox else "vivatlas-clipper.zip"
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="vivatlas-clipper.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
 
 

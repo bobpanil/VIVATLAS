@@ -243,6 +243,11 @@
     <p class="legend">{{ t('settings.ext_intro') }}</p>
 
     {% if extension_available %}
+    {# No "enter server / sign in" step: the download is wired to this server and the
+       clipper adopts your browser's VIVATLAS session automatically. #}
+    <p class="set-on">{{ t('settings.ext_auto') }}</p>
+
+    <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.ext_chrome') }}</h3></div>
     <ol class="ext-steps">
         <li>
             <span class="ext-step-text">{{ t('settings.ext_step_download') }}</span>
@@ -260,17 +265,27 @@
         </li>
         <li>{{ t('settings.ext_step_devmode') }}</li>
         <li>{{ t('settings.ext_step_load') }}</li>
+    </ol>
+
+    <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.ext_firefox') }}</h3></div>
+    <ol class="ext-steps">
         <li>
-            <span class="ext-step-text">{{ t('settings.ext_step_signin') }}</span>
+            <span class="ext-step-text">{{ t('settings.ext_step_download') }}</span>
+            <a class="cta ext-dl" href="/settings/extension.zip?browser=firefox" download>{{ t('settings.ext_ff_download_btn') }}</a>
+        </li>
+        <li>{{ t('settings.ext_step_unzip') }}</li>
+        <li>
+            <span class="ext-step-text">{{ t('settings.ext_ff_step_open') }}</span>
             <span class="ext-copyrow">
-                <code>{{ server_url }}</code>
-                <button type="button" class="btn-secondary ext-copy" data-copy="{{ server_url }}"
+                <code>about:debugging#/runtime/this-firefox</code>
+                <button type="button" class="btn-secondary ext-copy" data-copy="about:debugging#/runtime/this-firefox"
                         data-done="{{ t('settings.ext_copied') }}"
                         onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
             </span>
         </li>
+        <li>{{ t('settings.ext_ff_step_load') }}</li>
     </ol>
-    <p class="note">{{ t('settings.ext_note_chrome') }}</p>
+    <p class="note">{{ t('settings.ext_ff_note') }}</p>
     {% else %}
     <p class="warn">{{ t('settings.ext_unavailable') }}</p>
     {% endif %}

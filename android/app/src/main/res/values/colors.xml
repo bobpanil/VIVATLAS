@@ -9,11 +9,16 @@
     <!-- Matches android.svg's navy so no seam shows if the mask exceeds it. -->
     <color name="ic_launcher_background">#0F141F</color>
 
-    <!-- Native sign-in surfaces. -->
-    <color name="card">#FFFFFF</color>
+    <!-- Native sign-in surfaces — a warm palette drawn from the logo (ivory
+         figure, gold, espresso-black) so the screen and the logo read as one. -->
+    <color name="login_bg">#100D0A</color>
+    <color name="card">#F7F0E5</color>
     <color name="field">#FFFFFF</color>
-    <color name="field_border">#D8D9D2</color>
-    <color name="text_muted">#6C6E63</color>
+    <color name="field_border">#E4DBC9</color>
+    <color name="login_ink">#2A241F</color>
+    <color name="text_muted">#6E6459</color>
+    <color name="on_dark_muted">#9A9084</color>
+    <color name="link_gold">#A86A00</color>
     <color name="on_gold">#1A1204</color>
     <color name="error_red">#C0392B</color>
     <!-- Splash/loading canvas — the app's dark navy, so the launch and the

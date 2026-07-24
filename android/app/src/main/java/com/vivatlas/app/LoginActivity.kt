@@ -49,6 +49,9 @@ class LoginActivity : AppCompatActivity() {
         }
         server = url
         setContentView(R.layout.activity_login)
+        // Match the system bars to the warm login canvas so there's no seam at the top.
+        window.statusBarColor = getColor(R.color.login_bg)
+        window.navigationBarColor = getColor(R.color.login_bg)
 
         email = findViewById(R.id.email)
         password = findViewById(R.id.password)

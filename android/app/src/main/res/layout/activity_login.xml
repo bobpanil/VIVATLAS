@@ -5,7 +5,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/brand_dark"
+    android:background="@color/login_bg"
     android:fillViewport="true"
     android:fitsSystemWindows="true">
 
@@ -18,26 +18,17 @@
         android:paddingBottom="24dp">
 
         <ImageView
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_marginTop="48dp"
-            android:src="@drawable/ic_launcher_fg"
-            android:contentDescription="@string/app_name" />
-
-        <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="230dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="@string/app_name"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.22" />
+            android:layout_marginTop="36dp"
+            android:adjustViewBounds="true"
+            android:src="@drawable/login_logo"
+            android:contentDescription="@string/app_name" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="24dp"
             android:orientation="vertical"
             android:background="@drawable/card_bg"
             android:padding="24dp">
@@ -47,7 +38,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/login_title"
-                android:textColor="@color/brand_ink"
+                android:textColor="@color/login_ink"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -78,7 +69,7 @@
                     android:paddingVertical="12dp"
                     android:inputType="textEmailAddress"
                     android:autofillHints="emailAddress"
-                    android:textColor="@color/brand_ink"
+                    android:textColor="@color/login_ink"
                     android:hint="@string/login_email_hint"
                     android:importantForAutofill="yes" />
 
@@ -102,7 +93,7 @@
                     android:paddingVertical="12dp"
                     android:inputType="textPassword"
                     android:autofillHints="password"
-                    android:textColor="@color/brand_ink"
+                    android:textColor="@color/login_ink"
                     android:hint="@string/login_password_hint"
                     android:importantForAutofill="yes" />
             </LinearLayout>
@@ -121,7 +112,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="@string/login_mfa_prompt"
-                    android:textColor="@color/brand_ink"
+                    android:textColor="@color/login_ink"
                     android:textSize="14sp" />
 
                 <EditText
@@ -133,7 +124,7 @@
                     android:paddingHorizontal="14dp"
                     android:paddingVertical="12dp"
                     android:inputType="number"
-                    android:textColor="@color/brand_ink"
+                    android:textColor="@color/login_ink"
                     android:letterSpacing="0.3"
                     android:hint="@string/login_code_hint" />
 
@@ -189,7 +180,7 @@
                 android:layout_marginTop="16dp"
                 android:gravity="center"
                 android:text="@string/login_forgot"
-                android:textColor="@color/brand_gold_dark"
+                android:textColor="@color/link_gold"
                 android:textSize="14sp"
                 android:padding="6dp" />
         </LinearLayout>
@@ -200,7 +191,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"
             android:text="@string/change_server"
-            android:textColor="@color/text_muted"
+            android:textColor="@color/on_dark_muted"
             android:textSize="13sp"
             android:padding="6dp" />
     </LinearLayout>

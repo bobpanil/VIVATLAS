@@ -9,7 +9,7 @@
     {# Status bar colour on phones — matches the top bar, and that bar is dark. #}
     <meta name="theme-color" content="#04060d">
     <title>{% block title %}VIVATLAS{% endblock %}</title>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-globe-dark.svg') }}">
+    <link rel="icon" type="image/svg+xml" id="favicon" href="{{ asset('favicon-globe-dark.svg') }}">
     <link rel="icon" type="image/png" href="/static/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="stylesheet" href="{{ asset('app.css') }}">
@@ -17,6 +17,8 @@
        is personal, living on the device (localStorage), like the card size. #}
     <script>
     (function () {
+        var FAVICON_DARK = "{{ asset('favicon-globe-dark.svg') }}";
+        var FAVICON_LIGHT = "{{ asset('favicon-globe-light.svg') }}";
         function resolve(t) {
             if (t === 'auto') { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
             return t;
@@ -29,6 +31,10 @@
             // Raw mode (light/dark/oled/auto) — CSS uses it to pick the theme icon
             // in the sidebar. Set before paint so the icon doesn't flicker.
             document.documentElement.setAttribute('data-thememode', t);
+            // The tab/bookmark favicon follows the theme too: light globe on light,
+            // dark globe on dark (and 'auto' follows the OS via resolve()).
+            var fav = document.getElementById('favicon');
+            if (fav) { fav.href = (eff === 'dark' || eff === 'oled') ? FAVICON_DARK : FAVICON_LIGHT; }
         }
         try { applyTheme(localStorage.getItem('vivatlas-theme') || 'light'); } catch (e) { /* private mode */ }
         // Theme change in the settings modal (another window of the same origin) —

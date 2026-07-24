@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Native password reset — the app's own screen, matching the login (logo,
+     warm canvas, ivory card). No WebView. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/login_bg"
+    android:fillViewport="true"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="24dp">
+
+        <ImageView
+            android:layout_width="230dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="36dp"
+            android:adjustViewBounds="true"
+            android:src="@drawable/login_logo"
+            android:contentDescription="@string/app_name" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/reset_title"
+                android:textColor="@color/login_ink"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/form_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/reset_prompt"
+                    android:textColor="@color/text_muted"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="@string/login_email"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp"
+                    android:letterSpacing="0.04" />
+
+                <EditText
+                    android:id="@+id/reset_email"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/field_bg"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="12dp"
+                    android:inputType="textEmailAddress"
+                    android:autofillHints="emailAddress"
+                    android:textColor="@color/login_ink"
+                    android:hint="@string/login_email_hint"
+                    android:imeOptions="actionDone" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/reset_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="@string/reset_sent"
+                android:textColor="@color/login_ink"
+                android:textSize="15sp"
+                android:lineSpacingMultiplier="1.15"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/reset_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:textColor="@color/error_red"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp">
+
+                <Button
+                    android:id="@+id/reset_submit"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:background="@drawable/btn_primary"
+                    android:text="@string/reset_send"
+                    android:textColor="@color/on_gold"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <ProgressBar
+                    android:id="@+id/reset_progress"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="@color/on_gold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/reset_back"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:text="@string/reset_back"
+                android:textColor="@color/link_gold"
+                android:textSize="14sp"
+                android:padding="6dp" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Branded "VIVATLAS server" dialog — replaces the stock AlertDialog so it
+     matches the login (ivory card, styled field, gold Save). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="20dp"
+    android:orientation="vertical"
+    android:background="@drawable/dialog_bg"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/server_title"
+        android:textColor="@color/login_ink"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/server_message"
+        android:textColor="@color/text_muted"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/server_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/field_bg"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="12dp"
+        android:inputType="textUri"
+        android:textColor="@color/login_ink"
+        android:hint="@string/server_hint"
+        android:imeOptions="actionDone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/server_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="12dp"
+            android:text="@android:string/cancel"
+            android:textColor="@color/text_muted"
+            android:textSize="15sp"
+            android:textAllCaps="false" />
+
+        <TextView
+            android:id="@+id/server_save"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="12dp"
+            android:text="@string/save"
+            android:textColor="@color/link_gold"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textAllCaps="false" />
+    </LinearLayout>
+</LinearLayout>

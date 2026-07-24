@@ -31,6 +31,32 @@ object Auth {
             JSONObject().put("ticket", ticket).put("code", code).put("backup", backup),
         )
 
+    /**
+     * Ask the server to email a password-reset link. It answers the same whether
+     * or not the address has an account (no enumeration), so a reachable server
+     * means the request was accepted — returns true. false = network failure.
+     */
+    fun forgot(server: String, email: String): Boolean {
+        var conn: HttpURLConnection? = null
+        return try {
+            conn = (URL("$server/forgot").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15000
+                readTimeout = 20000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                setRequestProperty("Accept", "text/html")
+            }
+            val body = "email=" + java.net.URLEncoder.encode(email, "UTF-8")
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            conn.responseCode in 200..399
+        } catch (_: Exception) {
+            false
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
     private fun call(url: String, body: JSONObject): Result {
         var conn: HttpURLConnection? = null
         return try {

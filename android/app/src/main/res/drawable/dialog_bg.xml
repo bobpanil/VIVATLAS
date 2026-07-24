@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded card for the server dialog, matching the login's ivory surface. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/card" />
+    <corners android:radius="22dp" />
+</shape>

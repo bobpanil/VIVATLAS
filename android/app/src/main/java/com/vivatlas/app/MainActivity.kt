@@ -17,7 +17,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -176,14 +175,17 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 val target = request.url
                 val scheme = target.scheme?.lowercase()
-                if ((scheme == "http" || scheme == "https") && sameHostAsServer(target)) {
-                    return false
+                if (scheme == "http" || scheme == "https") {
+                    if (sameHostAsServer(target)) return false       // stay in the app's own WebView
+                    WebActivity.open(this@MainActivity, target.toString()) // external -> in-app, never a browser
+                    return true
                 }
+                // mailto:, tel:, geo:, intent: — the matching app, not a browser.
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, target))
                     true
                 } catch (_: Exception) {
-                    false
+                    true
                 }
             }
 
@@ -298,27 +300,12 @@ class MainActivity : AppCompatActivity() {
     /** First-run and "change server" dialog. On save we re-route through [enter],
      *  which will ask for sign-in if the new server has no session yet. */
     private fun promptForServer(initial: Boolean) {
-        val input = EditText(this).apply {
-            hint = getString(R.string.server_hint)
-            setText(serverUrl ?: getString(R.string.server_default))
-            setSelection(text.length)
+        ServerDialog.show(this, serverUrl, initial) { url ->
+            Prefs.setServerUrl(this, url)
+            serverUrl = url
+            firstPaintDone = false
+            enter()
         }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.server_title)
-            .setMessage(R.string.server_message)
-            .setView(input)
-            .setCancelable(!initial)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val url = Prefs.normalize(input.text.toString())
-                if (url.isNotEmpty()) {
-                    Prefs.setServerUrl(this, url)
-                    serverUrl = url
-                    firstPaintDone = false
-                    enter()
-                }
-            }
-            .apply { if (!initial) setNegativeButton(android.R.string.cancel, null) }
-            .show()
     }
 
     companion object {

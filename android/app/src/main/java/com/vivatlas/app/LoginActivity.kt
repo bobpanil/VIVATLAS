@@ -1,7 +1,5 @@
 package com.vivatlas.app
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,7 +11,6 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 /**
@@ -65,7 +62,9 @@ class LoginActivity : AppCompatActivity() {
         title = findViewById(R.id.login_title)
 
         submit.setOnClickListener { onSubmit() }
-        findViewById<TextView>(R.id.forgot).setOnClickListener { openExternal("$server/forgot") }
+        findViewById<TextView>(R.id.forgot).setOnClickListener {
+            startActivity(android.content.Intent(this, ResetPasswordActivity::class.java))
+        }
         findViewById<TextView>(R.id.change_server).setOnClickListener { changeServer() }
         // Keyboard "Done"/"Go" submits, like tapping the button.
         password.setOnEditorActionListener { _, id, _ ->
@@ -165,31 +164,11 @@ class LoginActivity : AppCompatActivity() {
         error.visibility = View.GONE
     }
 
-    private fun openExternal(url: String) {
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        } catch (_: Exception) {
-        }
-    }
-
     private fun changeServer() {
-        val input = EditText(this).apply {
-            setText(server)
-            setSelection(text.length)
+        ServerDialog.show(this, server, initial = false) { url ->
+            Prefs.setServerUrl(this, url)
+            server = url
+            resetToPrimary()
         }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.server_title)
-            .setMessage(R.string.server_message)
-            .setView(input)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val url = Prefs.normalize(input.text.toString())
-                if (url.isNotEmpty()) {
-                    Prefs.setServerUrl(this, url)
-                    server = url
-                    resetToPrimary()
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
 }

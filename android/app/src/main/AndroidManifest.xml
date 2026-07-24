@@ -36,6 +36,21 @@
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
 
+        <!-- Native password reset (email -> reset link), matching the login. -->
+        <activity
+            android:name=".ResetPasswordActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
+
+        <!-- In-app browser for external links (catalogue -> GitHub, etc.), so the
+             app never hands off to the system browser. -->
+        <activity
+            android:name=".WebActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
+
         <!-- The share target: appears in the Android share sheet for links/text.
              It has no UI of its own — it captures, toasts, and finishes. -->
         <activity

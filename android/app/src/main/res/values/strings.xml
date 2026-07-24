@@ -19,6 +19,16 @@
     <string name="login_submit">Sign in</string>
     <string name="login_verify">Verify</string>
     <string name="login_forgot">Forgot your password?</string>
+
+    <!-- Native password reset. -->
+    <string name="reset_title">Reset password</string>
+    <string name="reset_prompt">Enter the email your account uses. We\'ll send a link to change your password — it\'s valid for an hour.</string>
+    <string name="reset_send">Send link</string>
+    <string name="reset_sent">If that email has an account, a reset link is on its way. Check your inbox — the link is valid for an hour.</string>
+    <string name="reset_back">← Back to sign in</string>
+    <string name="reset_back_button">Back to sign in</string>
+    <string name="reset_need_email">Enter your email.</string>
+    <string name="reset_failed">Couldn\'t reach the server. Try again.</string>
     <string name="login_need_fields">Enter your email and password.</string>
     <string name="login_need_code">Enter your code.</string>
     <string name="login_failed">Couldn\'t sign in. Check your details and try again.</string>

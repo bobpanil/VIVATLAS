@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Branded "Leave VIVATLAS?" confirm, matching the login/server dialog. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="20dp"
+    android:orientation="vertical"
+    android:background="@drawable/dialog_bg"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/leave_title"
+        android:textColor="@color/login_ink"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/leave_change"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="12dp"
+            android:text="@string/change_server"
+            android:textColor="@color/text_muted"
+            android:textSize="15sp"
+            android:textAllCaps="false" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/leave_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="12dp"
+            android:text="@android:string/cancel"
+            android:textColor="@color/text_muted"
+            android:textSize="15sp"
+            android:textAllCaps="false" />
+
+        <TextView
+            android:id="@+id/leave_exit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="12dp"
+            android:text="@string/leave_exit"
+            android:textColor="@color/link_gold"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textAllCaps="false" />
+    </LinearLayout>
+</LinearLayout>

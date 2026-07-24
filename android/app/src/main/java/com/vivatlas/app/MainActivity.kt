@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.URLUtil
@@ -48,6 +49,12 @@ class MainActivity : AppCompatActivity() {
     // overlay (same navy) carries the first page load, so there is no flash.
     private var contentReady = false
     private var firstPaintDone = false
+
+    // Left-edge swipe -> open the drawer, tracked natively (see configureWebView).
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
+    private var swipeFromEdge = false
+    private var swipeTriggered = false
     // When we last returned from native sign-in — used to not re-intercept a
     // just-authenticated load and loop back into the login screen.
     private var lastAuthAt = 0L
@@ -139,7 +146,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     private fun configureWebView() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         // Strip the browser tells so it reads as a native app: no edge glow, no
@@ -259,6 +266,44 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show()
             }
         }
+
+        // Edge-swipe from the left opens the drawer — handled natively so a
+        // horizontal drag the WebView would otherwise swallow (as touchcancel)
+        // can't defeat it. We only observe (return false), so scrolling/taps are
+        // untouched, and we open the very checkbox the web UI's hamburger toggles.
+        val edgePx = 40f * resources.displayMetrics.density
+        val openPx = 48f * resources.displayMetrics.density
+        webView.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeStartX = ev.x
+                    swipeStartY = ev.y
+                    swipeFromEdge = ev.x <= edgePx
+                    swipeTriggered = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (swipeFromEdge && !swipeTriggered) {
+                        val dx = ev.x - swipeStartX
+                        val dy = ev.y - swipeStartY
+                        if (dx > openPx && dx > Math.abs(dy) * 1.3f) {
+                            swipeTriggered = true
+                            openDrawer()
+                        }
+                    }
+                }
+            }
+            false
+        }
+    }
+
+    private fun openDrawer() {
+        // Skip while a card modal is open — the drawer must not slide in behind it.
+        webView.evaluateJavascript(
+            "(function(){var h=document.getElementById('modalhost');" +
+                "if(h&&h.classList.contains('open'))return;" +
+                "var n=document.getElementById('navt');if(n)n.checked=true;})();",
+            null,
+        )
     }
 
     private fun isAuthPage(url: String): Boolean {
@@ -325,15 +370,30 @@ class MainActivity : AppCompatActivity() {
                 if (webView.canGoBack()) {
                     webView.goBack()
                 } else {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle(R.string.leave_title)
-                        .setPositiveButton(R.string.leave_exit) { _, _ -> finish() }
-                        .setNeutralButton(R.string.change_server) { _, _ -> promptForServer(false) }
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show()
+                    showLeaveDialog()
                 }
             }
         })
+    }
+
+    /** Branded "Leave VIVATLAS?" confirm (the stock AlertDialog looked out of place). */
+    private fun showLeaveDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_leave, null)
+        val dialog = AlertDialog.Builder(this).setView(view).create()
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setDimAmount(0.6f)
+        }
+        view.findViewById<View>(R.id.leave_cancel).setOnClickListener { dialog.dismiss() }
+        view.findViewById<View>(R.id.leave_change).setOnClickListener {
+            dialog.dismiss()
+            promptForServer(false)
+        }
+        view.findViewById<View>(R.id.leave_exit).setOnClickListener {
+            dialog.dismiss()
+            finish()
+        }
+        dialog.show()
     }
 
     /** First-run and "change server" dialog. On save we re-route through [enter],

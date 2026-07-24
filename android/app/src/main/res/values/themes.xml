@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Vivatlas" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="android:windowBackground">@color/brand_canvas</item>
+        <!-- Dark navy, matching the splash and the loading overlay, so the launch
+             and every screen meet without a light flash between them. -->
+        <item name="android:windowBackground">@color/splash_bg</item>
         <item name="android:statusBarColor">@color/brand_dark</item>
         <item name="android:navigationBarColor">@color/brand_dark</item>
         <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Cold-start splash (androidx core-splashscreen): the app icon on the brand
+         navy, then it hands off to Theme.Vivatlas. Set on the launcher activity. -->
+    <style name="Theme.Vivatlas.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_fg</item>
+        <item name="postSplashScreenTheme">@style/Theme.Vivatlas</item>
+        <item name="android:statusBarColor">@color/brand_dark</item>
+        <item name="android:navigationBarColor">@color/brand_dark</item>
     </style>
 
     <!-- ShareActivity: still an AppCompat theme (for the toast/context), but the

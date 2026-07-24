@@ -13,17 +13,28 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Vivatlas">
 
-        <!-- The whole UI: a full-screen WebView onto the VIVATLAS server. -->
+        <!-- The app frame: a full-screen WebView onto the VIVATLAS server, behind a
+             cold-start splash (Theme.Vivatlas.Splash hands off to Theme.Vivatlas). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:theme="@style/Theme.Vivatlas.Splash"
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Native sign-in (email/password + 2FA). Launched by MainActivity when
+             there is no session; on success the WebView is already authenticated. -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
 
         <!-- The share target: appears in the Android share sheet for links/text.
              It has no UI of its own — it captures, toasts, and finishes. -->

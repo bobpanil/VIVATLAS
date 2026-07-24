@@ -10,6 +10,28 @@
 
     <string name="err_unreachable">Couldn\'t reach the server. Check the address and that it\'s running.</string>
 
+    <!-- Native sign-in. -->
+    <string name="login_title">Sign in</string>
+    <string name="login_email">Email</string>
+    <string name="login_email_hint">you@example.com</string>
+    <string name="login_password">Password</string>
+    <string name="login_password_hint">Your password</string>
+    <string name="login_submit">Sign in</string>
+    <string name="login_verify">Verify</string>
+    <string name="login_forgot">Forgot your password?</string>
+    <string name="login_need_fields">Enter your email and password.</string>
+    <string name="login_need_code">Enter your code.</string>
+    <string name="login_failed">Couldn\'t sign in. Check your details and try again.</string>
+    <string name="login_mfa_title">Two-factor</string>
+    <string name="login_mfa_prompt">Enter the 6-digit code from your authenticator app.</string>
+    <string name="login_code_hint">123456</string>
+    <string name="login_use_backup">Use a backup code instead</string>
+
+    <!-- Offline / error frame. -->
+    <string name="err_offline_title">Can\'t reach VIVATLAS</string>
+    <string name="err_offline_msg">Check your connection, then try again.</string>
+    <string name="retry">Retry</string>
+
     <string name="leave_title">Leave VIVATLAS?</string>
     <string name="leave_exit">Exit</string>
     <string name="change_server">Change server</string>

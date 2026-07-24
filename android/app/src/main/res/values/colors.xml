@@ -2,9 +2,21 @@
 <resources>
     <!-- Brand palette, lifted from the web UI (app.css). -->
     <color name="brand_gold">#F7A501</color>
+    <color name="brand_gold_dark">#D98C00</color>
     <color name="brand_dark">#04060D</color>
     <color name="brand_ink">#23251D</color>
     <color name="brand_canvas">#EEEFE9</color>
     <!-- Matches android.svg's navy so no seam shows if the mask exceeds it. -->
     <color name="ic_launcher_background">#0F141F</color>
+
+    <!-- Native sign-in surfaces. -->
+    <color name="card">#FFFFFF</color>
+    <color name="field">#FFFFFF</color>
+    <color name="field_border">#D8D9D2</color>
+    <color name="text_muted">#6C6E63</color>
+    <color name="on_gold">#1A1204</color>
+    <color name="error_red">#C0392B</color>
+    <!-- Splash/loading canvas — the app's dark navy, so the launch and the
+         WebView's own dark surface meet without a flash. -->
+    <color name="splash_bg">#04060D</color>
 </resources>

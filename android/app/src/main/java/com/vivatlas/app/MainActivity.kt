@@ -50,10 +50,9 @@ class MainActivity : AppCompatActivity() {
     private var contentReady = false
     private var firstPaintDone = false
 
-    // Left-edge swipe -> open the drawer, tracked natively (see configureWebView).
+    // Horizontal swipe -> open/close the drawer, tracked natively (configureWebView).
     private var swipeStartX = 0f
     private var swipeStartY = 0f
-    private var swipeFromEdge = false
     private var swipeTriggered = false
     // When we last returned from native sign-in — used to not re-intercept a
     // just-authenticated load and loop back into the login screen.
@@ -267,27 +266,27 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Edge-swipe from the left opens the drawer — handled natively so a
-        // horizontal drag the WebView would otherwise swallow (as touchcancel)
-        // can't defeat it. We only observe (return false), so scrolling/taps are
-        // untouched, and we open the very checkbox the web UI's hamburger toggles.
-        val edgePx = 40f * resources.displayMetrics.density
-        val openPx = 48f * resources.displayMetrics.density
+        // Swipe to open/close the drawer — from anywhere, not just the edge, and
+        // handled natively so a horizontal drag the WebView would otherwise swallow
+        // (as touchcancel) can't defeat it. We only observe (return false), so
+        // scrolling/taps are untouched; a clear rightward swipe opens the same
+        // checkbox the hamburger toggles, a leftward one closes it. The threshold
+        // and horizontal-dominance guard keep vertical scrolls from triggering it.
+        val swipePx = 56f * resources.displayMetrics.density
         webView.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     swipeStartX = ev.x
                     swipeStartY = ev.y
-                    swipeFromEdge = ev.x <= edgePx
                     swipeTriggered = false
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (swipeFromEdge && !swipeTriggered) {
+                    if (!swipeTriggered) {
                         val dx = ev.x - swipeStartX
                         val dy = ev.y - swipeStartY
-                        if (dx > openPx && dx > Math.abs(dy) * 1.3f) {
+                        if (Math.abs(dx) > swipePx && Math.abs(dx) > Math.abs(dy) * 1.5f) {
                             swipeTriggered = true
-                            openDrawer()
+                            if (dx > 0) openDrawer() else closeDrawer()
                         }
                     }
                 }
@@ -302,6 +301,13 @@ class MainActivity : AppCompatActivity() {
             "(function(){var h=document.getElementById('modalhost');" +
                 "if(h&&h.classList.contains('open'))return;" +
                 "var n=document.getElementById('navt');if(n)n.checked=true;})();",
+            null,
+        )
+    }
+
+    private fun closeDrawer() {
+        webView.evaluateJavascript(
+            "(function(){var n=document.getElementById('navt');if(n)n.checked=false;})();",
             null,
         )
     }

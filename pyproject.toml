@@ -1,6 +1,6 @@
 [project]
 name = "vivatlas"
-version = "0.1.0"
+version = "1.0.0"
 description = "Catalogue of skills, agents and tools from Git repositories"
 requires-python = ">=3.12"
 dependencies = [

@@ -251,6 +251,13 @@ document.addEventListener('submit', function (e) {
     if (msg && !confirm(msg)) e.preventDefault();
 });
 </script>
+
+{# Which build this server is running — so a deploy can be told apart from the
+   previous one at a glance. Shown under every tab (it sits outside the panels). #}
+<p class="admin-build" title="{{ build_label }}">
+    <span class="admin-build-k">{{ t('admin.build') }}</span>
+    <span class="admin-build-v">{{ build_label }}</span>
+</p>
 {% endblock %}
 
 {% block modal_foot %}

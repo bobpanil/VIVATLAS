@@ -44,6 +44,7 @@ BULK = {
     'add.title.found': {"en": 'What we found', "ru": 'Что нашлось', "he": 'מה נמצא'},
     'add.title.plan': {"en": 'What will happen', "ru": 'Что будет сделано', "he": 'מה ייעשה'},
     'add.title.refused': {"en": "That won't work", "ru": 'Так не получится', "he": 'כך זה לא יעבוד'},
+    'admin.build': {"en": 'Build', "ru": 'Сборка', "he": 'גרסה'},
     'admin.close': {"en": 'Close', "ru": 'Закрыть', "he": 'סגירה'},
     'admin.help': {"en": 'For the owner: people with access, shared keys and AI. Personal settings (verification, categories, your own repositories) are in the regular settings.', "ru": 'Для владельца: люди с доступом, общие ключи и AI. Личные настройки (проверка, категории, свои репозитории) — в обычных настройках.', "he": 'לבעלים: אנשים עם גישה, מפתחות משותפים ו-AI. הגדרות אישיות (אימות, קטגוריות, מאגרים משלך) — בהגדרות הרגילות.'},
     'admin.keys.h': {"en": 'Shared keys and AI', "ru": 'Общие ключи и AI', "he": 'מפתחות משותפים ו-AI'},

@@ -13,6 +13,7 @@ the key itself (in development you immediately see what's missing).
 from fastapi import Request, Response
 
 from vivatlas.translations import CATALOG
+from vivatlas.version import build_label as _build_label
 
 DEFAULT_LANG = "en"
 COOKIE = "vivatlas_lang"
@@ -103,6 +104,7 @@ def template_context(request: Request) -> dict:
         "dir": dir_for(lang),
         "langs": LANGS,
         "asset": asset,
+        "build_label": _build_label(),
         "type_name": lambda slug: label("type", slug, lang),
         "basis_name": lambda slug: label("basis", slug, lang),
         "status_name": lambda slug: label("status", slug, lang),

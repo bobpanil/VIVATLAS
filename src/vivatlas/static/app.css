@@ -4635,6 +4635,28 @@ a.art-chip-pur:hover { border-color: currentColor; }
     margin: 0;
 }
 
+/* Which build the server is running (Admin, under every tab). Muted footer line
+   — the value is monospace so the commit is easy to read off / compare. */
+.admin-build {
+    margin: var(--s-lg) 0 0;
+    padding-top: var(--s-md);
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 12px;
+    color: var(--mute);
+}
+.admin-build-k {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+.admin-build-v {
+    font-family: var(--mono);
+}
+
 /* Form fields in pairs: two short fields in a row, not two full width. Row
    spacing is held by .fld's own margin, the columns are spread by gap. */
 .field-grid {

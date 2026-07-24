@@ -18,6 +18,17 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install .
 
+# Build identity, stamped by CI (.github/workflows/docker.yml) and shown in
+# Admin so a running container can be matched to a specific build. Placed after
+# the pip install so changing the build number doesn't invalidate that layer.
+# Harmless empty defaults for a plain local `docker build`.
+ARG VIVATLAS_BUILD_VERSION=""
+ARG VIVATLAS_BUILD_SHA=""
+ARG VIVATLAS_BUILD_DATE=""
+ENV VIVATLAS_BUILD_VERSION=$VIVATLAS_BUILD_VERSION \
+    VIVATLAS_BUILD_SHA=$VIVATLAS_BUILD_SHA \
+    VIVATLAS_BUILD_DATE=$VIVATLAS_BUILD_DATE
+
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # The unpacked browser extension, served as a one-click zip from Settings → Browser

@@ -27,6 +27,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Build identity shown in Admin: a semver that ticks up one patch per
+      # published build (1.0.0 -> 1.0.1 -> …), plus the commit and its date.
+      # The patch is the workflow run number offset so the first build carrying
+      # this feature (run 41) publishes as 1.0.0. Passed in as build-args below.
+      - name: Compute build metadata
+        id: build
+        run: |
+          echo "sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "date=$(git show -s --format=%cd --date=short HEAD)" >> "$GITHUB_OUTPUT"
+          patch=$(( ${{ github.run_number }} - 41 ))
+          if [ "$patch" -lt 0 ]; then patch=0; fi
+          echo "version=1.0.$patch" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -55,6 +68,10 @@ jobs:
           push: true
           # TrueNAS SCALE is x86_64; build amd64 only to keep CI fast.
           platforms: linux/amd64
+          build-args: |
+            VIVATLAS_BUILD_VERSION=${{ steps.build.outputs.version }}
+            VIVATLAS_BUILD_SHA=${{ steps.build.outputs.sha }}
+            VIVATLAS_BUILD_DATE=${{ steps.build.outputs.date }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

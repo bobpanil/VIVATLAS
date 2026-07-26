@@ -260,6 +260,15 @@
                     data-busy="{{ t('admin.ai.bench_running') }}">{{ t('admin.ai.bench_btn') }}</button>
         </p>
         <p class="legend" id="ai-bench-msg" role="status" aria-live="polite" hidden></p>
+
+        {# Cards described before the catalogue spoke three languages read the same
+           whatever the interface is set to. This walks them once. #}
+        <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('admin.ai.backfill_h') }}</h3></div>
+        <p class="legend">{{ t('admin.ai.backfill_tip') }}</p>
+        <p>
+            <button type="button" class="btn-secondary" id="ai-backfill-btn">{{ t('admin.ai.backfill_btn') }}</button>
+        </p>
+        <p class="legend" id="ai-backfill-msg" role="status" aria-live="polite" hidden></p>
         {# Status of the live model-list fetch (filled by the loader script): how
            many models the key exposed, or why the list couldn't be loaded. #}
         <p class="legend" id="ai-models-msg" role="status" aria-live="polite" hidden></p>
@@ -312,6 +321,65 @@
             .catch(function (e) { msg.textContent = fill(T.error, { error: e }); })
             .finally(function () { btn.disabled = false; btn.textContent = label; });
     });
+})();
+
+// Backfill: say the older cards again in the other two languages. It runs over the whole
+// catalogue with a pause between calls, so the page follows along rather than sitting on
+// a dead button — and it can be left and come back to.
+(function () {
+    var btn = document.getElementById('ai-backfill-btn');
+    var msg = document.getElementById('ai-backfill-msg');
+    if (!btn || !msg || !window.fetch) return;
+    var T = {
+        running: {{ t('admin.ai.backfill_running') | tojson }},
+        done: {{ t('admin.ai.backfill_done') | tojson }},
+        nothing: {{ t('admin.ai.backfill_nothing') | tojson }},
+        error: {{ t('admin.ai.bench_error') | tojson }}
+    };
+    function fill(s, v) { return s.replace(/\{(\w+)\}/g, function (_, k) { return v[k]; }); }
+
+    function render(d) {
+        msg.hidden = false;
+        if (d.state === 'error') { msg.textContent = fill(T.error, { error: d.error || '?' }); return false; }
+        if (d.state === 'running') {
+            msg.textContent = fill(T.running, { done: d.done, total: d.total });
+            return true;
+        }
+        if (d.state === 'done') {
+            msg.textContent = d.total ? fill(T.done, { written: d.written, total: d.total }) : T.nothing;
+            return false;
+        }
+        return false;
+    }
+
+    function watch() {
+        fetch('/admin/ai/backfill-status', { headers: { 'Accept': 'application/json' },
+                                             credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (render(d)) { setTimeout(watch, 2000); return; }
+                btn.disabled = false;
+            })
+            .catch(function () { btn.disabled = false; });
+    }
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        msg.hidden = false;
+        msg.textContent = fill(T.running, { done: 0, total: '…' });
+        fetch('/admin/ai/backfill-translations', { method: 'POST',
+                                                   headers: { 'Accept': 'application/json' },
+                                                   credentials: 'same-origin' })
+            .then(function () { setTimeout(watch, 1200); })
+            .catch(function () { btn.disabled = false; });
+    });
+
+    // Already running when the page opened (someone started it elsewhere) — follow it.
+    fetch('/admin/ai/backfill-status', { headers: { 'Accept': 'application/json' },
+                                         credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d.state === 'running') { btn.disabled = true; render(d); watch(); } })
+        .catch(function () {});
 })();
 
 // Confirm dangerous actions (deleting a user): text from data-confirm,

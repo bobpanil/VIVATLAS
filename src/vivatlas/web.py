@@ -860,6 +860,73 @@ def launch_global_scan(
     task.add_done_callback(_SCAN_TASKS.discard)
 
 
+# Filling in translations for cards described before the catalogue spoke three
+# languages. One dict because it's a catalogue-wide job — two at once would only
+# race each other for the same quota.
+_TRANSLATE: dict = {"state": "idle", "total": 0, "done": 0, "written": 0, "error": ""}
+
+
+def translate_progress() -> dict:
+    return dict(_TRANSLATE)
+
+
+def launch_translation_backfill() -> dict:
+    """Say the older cards again in the other two languages, in the background.
+
+    Cards described before this existed hold text in one language only, so they read
+    the same whatever the interface is set to. This walks them once. It skips whatever
+    is already translated, so it can be run again after it's interrupted, and it costs
+    nothing on a catalogue that's up to date.
+    """
+    if _TRANSLATE.get("state") == "running":
+        return translate_progress()
+    _TRANSLATE.update(state="running", total=0, done=0, written=0, error="")
+    task = asyncio.create_task(_translate_backfill_task(_TRANSLATE))
+    _SCAN_TASKS.add(task)
+    task.add_done_callback(_SCAN_TASKS.discard)
+    return translate_progress()
+
+
+async def _translate_backfill_task(progress: dict) -> None:
+    try:
+        with session_scope() as session:
+            ids = [
+                aid
+                for (aid,) in session.execute(
+                    select(Artifact.id).where(
+                        (Artifact.translations_json == "")
+                        | (Artifact.translations_json.is_(None))
+                    )
+                ).all()
+            ]
+        progress["total"] = len(ids)
+        if not ids:
+            progress.update(state="done")
+            return
+
+        model = build_text_model()
+        try:
+            for aid in ids:
+                with session_scope() as session:
+                    art = session.get(Artifact, aid)
+                    # Nothing written on it yet — a translation would be inventing one.
+                    if art is not None and (art.name or art.summary_short):
+                        await cardtext.fill_translations(model, art)
+                        if art.translations_json:
+                            progress["written"] += 1
+                        session.commit()
+                progress["done"] += 1
+                # The same courtesy the scan pays the model, so a backfill of a large
+                # catalogue doesn't spend the day being rate-limited.
+                await asyncio.sleep(settings.llm_delay_seconds)
+        finally:
+            await model.aclose()
+        progress.update(state="done")
+    except Exception as exc:  # noqa: BLE001 — report it rather than die silently
+        log.exception("translation backfill failed")
+        progress.update(state="error", error=str(exc)[:300])
+
+
 async def _scan_task(
     source_ids: list[int], progress: dict, force: bool, lang: str
 ) -> None:

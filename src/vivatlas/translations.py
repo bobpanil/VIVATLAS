@@ -533,6 +533,47 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "{failed} не удалось описать совсем.",
         "he": "{failed} לא ניתן היה לתאר כלל.",
     },
+    "admin.ai.backfill_h": {
+        "en": "Older cards, in three languages",
+        "ru": "Старые карточки — на трёх языках",
+        "he": "כרטיסים ישנים, בשלוש שפות",
+    },
+    "admin.ai.backfill_tip": {
+        "en": (
+            "Cards described before this read the same whatever the interface is set to. "
+            "This walks them once and says each one in the other two languages. It skips "
+            "what's already done, so it can be started again if it stops."
+        ),
+        "ru": (
+            "Карточки, описанные раньше, выглядят одинаково при любом языке интерфейса. "
+            "Этот проход скажет каждую ещё на двух языках. Уже переведённые пропускаются — "
+            "можно запустить повторно, если прервётся."
+        ),
+        "he": (
+            "כרטיסים שתוארו קודם נראים אותו דבר בכל שפת ממשק. המעבר הזה יאמר כל אחד מהם "
+            "גם בשתי השפות האחרות. מה שכבר תורגם מדולג, כך שאפשר להריץ שוב אם זה נעצר."
+        ),
+    },
+    "admin.ai.backfill_btn": {
+        "en": "Translate the older cards",
+        "ru": "Перевести старые карточки",
+        "he": "תרגום הכרטיסים הישנים",
+    },
+    "admin.ai.backfill_running": {
+        "en": "Translating… {done} of {total}. You can leave this page.",
+        "ru": "Переводим… {done} из {total}. Страницу можно закрыть.",
+        "he": "מתרגמים… {done} מתוך {total}. אפשר לעזוב את הדף.",
+    },
+    "admin.ai.backfill_done": {
+        "en": "Done — {written} of {total} cards now read in all three languages.",
+        "ru": "Готово — {written} из {total} карточек теперь читаются на всех трёх языках.",
+        "he": "הסתיים — {written} מתוך {total} כרטיסים נקראים כעת בשלוש השפות.",
+    },
+    "admin.ai.backfill_nothing": {
+        "en": "Every card already reads in all three languages.",
+        "ru": "Все карточки уже читаются на трёх языках.",
+        "he": "כל הכרטיסים כבר נקראים בשלוש השפות.",
+    },
     "admin.ai.bench_error": {
         "en": "Couldn't run the check: {error}",
         "ru": "Не удалось выполнить проверку: {error}",

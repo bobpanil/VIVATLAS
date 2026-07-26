@@ -22,7 +22,14 @@ from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.models import Artifact, Source, User
 from vivatlas.summarizer import summarize
-from vivatlas.web import BASE, _counts, _delete_artifact, launch_global_scan
+from vivatlas.web import (
+    BASE,
+    _counts,
+    _delete_artifact,
+    launch_global_scan,
+    launch_translation_backfill,
+    translate_progress,
+)
 
 log = logging.getLogger(__name__)
 
@@ -292,6 +299,24 @@ async def ai_benchmark(request: Request) -> JSONResponse:
         out["ollama_model"] = model.primary_name
         out["last_error"] = model.last_error
     return JSONResponse(out)
+
+
+@router.post("/admin/ai/backfill-translations")
+def ai_backfill_translations(request: Request) -> JSONResponse:
+    """Say the cards described before the catalogue spoke three languages again, in the
+    other two. Runs in the background and skips what's already done, so it can be
+    started again if it's interrupted."""
+    with session_scope() as session:
+        _admin_or_403(session, request)
+    return JSONResponse(launch_translation_backfill())
+
+
+@router.get("/admin/ai/backfill-status")
+def ai_backfill_status(request: Request) -> JSONResponse:
+    """How far the backfill has got — polled by the Admin page while it runs."""
+    with session_scope() as session:
+        _admin_or_403(session, request)
+    return JSONResponse(translate_progress())
 
 
 # --- configuration (on top of .env) ----------------------------------------

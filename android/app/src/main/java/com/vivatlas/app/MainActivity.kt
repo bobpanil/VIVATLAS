@@ -12,6 +12,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -87,6 +88,7 @@ class MainActivity : AppCompatActivity() {
 
         swipe.setColorSchemeColors(0xFFE7940E.toInt())
         swipe.setOnRefreshListener { webView.reload() }
+        webView.addJavascriptInterface(NativeBridge(), "VivatlasNative")
 
         findViewById<View>(R.id.retry).setOnClickListener { retry() }
         findViewById<View>(R.id.error_change_server).setOnClickListener { promptForServer(false) }
@@ -206,6 +208,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                // A fresh page has nothing open on it yet; the watcher re-reports below.
+                swipe.isEnabled = true
                 // A drop to the web /login means the session ended (expired, or the
                 // user signed out) — take over with the native sign-in instead.
                 if (isAuthPage(url) && !recentlyAuthed()) {
@@ -320,6 +324,23 @@ class MainActivity : AppCompatActivity() {
     private fun recentlyAuthed(): Boolean = SystemClock.elapsedRealtime() - lastAuthAt < 4000L
 
     /**
+     * The page tells the frame when something is open on top of it — a card modal or the
+     * drawer. Both scroll their own content while the page underneath stays at the top,
+     * and pull-to-refresh reads that as "at the top, so a downward drag means refresh":
+     * scrolling back up inside an open card reloaded the page instead. So while an
+     * overlay is open, pull-to-refresh stands down.
+     *
+     * Only our own origin is ever loaded in this WebView (external links go to
+     * WebActivity), and the bridge does nothing but flip this one flag.
+     */
+    private inner class NativeBridge {
+        @JavascriptInterface
+        fun setOverlayOpen(open: Boolean) {
+            runOnUiThread { swipe.isEnabled = !open }
+        }
+    }
+
+    /**
      * Paint over the browser tells that CSS can reach — no tap highlight, and no
      * long-press text-selection or callout on content (inputs stay selectable so
      * paste still works) — and sync the WebView backdrop to the page colour so a
@@ -327,6 +348,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun applyNativeFeel(view: WebView) {
         view.evaluateJavascript(NATIVE_FEEL_JS, null)
+        view.evaluateJavascript(OVERLAY_WATCH_JS, null)
         view.evaluateJavascript(PAGE_BG_JS) { raw ->
             val s = raw?.trim('"') ?: return@evaluateJavascript
             val m = Regex("""rgb\((\d+),\s*(\d+),\s*(\d+)""").find(s) ?: return@evaluateJavascript
@@ -426,6 +448,22 @@ class MainActivity : AppCompatActivity() {
                 "'html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none;}'+" +
                 "'input,textarea,select,[contenteditable]{-webkit-user-select:text!important;user-select:text!important;}';" +
                 "(document.head||document.documentElement).appendChild(s);})();"
+
+        // Watch what's open on top of the page — the card modal (#modalhost.open) and
+        // the drawer (#navt) — and report it to the frame, which parks pull-to-refresh
+        // while either is up. Installed once per page.
+        private const val OVERLAY_WATCH_JS =
+            "(function(){if(window.__vivOverlay||!window.VivatlasNative)return;" +
+                "window.__vivOverlay=true;" +
+                "var h=document.getElementById('modalhost'),n=document.getElementById('navt');" +
+                "function open(){return !!((h&&h.classList.contains('open'))||(n&&n.checked));}" +
+                "function report(){try{VivatlasNative.setOverlayOpen(open());}catch(e){}}" +
+                "if(h)new MutationObserver(report).observe(h,{attributes:true,attributeFilter:['class']});" +
+                "if(n)n.addEventListener('change',report);" +
+                // The hamburger and the scrim are <label>s — the click lands before the
+                // checkbox flips, so re-check on the next tick.
+                "document.addEventListener('click',function(){setTimeout(report,0);},true);" +
+                "report();})();"
 
         // The page's effective opaque background (body, else html), or "" when
         // transparent — so we only recolour the WebView backdrop when there's a

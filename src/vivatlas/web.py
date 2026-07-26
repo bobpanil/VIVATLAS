@@ -1433,7 +1433,15 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
         mine = art.owner_user_id is not None and art.owner_user_id == user_id
         if not (mine or (is_admin and art.shared)):
             raise HTTPException(403)
-        is_draft = art.artifact_type == "draft"
+        # What decides the route is whether there is anything to re-download — not the
+        # card's type. A captured link is promoted to a 'page' the moment it's saved, but
+        # it still lives in the synthetic "Drafts" source with no repository behind it:
+        # sending it to the source-rescan re-downloaded nothing and left the card exactly
+        # as it was, which is why re-scanning a shared link never improved it.
+        repo = art.repository
+        source_kind = repo.source.kind if (repo is not None and repo.source is not None) else ""
+        no_source = repo is None or source_kind == "draft" or not repo.html_url
+        is_draft = art.artifact_type == "draft" or no_source
 
     # Run the rebuild in the background and return at once. A rescan can take tens
     # of seconds (source download + AI, which retries hard on 429), and awaiting it

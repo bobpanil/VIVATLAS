@@ -208,8 +208,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-                // A fresh page has nothing open on it yet; the watcher re-reports below.
-                swipe.isEnabled = true
                 // A drop to the web /login means the session ended (expired, or the
                 // user signed out) — take over with the native sign-in instead.
                 if (isAuthPage(url) && !recentlyAuthed()) {
@@ -336,7 +334,10 @@ class MainActivity : AppCompatActivity() {
     private inner class NativeBridge {
         @JavascriptInterface
         fun setOverlayOpen(open: Boolean) {
-            runOnUiThread { swipe.isEnabled = !open }
+            runOnUiThread {
+                if (BuildConfig.DEBUG) android.util.Log.d("VivatlasOverlay", "open=$open")
+                swipe.isEnabled = !open
+            }
         }
     }
 
@@ -453,16 +454,28 @@ class MainActivity : AppCompatActivity() {
         // the drawer (#navt) — and report it to the frame, which parks pull-to-refresh
         // while either is up. Installed once per page.
         private const val OVERLAY_WATCH_JS =
-            "(function(){if(window.__vivOverlay||!window.VivatlasNative)return;" +
-                "window.__vivOverlay=true;" +
-                "var h=document.getElementById('modalhost'),n=document.getElementById('navt');" +
-                "function open(){return !!((h&&h.classList.contains('open'))||(n&&n.checked));}" +
-                "function report(){try{VivatlasNative.setOverlayOpen(open());}catch(e){}}" +
-                "if(h)new MutationObserver(report).observe(h,{attributes:true,attributeFilter:['class']});" +
-                "if(n)n.addEventListener('change',report);" +
+            "(function(){if(!window.VivatlasNative)return;" +
+                // Look the elements up on every check, never once: this runs at first
+                // paint too, when #modalhost isn't parsed yet — holding that null would
+                // mean reporting "nothing is open" for the life of the page.
+                "function isOpen(){var h=document.getElementById('modalhost')," +
+                "n=document.getElementById('navt');" +
+                "return !!((h&&h.classList.contains('open'))||(n&&n.checked));}" +
+                "function report(){try{VivatlasNative.setOverlayOpen(isOpen());}catch(e){}}" +
+                "if(!window.__vivOverlayL){window.__vivOverlayL=true;" +
                 // The hamburger and the scrim are <label>s — the click lands before the
-                // checkbox flips, so re-check on the next tick.
+                // checkbox flips, so re-check on the next tick. touchstart re-checks
+                // before any scroll gesture is judged.
                 "document.addEventListener('click',function(){setTimeout(report,0);},true);" +
+                "document.addEventListener('touchstart',report,true);}" +
+                // Attach the observers as soon as their elements exist — this runs again
+                // when the page finishes, by which time they do.
+                "var h=document.getElementById('modalhost');" +
+                "if(h&&!window.__vivOverlayO){window.__vivOverlayO=true;" +
+                "new MutationObserver(report).observe(h,{attributes:true,attributeFilter:['class']});}" +
+                "var n=document.getElementById('navt');" +
+                "if(n&&!window.__vivOverlayN){window.__vivOverlayN=true;" +
+                "n.addEventListener('change',report);}" +
                 "report();})();"
 
         // The page's effective opaque background (body, else html), or "" when

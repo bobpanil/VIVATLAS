@@ -346,13 +346,11 @@ def _purpose_map(session: Session, user_id: int | None = None) -> dict[int, str]
     the filter and the chip can never disagree. Drafts are excluded — they have their
     own section and no purpose to speak of."""
     vis = visible_ids(user_id)
-    names = dict(
-        session.execute(
-            select(Artifact.id, Artifact.name).where(
-                Artifact.id.in_(vis), Artifact.artifact_type != "draft"
-            )
-        ).all()
-    )
+    rows = session.execute(
+        select(Artifact.id, Artifact.name, Artifact.purpose_override).where(
+            Artifact.id.in_(vis), Artifact.artifact_type != "draft"
+        )
+    ).all()
     tags: dict[int, list[str]] = {}
     for aid, slug in session.execute(
         select(ArtifactTag.artifact_id, Tag.slug)
@@ -360,9 +358,13 @@ def _purpose_map(session: Session, user_id: int | None = None) -> dict[int, str]
         .where(ArtifactTag.artifact_id.in_(vis))
     ).all():
         tags.setdefault(aid, []).append(slug)
-    return {
-        aid: purposes.detect(tags.get(aid, []), name or "")[0].key for aid, name in names.items()
-    }
+    out: dict[int, str] = {}
+    for aid, name, override in rows:
+        # A purpose chosen by hand wins here too, or filtering by it would quietly
+        # disagree with the chip the card shows.
+        chosen = purposes.by_key(override or "")
+        out[aid] = chosen.key if chosen else purposes.detect(tags.get(aid, []), name or "")[0].key
+    return out
 
 
 def purpose_matching_ids(

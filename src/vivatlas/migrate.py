@@ -28,6 +28,8 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # "not yet migrated". Once derived from private_to_user_id the NULL is gone,
         # and a repeat run touches nothing.
         "shared": "BOOLEAN",
+        # A purpose picked by hand; empty means "keep deriving it from the tags".
+        "purpose_override": "VARCHAR(32) DEFAULT ''",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",

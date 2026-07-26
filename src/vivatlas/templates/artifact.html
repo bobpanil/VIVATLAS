@@ -114,6 +114,27 @@
 {% endif %}
 </div>{# /#art-tags-sec #}
 
+{# What it's for. The guess reads the tags and abstains rather than invent, so cards can
+   sit on "undetermined" with no way out — and it can be right in general yet wrong for
+   you. Owner/admin picks; the chip up top follows at once. #}
+<div id="art-purpose-sec">
+{% if can_edit %}
+<section class="art-sec">
+    <h3>{{ t('artifact.purpose_title') }}</h3>
+    <form method="post" action="/artifact/{{ art_id }}/purpose" class="art-purpose" id="purpose-form">
+        <select name="purpose" id="purpose-select" aria-label="{{ t('artifact.purpose_title') }}">
+            <option value="" {% if not a.purpose_override %}selected{% endif %}>{{ t('artifact.purpose_auto') }}</option>
+            {% for p in all_purposes %}
+            <option value="{{ p.key }}" {% if a.purpose_override == p.key %}selected{% endif %}>{{ purpose_name(p.key) }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn-secondary">{{ t('artifact.purpose_save') }}</button>
+    </form>
+    <p class="legend">{% if a.purpose_override %}{{ t('artifact.purpose_manual') }}{% else %}{{ t('artifact.purpose_derived') }}{% endif %}</p>
+</section>
+{% endif %}
+</div>{# /#art-purpose-sec #}
+
 {# Folders: shared (visible to all) and personal. Remove with the cross; add from the list. #}
 <section class="art-sec">
     <h3>{{ t('artifact.folders_title') }}</h3>
@@ -291,38 +312,16 @@
     if (cancel) cancel.addEventListener('click', function () { show(false); });
 })();
 
-// Rescan — the rebuild runs on the server (page fetch + AI), so the button holds a
-// busy state and the card reloads itself the moment the work lands. Previously the
-// form navigated away at once: it looked like a flash, and the new text only appeared
-// if you pressed F5 yourself.
-(function () {
-    var rf = document.getElementById('rescan-form');
-    var rb = document.getElementById('rescan-btn');
-    if (!rf || !rb || !window.fetch) return;   // no fetch — plain form post still works
-
-    var POLL_MS = 1200;
-    var GIVE_UP_MS = 180000;                   // a 429-throttled AI can take minutes
-
-    function busy() {
-        rb.disabled = true;
-        rb.classList.add('is-busy');
-        var b = rb.getAttribute('data-busy');
-        var lbl = rb.querySelector('.mf-txt') || rb;
-        if (b) lbl.textContent = b;
-    }
-
-    function done() {
-        rb.disabled = false;
-        rb.classList.remove('is-busy');
-        var lbl = rb.querySelector('.mf-txt') || rb;
-        lbl.textContent = rb.getAttribute('title') || lbl.textContent;
-    }
-
-    // Bring in the rebuilt card without navigating: fetch this same page and swap only
-    // the parts a rescan changes. Nothing reloads, nothing scrolls back to the top, and
-    // the controls keep their handlers — the text just becomes the new text.
-    var SWAP = ['#modal-title', '#art-display', '#art-tags-sec', '#art-passport-sec'];
-    function absorb() {
+// Bring the rebuilt card in without navigating: fetch this same page and swap only the
+// parts that change. Nothing reloads, nothing scrolls back to the top — the text simply
+// becomes the new text. Shared by rescan and by the purpose picker.
+var vivAbsorb = (function () {
+    var SWAP = [
+        '#modal-title', '.art-chips', '#art-display',
+        '#art-purpose-sec', '#art-tags-sec', '#art-passport-sec',
+    ];
+    return function () {
+        if (!window.fetch) return Promise.resolve();
         return fetch(location.href, { credentials: 'same-origin' })
             .then(function (r) { return r.text(); })
             .then(function (html) {
@@ -345,6 +344,55 @@
                     }
                 } catch (e) { /* not framed, or another origin — nothing to update */ }
             });
+    };
+})();
+
+// Purpose — saved without leaving the card: the chip up top and the tile behind both
+// follow at once, so it feels like setting a switch rather than filing a form. Bound on
+// document because the section itself gets swapped out by the refresh above.
+document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form || form.id !== 'purpose-form' || !window.fetch) return;   // no JS: plain post
+    e.preventDefault();
+    var btn = form.querySelector('button');
+    if (btn) btn.disabled = true;
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        body: new FormData(form),
+    })
+        .then(vivAbsorb)
+        .catch(function () {})
+        .finally(function () { if (btn) btn.disabled = false; });
+});
+
+// Rescan — the rebuild runs on the server (page fetch + AI), so the button holds a
+// busy state and the card updates itself the moment the work lands. Previously the
+// form navigated away at once: it looked like a flash, and the new text only appeared
+// if you pressed F5 yourself.
+(function () {
+    var rf = document.getElementById('rescan-form');
+    var rb = document.getElementById('rescan-btn');
+    if (!rf || !rb || !window.fetch) return;   // no fetch — plain form post still works
+
+    var POLL_MS = 1200;
+    var GIVE_UP_MS = 180000;                   // a 429-throttled AI can take minutes
+    var absorb = vivAbsorb;
+
+    function busy() {
+        rb.disabled = true;
+        rb.classList.add('is-busy');
+        var b = rb.getAttribute('data-busy');
+        var lbl = rb.querySelector('.mf-txt') || rb;
+        if (b) lbl.textContent = b;
+    }
+
+    function done() {
+        rb.disabled = false;
+        rb.classList.remove('is-busy');
+        var lbl = rb.querySelector('.mf-txt') || rb;
+        lbl.textContent = rb.getAttribute('title') || lbl.textContent;
     }
 
     function watch(started) {

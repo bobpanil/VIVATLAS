@@ -533,6 +533,9 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "upstream": upstream,
                 "author": author_of(session, a),
                 "purpose": pur.detect_for(session, a.id, a.name)[0],
+                # For the picker: a card's purpose can be chosen by hand when the
+                # guess abstained or read it differently than its owner would.
+                "all_purposes": pur.all_purposes(),
                 "preview_url": preview_url(a),
                 "zone": _zone(a),
                 "is_draft": a.artifact_type == "draft",
@@ -1432,6 +1435,38 @@ async def edit_artifact(
                     session.commit()
         finally:
             await embed_model.aclose()
+    return RedirectResponse(f"/a/{artifact_id}", status_code=303)
+
+
+@router.post("/artifact/{artifact_id}/purpose")
+def set_purpose(
+    request: Request,
+    artifact_id: int,
+    purpose: Annotated[str, Form()] = "",
+) -> Response:
+    """Set what a card is FOR by hand, or clear it back to the guess (purpose="").
+
+    The guess reads the tags, and it abstains rather than invent — which leaves cards
+    marked "undetermined" with no way out. It can also be right in general and wrong
+    for you: a design kit kept for its contrast rules is accessibility, whatever the
+    tags say. So the person gets the final word, and it sticks until they change it.
+    """
+    user_id = getattr(request.state, "user_id", None)
+    is_admin = getattr(request.state, "is_admin", False)
+    key = purpose.strip().lower()
+    if key and pur.by_key(key) is None:
+        raise HTTPException(400, "unknown purpose")
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        if art is None:
+            raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
+        mine = art.owner_user_id is not None and art.owner_user_id == user_id
+        if not (mine or (is_admin and art.shared)):
+            raise HTTPException(403)
+        art.purpose_override = key
+        session.commit()
+    if "application/json" in (request.headers.get("accept") or ""):
+        return JSONResponse({"ok": True, "purpose": key})
     return RedirectResponse(f"/a/{artifact_id}", status_code=303)
 
 

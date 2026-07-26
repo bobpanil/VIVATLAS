@@ -260,6 +260,26 @@ def detect(tag_slugs: list[str], name: str = "") -> tuple[Purpose, int]:
     return purpose, scores[best_key]
 
 
+def by_key(key: str) -> Purpose | None:
+    """The purpose with this key, or None if it isn't one of ours (an old value left
+    over from a renamed key, say)."""
+    if not key:
+        return None
+    return next((p for p, _ in PURPOSES if p.key == key), None)
+
+
+def resolve(artifact, tag_slugs: list[str]) -> tuple[Purpose, int]:
+    """The purpose to show for a card: what its owner chose, else what the tags say.
+
+    A hand-picked purpose is never second-guessed — that's the point of picking it —
+    so it comes back with the top weight.
+    """
+    chosen = by_key(getattr(artifact, "purpose_override", "") or "")
+    if chosen is not None:
+        return chosen, 99
+    return detect(tag_slugs, getattr(artifact, "name", "") or "")
+
+
 def detect_for(session: Session, artifact_id: int, name: str = "") -> tuple[Purpose, int]:
     slugs = list(
         session.scalars(
@@ -268,6 +288,12 @@ def detect_for(session: Session, artifact_id: int, name: str = "") -> tuple[Purp
             .where(ArtifactTag.artifact_id == artifact_id)
         )
     )
+    from vivatlas.models import Artifact
+
+    art = session.get(Artifact, artifact_id)
+    chosen = by_key(getattr(art, "purpose_override", "") or "") if art is not None else None
+    if chosen is not None:
+        return chosen, 99
     return detect(slugs, name)
 
 

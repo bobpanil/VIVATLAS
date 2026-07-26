@@ -600,6 +600,23 @@ CATALOG: dict[str, dict[str, str]] = {
         "he": "תיקייה משותפת חדשה",
     },
     "artifact.folders_title": {"en": "Folders", "ru": "Папки", "he": "תיקיות"},
+    "artifact.purpose_title": {"en": "What it's for", "ru": "Для чего", "he": "למה זה משמש"},
+    "artifact.purpose_auto": {
+        "en": "Work it out from the tags",
+        "ru": "Определять по тегам",
+        "he": "לקבוע לפי התגיות",
+    },
+    "artifact.purpose_save": {"en": "Set", "ru": "Задать", "he": "קביעה"},
+    "artifact.purpose_manual": {
+        "en": "You chose this one — it stays until you change it.",
+        "ru": "Выбрано вручную — останется, пока не измените.",
+        "he": "נבחר ידנית — יישאר עד שתשנה.",
+    },
+    "artifact.purpose_derived": {
+        "en": "Worked out from the tags. Choose one yourself if it reads it differently than you would.",
+        "ru": "Определено по тегам. Выберите сами, если для вас это про другое.",
+        "he": "נקבע לפי התגיות. אפשר לבחור בעצמך אם זה נקרא אחרת מבחינתך.",
+    },
     "artifact.no_folders": {
         "en": "Not in any folder yet.",
         "ru": "Пока ни в одной папке.",

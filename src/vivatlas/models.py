@@ -116,6 +116,12 @@ class Artifact(Base):
     confidence: Mapped[float] = mapped_column(default=0.0)
     detect_reasons: Mapped[str] = mapped_column(Text, default="")
 
+    # The purpose someone chose by hand, when the guess from the tags was wrong or
+    # said nothing. Empty = keep deriving it. What a thing is FOR is partly a personal
+    # call — the same design kit is "design" to one person and "accessibility" to
+    # someone who keeps it for its contrast rules — so the person wins over the guess.
+    purpose_override: Mapped[str] = mapped_column(String(32), default="")
+
     # STALE FIELD. The card used to live in exactly one folder — this FK. Now
     # folder membership is stored by the ArtifactCategory table (many-to-many): in
     # both the shared and the private folders at once. The migration moves the old

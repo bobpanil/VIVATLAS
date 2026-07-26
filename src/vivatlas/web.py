@@ -32,7 +32,7 @@ from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.detector import detect
 from vivatlas.embeddings import embed_artifact, text_hash, to_blob
-from vivatlas.finder import MAX_MEDIA_BYTES, Finder, looks_like_link
+from vivatlas.finder import MAX_MEDIA_BYTES, Finder, fetch_page_meta, looks_like_link
 from vivatlas.import_run import execute, record_upstream
 from vivatlas.importer import GitHubFetcher, ImportError_, plan_import
 from vivatlas.indexer import _to_ref, index_repository
@@ -1291,6 +1291,23 @@ async def reprocess_draft(artifact_id: int) -> bool:
             return False
         name = art.name
         doc = art.doc_text or ""
+        source_url = (art.repository.original_url or "") if art.repository else ""
+
+    # A card that was captured as a bare link holds nothing to describe but the link,
+    # and describing that only ever yields "a link to a Facebook post". Open the page
+    # now and take its caption — this is what lets Rescan repair such a card.
+    if source_url and len(doc.strip()) < _THIN_CAPTURE_CHARS:
+        og = await fetch_page_meta(source_url, timeout=settings.http_timeout_seconds)
+        if og:
+            doc = _doc_from_meta(source_url, og, doc)
+            better = _short_name(_strip_counter_prefix(og.get("title", ""))) or _short_name(
+                og.get("description", "")
+            )
+            # Only replace a name we generated from the URL ourselves — never one
+            # someone typed.
+            if better and name in ("", source_url, _name_from_url(source_url)):
+                name = better
+
     try:
         text_model = build_text_model()
     except Exception:
@@ -1304,6 +1321,10 @@ async def reprocess_draft(artifact_id: int) -> bool:
             art = session.get(Artifact, artifact_id)
             if art is None:
                 return False
+            # Keep what the page told us: the embedding, the tags and any later rescan
+            # all read the card's own text.
+            art.doc_text = doc
+            art.name = (name or art.name)[:256]
             summarised = False
             if text_model is not None:
                 try:
@@ -1794,6 +1815,54 @@ def _name_from_url(url: str) -> str:
     return host
 
 
+# Below this much captured text there's no real content in hand — a share from a phone
+# hands over the bare link — so it's worth opening the page ourselves for its metadata.
+_THIN_CAPTURE_CHARS = 200
+
+# "9.1K views · 67 reactions | <caption>" — a social page in desktop form puts counters
+# in front of the caption. The caption is the part that says what the thing is.
+_COUNTER_PREFIX = re.compile(r"^[^|]{0,60}\d[^|]{0,60}\|\s*")
+
+
+def _strip_counter_prefix(text: str) -> str:
+    return _COUNTER_PREFIX.sub("", (text or "").strip(), count=1).strip()
+
+
+def _short_name(text: str, limit: int = 70) -> str:
+    """A card-sized name out of a caption. A reel's caption is a paragraph; a card needs
+    a title, so we take the first sentence and cut on a word boundary."""
+    s = " ".join((text or "").split())
+    if not s:
+        return ""
+    for sep in (". ", "! ", "? ", " — ", " – ", " | "):
+        i = s.find(sep)
+        if 0 < i <= limit:
+            s = s[:i]
+            break
+    if len(s) > limit:
+        s = (s[:limit].rsplit(" ", 1)[0] or s[:limit]).rstrip(" ,;:—–-") + "…"
+    return s.strip()
+
+
+def _doc_from_meta(url: str, og: dict, text: str) -> str:
+    """What the AI gets to describe: the caption the page carries, then whatever the
+    client grabbed, then the link. On social pages title and description are the same
+    caption at two lengths — keeping both would just repeat it, so we keep the fuller."""
+    title = _strip_counter_prefix(og.get("title", ""))
+    desc = (og.get("description") or "").strip()
+    parts = []
+    if title:
+        parts.append(title)
+    if desc and not (title and (desc[:60] in title or title[:60] in desc)):
+        parts.append(desc)
+    if og.get("site_name"):
+        parts.append(f"Published on: {og['site_name']}")
+    parts.append(f"Link: {og.get('url') or url}")
+    if (text or "").strip():
+        parts.append(text.strip())
+    return "\n\n".join(parts)
+
+
 async def ext_capture(url: str, title: str, text: str, user_id: int, shared: bool) -> dict:
     """The browser extension's "add tool". Everything is processed in the background so the
     user keeps browsing, and lands as a real card in the library — a GitHub repo is imported
@@ -1816,11 +1885,24 @@ async def _process_web_capture(
     """Background: turn a captured page/link into a real card — summarise the grabbed text
     with the AI, embed and tag it, and add it to the library (not a draft). If processing
     fails, the row is left as a draft so the capture is never lost."""
+    # Nothing but the link in hand (a phone share) — open the page and read its caption,
+    # or the card ends up described as "a link to a Facebook post": accurate and no use.
+    og: dict = {}
+    if len((text or "").strip()) < _THIN_CAPTURE_CHARS:
+        og = await fetch_page_meta(url, timeout=settings.http_timeout_seconds)
+
     with session_scope() as session:
-        # A name even without a title or the AI: the page title, else 'owner/repo' or the
-        # last path segment of the link. Never the literal "draft".
-        display_name = title.strip() or _name_from_url(url) or url
-        aid = _create_draft(session, user_id, url, display_name, "", text or "")
+        # A name even without a title or the AI: the page's own caption, else 'owner/repo'
+        # or the last path segment of the link. Never the literal "draft".
+        display_name = (
+            title.strip()
+            or _short_name(_strip_counter_prefix(og.get("title", "")))
+            or _short_name(og.get("description", ""))
+            or _name_from_url(url)
+            or url
+        )
+        doc_text = _doc_from_meta(url, og, text or "") if og else (text or "")
+        aid = _create_draft(session, user_id, url, display_name, "", doc_text)
         # Promote it from a draft to a real page card straight away, so even if the AI is
         # slow or unavailable it's already in the catalogue (not the drafts pile).
         art = session.get(Artifact, aid)

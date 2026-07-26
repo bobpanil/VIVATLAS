@@ -199,6 +199,42 @@ def parse_og(page: str) -> dict[str, str]:
     return tags
 
 
+async def fetch_page_meta(url: str, timeout: float = 30.0) -> dict[str, str]:
+    """Open a link and read its OpenGraph tags — the caption, the canonical address,
+    the clip.
+
+    A link shared from a phone arrives on its own: the share sheet hands over the URL
+    and nothing else. For a social link that URL is an opaque id (.../share/r/14kFcXbb1xA/),
+    and a description written from it alone can only say "a link to a Facebook post" —
+    true, and useless. The page itself carries the whole caption in its og: tags, and
+    that IS the content. So we open it.
+
+    The mobile agent goes first: it answers with the bare caption, where the desktop
+    page puts view and reaction counts in front of it. {} if nothing usable came back —
+    the caller then works with what it already had.
+    """
+    if not url.lower().startswith(("http://", "https://")):
+        return {}
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
+            for ua in (_UA_MOBILE, _UA):
+                try:
+                    response = await client.get(url, headers={"User-Agent": ua})
+                except Exception as exc:  # noqa: BLE001 — a dead link isn't our failure
+                    log.debug("page metadata: %s didn't open: %s", url, exc)
+                    continue
+                if response.status_code != 200 or len(response.text) < 500:
+                    continue
+                og = parse_og(response.text)
+                if og.get("title") or og.get("description"):
+                    # Where we actually ended up: a share link redirects to the real post.
+                    og.setdefault("url", str(response.url))
+                    return og
+    except Exception as exc:  # noqa: BLE001
+        log.debug("page metadata: %s failed: %s", url, exc)
+    return {}
+
+
 SCHEMA = {
     "type": "object",
     "properties": {

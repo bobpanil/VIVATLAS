@@ -302,10 +302,14 @@ async def ai_benchmark(request: Request) -> JSONResponse:
 
 
 @router.post("/admin/ai/backfill-translations")
-def ai_backfill_translations(request: Request) -> JSONResponse:
+async def ai_backfill_translations(request: Request) -> JSONResponse:
     """Say the cards described before the catalogue spoke three languages again, in the
     other two. Runs in the background and skips what's already done, so it can be
-    started again if it's interrupted."""
+    started again if it's interrupted.
+
+    Async deliberately: the work is started with asyncio.create_task, and a plain `def`
+    endpoint is run by FastAPI in a worker thread where there is no loop to attach it
+    to — the job would never start."""
     with session_scope() as session:
         _admin_or_403(session, request)
     return JSONResponse(launch_translation_backfill())

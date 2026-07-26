@@ -881,7 +881,17 @@ def launch_translation_backfill() -> dict:
     if _TRANSLATE.get("state") == "running":
         return translate_progress()
     _TRANSLATE.update(state="running", total=0, done=0, written=0, error="")
-    task = asyncio.create_task(_translate_backfill_task(_TRANSLATE))
+    job = _translate_backfill_task(_TRANSLATE)
+    try:
+        task = asyncio.create_task(job)
+    except RuntimeError as exc:
+        # No loop to attach to — called from a worker thread rather than the server's
+        # own loop. Say so: the state is already "running", and leaving it there would
+        # show a pass that never moves and never ends.
+        job.close()
+        _TRANSLATE.update(state="error", error=f"couldn't start: {exc}")
+        log.exception("translation backfill couldn't be started")
+        return translate_progress()
     _SCAN_TASKS.add(task)
     task.add_done_callback(_SCAN_TASKS.discard)
     return translate_progress()

@@ -131,3 +131,29 @@ async def test_a_second_start_while_running_does_not_double_up(catalogue, monkey
     # Already running: the call is a no-op that just reports where it's got to.
     assert web.launch_translation_backfill()["state"] == "running"
     web._TRANSLATE.update(state="idle")
+
+
+def test_it_never_reports_a_pass_that_was_never_started():
+    """It once did. Calling this from a worker thread — which is where FastAPI runs a
+    plain `def` endpoint — leaves no loop for the job to attach to, and the state had
+    already been set to "running": the page then showed "0 of 0" for as long as you
+    cared to watch it. A start that fails has to say so."""
+    import concurrent.futures
+
+    web._TRANSLATE.update(state="idle", total=0, done=0, written=0, error="")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        progress = pool.submit(web.launch_translation_backfill).result()
+
+    assert progress["state"] == "error"
+    assert "couldn't start" in progress["error"]
+    web._TRANSLATE.update(state="idle", error="")
+
+
+def test_the_endpoint_is_async_so_the_job_can_actually_start():
+    """The fix for the above, guarded directly: this endpoint starts a task, so it must
+    be awaited on the server's own loop rather than handed to the threadpool."""
+    import inspect
+
+    from vivatlas.admin_web import ai_backfill_translations
+
+    assert inspect.iscoroutinefunction(ai_backfill_translations)

@@ -76,7 +76,9 @@ class ShareActivity : AppCompatActivity() {
                     put("url", firstUrl(shared))
                     put("title", subject)
                     put("text", shared)
-                    put("shared", false)
+                    // Where shares land is the user's standing choice (Settings);
+                    // private unless they said otherwise.
+                    put("shared", Prefs.shareShared(this@ShareActivity))
                 }.toString()
 
                 val conn = (URL("$server/api/ext/add").openConnection() as HttpURLConnection).apply {

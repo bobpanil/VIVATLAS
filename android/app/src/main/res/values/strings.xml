@@ -42,6 +42,17 @@
     <string name="err_offline_msg">Check your connection, then try again.</string>
     <string name="retry">Retry</string>
 
+    <!-- The app's own settings. -->
+    <string name="settings_title">App settings</string>
+    <string name="settings_open">App settings</string>
+    <string name="settings_share_h">Sharing to VIVATLAS</string>
+    <string name="settings_share_tip">Where a link shared from another app lands. You can still change any card afterwards.</string>
+    <string name="settings_share_private">Keep it private — only you see it</string>
+    <string name="settings_share_shared">Put it in the shared catalogue</string>
+    <string name="settings_signout">Sign out</string>
+    <string name="settings_signout_confirm">Sign out of VIVATLAS?</string>
+    <string name="settings_version">VIVATLAS %1$s</string>
+
     <string name="leave_title">Leave VIVATLAS?</string>
     <string name="leave_exit">Exit</string>
     <string name="change_server">Change server</string>

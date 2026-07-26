@@ -3,14 +3,15 @@ package com.vivatlas.app
 import android.content.Context
 
 /**
- * One stored value: the base URL of the user's VIVATLAS server (e.g.
- * `http://10.0.2.2:8710` on the emulator, `https://vivatlas.example.com` in real
- * life). Everything else the shell needs — the login, the language — lives in the
- * WebView's own cookies/session, not here.
+ * What the app itself remembers: which VIVATLAS to talk to (e.g. `http://10.0.2.2:8710`
+ * on the emulator, `https://vivatlas.example.com` in real life), and how a share from
+ * another app should be filed. The login and the language stay where they belong — in
+ * the WebView's own cookies.
  */
 object Prefs {
     private const val FILE = "vivatlas"
     private const val KEY_SERVER = "server_url"
+    private const val KEY_SHARE_SHARED = "share_shared"
 
     fun serverUrl(context: Context): String? =
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -21,6 +22,24 @@ object Prefs {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_SERVER, normalize(url))
+            .apply()
+    }
+
+    /**
+     * Should a link shared from another app land in the shared catalogue?
+     *
+     * Private by default, and deliberately: a share is one tap from inside someone
+     * else's app, with no chance to think about who will see it. Publishing has to be
+     * something you chose once, on purpose, here.
+     */
+    fun shareShared(context: Context): Boolean =
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getBoolean(KEY_SHARE_SHARED, false)
+
+    fun setShareShared(context: Context, shared: Boolean) {
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_SHARE_SHARED, shared)
             .apply()
     }
 

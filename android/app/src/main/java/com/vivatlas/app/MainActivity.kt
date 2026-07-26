@@ -59,6 +59,21 @@ class MainActivity : AppCompatActivity() {
     // just-authenticated load and loop back into the login screen.
     private var lastAuthAt = 0L
 
+    // Settings can change the server or sign out, so we re-decide where to go on return
+    // rather than dropping the user back onto a page that no longer applies.
+    private val settingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val url = Prefs.serverUrl(this)
+        if (result.resultCode == SettingsActivity.RESULT_SIGNED_OUT) {
+            launchLogin()
+        } else if (url != null && url != serverUrl) {
+            serverUrl = url
+            firstPaintDone = false
+            enter()
+        }
+    }
+
     private val loginLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -416,7 +431,7 @@ class MainActivity : AppCompatActivity() {
         view.findViewById<View>(R.id.leave_cancel).setOnClickListener { dialog.dismiss() }
         view.findViewById<View>(R.id.leave_change).setOnClickListener {
             dialog.dismiss()
-            promptForServer(false)
+            settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
         }
         view.findViewById<View>(R.id.leave_exit).setOnClickListener {
             dialog.dismiss()

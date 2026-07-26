@@ -36,6 +36,12 @@
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
 
+        <!-- The app's own settings: server, where shares land, sign out. -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
+
         <!-- Native password reset (email -> reset link), matching the login. -->
         <activity
             android:name=".ResetPasswordActivity"

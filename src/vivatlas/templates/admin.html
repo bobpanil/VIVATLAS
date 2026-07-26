@@ -252,6 +252,14 @@
             {% for c in config if c.attr == 'ollama_api_key' %}{{ cfg_field(c) }}{% endfor %}
             {% for c in config if c.attr == 'ollama_url' %}{{ cfg_field(c) }}{% endfor %}
         </div>
+
+        {# Save first, then check: it describes a few real cards with the saved settings
+           and reports who actually did the work. #}
+        <p>
+            <button type="button" class="btn-secondary" id="ai-bench-btn"
+                    data-busy="{{ t('admin.ai.bench_running') }}">{{ t('admin.ai.bench_btn') }}</button>
+        </p>
+        <p class="legend" id="ai-bench-msg" role="status" aria-live="polite" hidden></p>
         {# Status of the live model-list fetch (filled by the loader script): how
            many models the key exposed, or why the list couldn't be loaded. #}
         <p class="legend" id="ai-models-msg" role="status" aria-live="polite" hidden></p>
@@ -261,6 +269,50 @@
 
 <script>
 // (Tabs — shared code in modal_base.html: roles, aria, arrows/Home/End.)
+
+// "Check the models": describe a few real cards with the saved settings and report who
+// did the work. The only honest way to know whether the second model earns its place —
+// Ollama's cloud can't be made to honour a schema, so it either holds the form or it
+// doesn't, and that's a number, not an opinion.
+(function () {
+    var btn = document.getElementById('ai-bench-btn');
+    var msg = document.getElementById('ai-bench-msg');
+    if (!btn || !msg) return;
+    var T = {
+        ok: {{ t('admin.ai.bench_ok') | tojson }},
+        google: {{ t('admin.ai.bench_google_only') | tojson }},
+        failed: {{ t('admin.ai.bench_failed') | tojson }},
+        error: {{ t('admin.ai.bench_error') | tojson }}
+    };
+    function fill(s, vals) {
+        return s.replace(/\{(\w+)\}/g, function (_, k) { return vals[k]; });
+    }
+    btn.addEventListener('click', function () {
+        var label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = btn.getAttribute('data-busy') || label;
+        msg.hidden = false;
+        msg.textContent = btn.getAttribute('data-busy') || '';
+        fetch('/admin/ai/benchmark', { method: 'POST', headers: { 'Accept': 'application/json' },
+                                       credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.ok) { msg.textContent = fill(T.error, { error: d.error || '?' }); return; }
+                if (d.provider !== 'ollama') {
+                    msg.textContent = fill(T.google, { runs: d.runs, seconds: d.seconds });
+                } else {
+                    msg.textContent = fill(T.ok, {
+                        ollama: d.by_ollama, google: d.by_google, runs: d.runs,
+                        model: d.ollama_model, seconds: d.seconds
+                    });
+                    if (d.by_google && d.last_error) msg.textContent += ' — ' + d.last_error;
+                }
+                if (d.failed) msg.textContent += ' ' + fill(T.failed, { failed: d.failed });
+            })
+            .catch(function (e) { msg.textContent = fill(T.error, { error: e }); })
+            .finally(function () { btn.disabled = false; btn.textContent = label; });
+    });
+})();
 
 // Confirm dangerous actions (deleting a user): text from data-confirm,
 // arrives already decoded — no execution even with quotes in the name.

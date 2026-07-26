@@ -508,6 +508,36 @@ CATALOG: dict[str, dict[str, str]] = {
             "(http://host:11434)."
         ),
     },
+    "admin.ai.bench_btn": {
+        "en": "Check the models",
+        "ru": "Проверить модели",
+        "he": "בדיקת המודלים",
+    },
+    "admin.ai.bench_running": {
+        "en": "Describing a few cards…",
+        "ru": "Описываем несколько карточек…",
+        "he": "מתארים כמה כרטיסים…",
+    },
+    "admin.ai.bench_ok": {
+        "en": "{ollama} of {runs} written by {model}, {google} handed to Google · about {seconds}s each.",
+        "ru": "{ollama} из {runs} написала {model}, {google} ушли к Google · примерно {seconds} с на карточку.",
+        "he": "{ollama} מתוך {runs} נכתבו על ידי {model}, {google} הועברו ל-Google · כ-{seconds} שניות לכל אחד.",
+    },
+    "admin.ai.bench_google_only": {
+        "en": "Google described all {runs} · about {seconds}s each. Pick Ollama above to share the load.",
+        "ru": "Все {runs} описал Google · примерно {seconds} с на карточку. Выберите Ollama выше, чтобы разделить нагрузку.",
+        "he": "Google תיאר את כל {runs} · כ-{seconds} שניות לכל אחד. אפשר לבחור Ollama למעלה כדי לחלק את העומס.",
+    },
+    "admin.ai.bench_failed": {
+        "en": "{failed} couldn't be described at all.",
+        "ru": "{failed} не удалось описать совсем.",
+        "he": "{failed} לא ניתן היה לתאר כלל.",
+    },
+    "admin.ai.bench_error": {
+        "en": "Couldn't run the check: {error}",
+        "ru": "Не удалось выполнить проверку: {error}",
+        "he": "לא ניתן היה להריץ את הבדיקה: {error}",
+    },
     "admin.ai.provider_google": {
         "en": "Google AI Studio",
         "ru": "Google AI Studio",

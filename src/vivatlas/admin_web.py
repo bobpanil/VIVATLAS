@@ -5,7 +5,9 @@ email is the owner's job, not every signed-in user's. Everything here is
 owner-only; the check runs on every route.
 """
 
+import contextlib
 import logging
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
@@ -19,6 +21,7 @@ from vivatlas.auth_web import _reset_link_base
 from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.models import Artifact, Source, User
+from vivatlas.summarizer import summarize
 from vivatlas.web import BASE, _counts, _delete_artifact, launch_global_scan
 
 log = logging.getLogger(__name__)
@@ -205,6 +208,90 @@ async def ai_models(request: Request) -> JSONResponse:
     except Exception as exc:  # noqa: BLE001 — any failure just falls back to manual entry
         return JSONResponse({"text": [], "embedding": [], "error": str(exc)[:200]})
     return JSONResponse(data)
+
+
+# A handful of real cards' worth of text to describe. Deliberately varied — English and
+# Russian, a repo and a social post — because the question isn't "can it answer once",
+# it's "does it hold the form across the kind of thing this catalogue actually gets".
+_BENCH_DOCS = [
+    (
+        "openai/whisper",
+        "Whisper is a general-purpose speech recognition model. It is trained on a large "
+        "dataset of diverse audio and is also a multitasking model that can perform "
+        "multilingual speech recognition, speech translation, and language identification.",
+    ),
+    (
+        "facebook.com/reel",
+        "Почти триллион параметров и всё это в открытом доступе. Thinking Machines Lab "
+        "выложили мультимодалку: текст, картинки и звук разом, контекст до миллиона "
+        "токенов. Внутри MoE, на каждый запрос включается лишь 40 млрд из 1000.",
+    ),
+    (
+        "tailwindlabs/tailwindcss",
+        "A utility-first CSS framework packed with classes like flex, pt-4, text-center "
+        "and rotate-90 that can be composed to build any design, directly in your markup.",
+    ),
+    (
+        "draft/kubernetes-notes",
+        "Notes on running stateful workloads on Kubernetes: StatefulSets, persistent "
+        "volume claims, storage classes, and why a database in a pod needs a real "
+        "volume rather than emptyDir.",
+    ),
+]
+
+
+@router.post("/admin/ai/benchmark")
+async def ai_benchmark(request: Request) -> JSONResponse:
+    """Ask the configured model to describe a few cards for real, and report who ended
+    up doing the work.
+
+    Ollama's cloud can't be made to honour a schema, so the only honest way to know
+    whether it's worth using is to run the actual job and count: how many replies came
+    back as the form we asked for, how many had to be handed to Google, and how long it
+    took. Uses the SAVED settings, so save before checking."""
+    with session_scope() as session:
+        _admin_or_403(session, request)
+
+    from vivatlas.ai import FallbackTextModel, build_text_model
+
+    try:
+        model = build_text_model()
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(exc)[:300]})
+
+    provider = "ollama" if isinstance(model, FallbackTextModel) else "google"
+    times: list[float] = []
+    failures = 0
+    first_error = ""
+    try:
+        for name, doc in _BENCH_DOCS:
+            started = time.monotonic()
+            try:
+                await summarize(
+                    model, full_name=name, artifact_type="page", doc_text=doc, file_count=0
+                )
+                times.append(time.monotonic() - started)
+            except Exception as exc:  # noqa: BLE001 — a total failure is a result too
+                failures += 1
+                first_error = first_error or str(exc)[:300]
+    finally:
+        with contextlib.suppress(Exception):
+            await model.aclose()
+
+    out = {
+        "ok": True,
+        "provider": provider,
+        "runs": len(_BENCH_DOCS),
+        "failed": failures,
+        "seconds": round(sum(times) / len(times), 1) if times else 0,
+        "error": first_error,
+    }
+    if isinstance(model, FallbackTextModel):
+        out["by_ollama"] = model.served_by_primary
+        out["by_google"] = model.served_by_fallback
+        out["ollama_model"] = model.primary_name
+        out["last_error"] = model.last_error
+    return JSONResponse(out)
 
 
 # --- configuration (on top of .env) ----------------------------------------

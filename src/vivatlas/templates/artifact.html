@@ -337,6 +337,13 @@
                 });
                 var t = doc.querySelector('title');
                 if (t) document.title = t.textContent;
+                // Keep the tile behind us honest too, so closing the card doesn't
+                // reveal the old name and description sitting in the catalogue.
+                try {
+                    if (window.parent !== window && window.parent.vivRefreshCard) {
+                        window.parent.vivRefreshCard({{ a.id }});
+                    }
+                } catch (e) { /* not framed, or another origin — nothing to update */ }
             });
     }
 

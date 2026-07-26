@@ -43,6 +43,12 @@ class FallbackTextModel:
         self._google: GoogleTextModel | None = None
         # Shown on the card as "described by".
         self.model = getattr(primary, "model", "ollama")
+        # How the work actually got done — the answer to "is the second model pulling
+        # its weight?". Read by Admin's check button; see admin_web.ai_benchmark.
+        self.primary_name = self.model
+        self.served_by_primary = 0
+        self.served_by_fallback = 0
+        self.last_error = ""
 
     def _fallback(self) -> GoogleTextModel:
         if self._google is None:
@@ -51,12 +57,17 @@ class FallbackTextModel:
 
     async def generate_json(self, prompt: str, schema: dict) -> dict:
         try:
-            return await self._primary.generate_json(prompt, schema)
+            result = await self._primary.generate_json(prompt, schema)
         except Exception as exc:  # noqa: BLE001 — any provider failure is Google's turn
             log.warning("text: Ollama couldn't answer (%s) — falling back to Google", exc)
+            self.served_by_fallback += 1
+            self.last_error = str(exc)[:300]
             result = await self._fallback().generate_json(prompt, schema)
             self.model = getattr(self._google, "model", self.model)
             return result
+        self.served_by_primary += 1
+        self.model = self.primary_name
+        return result
 
     async def generate_json_with_media(
         self, prompt: str, schema: dict, mime_type: str, data_base64: str

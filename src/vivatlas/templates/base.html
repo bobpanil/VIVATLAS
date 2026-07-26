@@ -354,6 +354,26 @@
         // A catalogue/card opened inside the frame hoists itself out.
         window.absorbModalNav = function (url) { window.closeModalHost({ navigate: url }); };
 
+        // A card changed inside the modal (a rescan rewrites its name and description)
+        // must not leave a stale tile behind it in the catalogue — closing the card and
+        // finding the old text there is exactly the reload we're trying to spare the
+        // user. Re-render that one tile from the page we're already on; the card
+        // handlers are bound on document, so swapping the node keeps drag and the rest.
+        window.vivRefreshCard = function (id) {
+            var tile = document.querySelector('.card[data-id="' + id + '"]');
+            if (!tile) return;
+            fetch(location.href, { credentials: 'same-origin' })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    var fresh = doc.querySelector('.card[data-id="' + id + '"]');
+                    if (!fresh || fresh.outerHTML === tile.outerHTML) return;
+                    tile.replaceWith(fresh);
+                    fresh.classList.add('art-fresh');
+                })
+                .catch(function () { /* the card page itself already shows the truth */ });
+        };
+
         // Click on a marked link — open in the overlay, don't navigate.
         document.addEventListener('click', function (e) {
             var a = e.target.closest ? e.target.closest('a[data-modal]') : null;

@@ -36,7 +36,7 @@
 
 {# The read view. "Edit" (owner/admin) swaps it for the form below — handy when the
    AI summary is wrong or missing, but also just to fix anything by hand. #}
-<div class="art-display">
+<div class="art-display" id="art-display">
     <p class="art-lede">{{ a.summary_short or t('artifact.no_summary') }}</p>
     {% if a.summary_error %}<p class="warn">{{ t('artifact.summary_failed', error=a.summary_error) }}</p>{% endif %}
 
@@ -93,6 +93,9 @@
 </section>
 {% endif %}
 
+{# Wrapped in an always-present box: a rescan swaps this region's contents in place,
+   and it has to exist as a target even when the card has no tags yet. #}
+<div id="art-tags-sec">
 {% if tags %}
 <section class="art-sec">
     <h3>{{ t('artifact.tags_h') }}</h3>
@@ -109,6 +112,7 @@
     {% endif %}
 </section>
 {% endif %}
+</div>{# /#art-tags-sec #}
 
 {# Folders: shared (visible to all) and personal. Remove with the cross; add from the list. #}
 <section class="art-sec">
@@ -179,6 +183,7 @@
    and if there are no fields at all — we don't render the section. #}
 {% set has_passport = author or a.repository.remote_created_at or a.repository.remote_updated_at
     or a.file_count or a.anchor_path or a.source_commit or a.summary_model or a.repository.html_url %}
+<div id="art-passport-sec">
 {% if has_passport %}
 <section class="art-sec">
     <h3>{{ t('artifact.passport') }}</h3>
@@ -194,6 +199,7 @@
     </dl>
 </section>
 {% endif %}
+</div>{# /#art-passport-sec #}
 </div>{# /.art-side #}
 </div>{# /.art-cols #}
 {% endblock %}
@@ -285,18 +291,78 @@
     if (cancel) cancel.addEventListener('click', function () { show(false); });
 })();
 
-// Rescan — show a busy state while the rebuild runs (a few seconds), then the page
-// reloads with the fresh card.
+// Rescan — the rebuild runs on the server (page fetch + AI), so the button holds a
+// busy state and the card reloads itself the moment the work lands. Previously the
+// form navigated away at once: it looked like a flash, and the new text only appeared
+// if you pressed F5 yourself.
 (function () {
     var rf = document.getElementById('rescan-form');
     var rb = document.getElementById('rescan-btn');
-    if (!rf || !rb) return;
-    rf.addEventListener('submit', function () {
+    if (!rf || !rb || !window.fetch) return;   // no fetch — plain form post still works
+
+    var POLL_MS = 1200;
+    var GIVE_UP_MS = 180000;                   // a 429-throttled AI can take minutes
+
+    function busy() {
         rb.disabled = true;
         rb.classList.add('is-busy');
-        var busy = rb.getAttribute('data-busy');
+        var b = rb.getAttribute('data-busy');
         var lbl = rb.querySelector('.mf-txt') || rb;
-        if (busy) lbl.textContent = busy;
+        if (b) lbl.textContent = b;
+    }
+
+    function done() {
+        rb.disabled = false;
+        rb.classList.remove('is-busy');
+        var lbl = rb.querySelector('.mf-txt') || rb;
+        lbl.textContent = rb.getAttribute('title') || lbl.textContent;
+    }
+
+    // Bring in the rebuilt card without navigating: fetch this same page and swap only
+    // the parts a rescan changes. Nothing reloads, nothing scrolls back to the top, and
+    // the controls keep their handlers — the text just becomes the new text.
+    var SWAP = ['#modal-title', '#art-display', '#art-tags-sec', '#art-passport-sec'];
+    function absorb() {
+        return fetch(location.href, { credentials: 'same-origin' })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                SWAP.forEach(function (sel) {
+                    var to = document.querySelector(sel), from = doc.querySelector(sel);
+                    if (!to || !from || to.innerHTML === from.innerHTML) return;
+                    to.innerHTML = from.innerHTML;
+                    to.classList.remove('art-fresh');
+                    void to.offsetWidth;              // restart the fade
+                    to.classList.add('art-fresh');
+                });
+                var t = doc.querySelector('title');
+                if (t) document.title = t.textContent;
+            });
+    }
+
+    function watch(started) {
+        fetch(rf.action + '-status', { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.running || Date.now() - started > GIVE_UP_MS) {
+                    absorb().then(done, done);
+                    return;
+                }
+                setTimeout(function () { watch(started); }, POLL_MS);
+            })
+            .catch(function () { absorb().then(done, done); });
+    }
+
+    rf.addEventListener('submit', function (e) {
+        e.preventDefault();
+        busy();
+        fetch(rf.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function () { setTimeout(function () { watch(Date.now()); }, POLL_MS); })
+            .catch(function () { absorb().then(done, done); });
     });
 })();
 </script>

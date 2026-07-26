@@ -3763,6 +3763,24 @@ a.art-chip-pur:hover { border-color: currentColor; }
     border-radius: 50%;
     animation: rescan-spin 0.7s linear infinite;
 }
+/* Text that just arrived from a rescan: a short fade so the card updates in place
+   without the jolt of a reload. Barely noticeable, which is the point. */
+.art-fresh {
+    animation: art-fresh-in 0.28s ease-out;
+}
+@keyframes art-fresh-in {
+    from { opacity: 0.35; }
+    to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .art-fresh { animation: none; }
+}
+
+/* On mobile the footer button is icon-only — swap the icon for the spinner rather
+   than showing both, so the busy state reads at a glance. */
+.btn-secondary.is-busy .mf-ic {
+    display: none;
+}
 @keyframes rescan-spin { to { transform: rotate(360deg); } }
 
 /* Card section: a full-width line across the modal (−24 = body padding) + denser. */

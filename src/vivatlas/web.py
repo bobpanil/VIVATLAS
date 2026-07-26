@@ -772,6 +772,11 @@ _SCANS: dict[int, dict] = {}
 # without this the garbage collector may kill a scan mid-way.
 _SCAN_TASKS: set = set()
 
+# Cards being rebuilt right now. A rescan runs in the background (page fetch + AI, which
+# retries hard on 429), so the card page asks this to keep a spinner up and reload itself
+# the moment the work lands — instead of leaving you to guess and press F5.
+_RESCANNING: set[int] = set()
+
 
 def scan_progress(user_id: int | None) -> dict | None:
     """The scan state of this user for the progress bar. None if there is none."""
@@ -1325,6 +1330,9 @@ async def reprocess_draft(artifact_id: int) -> bool:
             # all read the card's own text.
             art.doc_text = doc
             art.name = (name or art.name)[:256]
+            # Name the site the link came from, not our storage bin ("draft/…").
+            if art.repository is not None and art.repository.owner == "draft":
+                art.repository.owner = _host_label(source_url) or art.repository.owner
             summarised = False
             if text_model is not None:
                 try:
@@ -1352,9 +1360,19 @@ async def reprocess_draft(artifact_id: int) -> bool:
                 art.artifact_type = "page"
                 art.hidden = False
                 art.is_new = True
+            # Embedding and tagging are extras, and they talk to the same AI that just
+            # rate-limited us half the time. Letting one of them throw here rolled the
+            # whole transaction back — the page text we fetched and the description we
+            # just wrote were both thrown away, and the card came back unchanged.
             if embed_model is not None:
-                await embed_artifact(session, embed_model, art)
-            await tag_artifact(session, art, text_model)
+                try:
+                    await embed_artifact(session, embed_model, art)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("draft rescan: embedding failed for %s: %s", artifact_id, exc)
+            try:
+                await tag_artifact(session, art, text_model)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("draft rescan: tagging failed for %s: %s", artifact_id, exc)
             index_artifact_for_words(session, art)
             session.commit()
     finally:
@@ -1455,11 +1473,25 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
                 await rescan_artifact(artifact_id)
         except Exception:  # noqa: BLE001 — a failed rescan must not crash the task
             log.exception("rescan failed for artifact %s", artifact_id)
+        finally:
+            _RESCANNING.discard(artifact_id)
 
+    _RESCANNING.add(artifact_id)
     task = asyncio.create_task(_run())
     _SCAN_TASKS.add(task)
     task.add_done_callback(_SCAN_TASKS.discard)
+    # The card page posts this with fetch and then watches /rescan-status, so it can hold
+    # a spinner and refresh itself when the rebuild lands. Without JS the redirect still
+    # works as before.
+    if "application/json" in (request.headers.get("accept") or ""):
+        return JSONResponse({"ok": True, "running": True})
     return RedirectResponse(f"/a/{artifact_id}", status_code=303)
+
+
+@router.get("/artifact/{artifact_id}/rescan-status")
+def rescan_status(artifact_id: int) -> JSONResponse:
+    """Is this card still being rebuilt? Polled by the card page while it waits."""
+    return JSONResponse({"running": artifact_id in _RESCANNING})
 
 
 @router.get("/recommend")
@@ -1724,7 +1756,7 @@ def _create_draft(session, user_id, source_url: str, name: str, summary: str, he
         repo = Repository(
             source_id=src.id,
             external_id=ext,
-            owner="draft",
+            owner=_host_label(source_url) or "draft",
             name=(name or "draft")[:256],
             default_branch="",
             html_url="",
@@ -1804,6 +1836,17 @@ def _is_github_repo_url(url: str) -> bool:
         return False
     segs = [s for s in parts.path.split("/") if s]
     return len(segs) >= 2 and segs[0].lower() not in _GH_RESERVED
+
+
+def _host_label(url: str) -> str:
+    """The site a captured link came from ('facebook.com'), for the owner slot on the
+    card. Cards used to read "draft/…" there, which named our own storage bin rather
+    than telling you where the thing is from."""
+    try:
+        host = urlsplit((url or "").strip()).netloc.lower()
+    except ValueError:
+        return ""
+    return host.removeprefix("www.").split(":")[0]
 
 
 def _name_from_url(url: str) -> str:
@@ -1954,9 +1997,17 @@ async def _process_web_capture(
                 except Exception as exc:  # noqa: BLE001 — keep the card, note why
                     art.summary_error = str(exc)[:500]
                     log.warning("ext capture: summary failed for %s: %s", url, exc)
+            # Extras, and they share the AI's rate limit — a failure here must not roll
+            # back the captured card along with them.
             if embed_model is not None:
-                await embed_artifact(session, embed_model, art)
-            await tag_artifact(session, art, text_model)
+                try:
+                    await embed_artifact(session, embed_model, art)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("ext capture: embedding failed for %s: %s", url, exc)
+            try:
+                await tag_artifact(session, art, text_model)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("ext capture: tagging failed for %s: %s", url, exc)
             index_artifact_for_words(session, art)
             if not shared:
                 auto_cid = _auto_category(session, art, user_id)

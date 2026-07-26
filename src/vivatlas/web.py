@@ -21,8 +21,8 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select, text
 from sqlalchemy import update as sa_update
 
+from vivatlas import cardtext, caticons, catnames, i18n, security
 from vivatlas import categories as catperm
-from vivatlas import caticons, catnames, i18n, security
 from vivatlas import changes as ch
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
@@ -449,13 +449,16 @@ def _card(
     user_id: int | None = None,
 ) -> dict:
     purpose, _score = pur.detect_for(session, a.id, a.name)
+    # The tile speaks the reader's language too — a Russian title over English prose
+    # reads as a bug. Falls back to what the card was written with.
+    tr = cardtext.localized(a, lang)
     return {
         "categories": _artifact_categories(session, a.id, user_id, lang),
         "id": a.id,
-        "name": a.name,
+        "name": tr["name"],
         "owner": a.repository.owner,
         "type": a.artifact_type,
-        "summary_short": a.summary_short,
+        "summary_short": tr["summary_short"],
         "preview_url": preview_url(a),
         # We copy the link to the SOURCE (where it was taken from), not to the store in Gitea.
         # The source is what we show and what people share. No source — let it be
@@ -528,6 +531,9 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
             "artifact.html",
             {
                 "a": a,
+                # The card's own words in the reader's language (name included), or
+                # what it was written with where there's no translation.
+                "tr": cardtext.localized(a, lang),
                 "tags": tags,
                 "suppressed": suppressed,
                 "upstream": upstream,
@@ -1224,6 +1230,7 @@ async def retry_failed_summaries(limit: int = 25) -> int:
                     art.summary_technical = summaries["summary_technical"]
                     art.summary_model = getattr(text_model, "model", None)
                     art.summary_error = None
+                    await cardtext.fill_translations(text_model, art)
                     if embed_model is not None:
                         await embed_artifact(session, embed_model, art)
                     await tag_artifact(session, art, text_model)
@@ -1351,6 +1358,7 @@ async def reprocess_draft(artifact_id: int) -> bool:
                     art.summary_technical = summaries["summary_technical"]
                     art.summary_model = getattr(text_model, "model", None)
                     art.summary_error = None
+                    await cardtext.fill_translations(text_model, art)
                     summarised = True
                 except Exception as exc:  # noqa: BLE001 — keep the draft, note why
                     art.summary_error = str(exc)[:500]
@@ -1418,8 +1426,32 @@ async def edit_artifact(
         art.summary_technical = summary_technical.strip()
         art.summary_error = None
         art.summary_model = "manual"
+        # The stored translations describe the text that was just replaced, so they'd
+        # contradict it in the other two languages. Drop them and write them again
+        # below; if that can't happen, the card falls back to what was typed, which is
+        # at least true.
+        art.translations_json = ""
         index_artifact_for_words(session, art)
         session.commit()
+
+    # Say it again in the other two languages. Best-effort — an edit must land whether
+    # or not a model is around.
+    try:
+        text_model = build_text_model()
+    except Exception:
+        text_model = None
+    if text_model is not None:
+        try:
+            with session_scope() as session:
+                art = session.get(Artifact, artifact_id)
+                if art is not None:
+                    await cardtext.fill_translations(text_model, art)
+                    session.commit()
+        except Exception:  # noqa: BLE001 — never block an edit on translation
+            log.warning("edit: translations failed for artifact %s", artifact_id)
+        finally:
+            await text_model.aclose()
+
     # Re-embed with the edited text so semantic search matches it. Best-effort: no AI
     # key just means search leans on the old vector until the next pass.
     try:
@@ -2029,6 +2061,7 @@ async def _process_web_capture(
                     art.summary_technical = summaries["summary_technical"]
                     art.summary_model = getattr(text_model, "model", None)
                     art.summary_error = None
+                    await cardtext.fill_translations(text_model, art)
                 except Exception as exc:  # noqa: BLE001 — keep the card, note why
                     art.summary_error = str(exc)[:500]
                     log.warning("ext capture: summary failed for %s: %s", url, exc)

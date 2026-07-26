@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from vivatlas import changes
+from vivatlas import cardtext, changes
 from vivatlas.ai.base import TextModel
 from vivatlas.archive import read_archive
 from vivatlas.detector import detect
@@ -151,6 +151,8 @@ async def index_repository(
             artifact.summary_technical = summaries["summary_technical"]
             artifact.summary_model = getattr(text_model, "model", None)
             artifact.summary_error = None
+            # …and in the other two languages, while we have the model open.
+            await cardtext.fill_translations(text_model, artifact)
         except Exception as exc:
             # The card stays — without a summary, but with a note explaining why.
             # We must not silently pretend a summary exists.

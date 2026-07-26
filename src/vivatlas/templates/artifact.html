@@ -1,8 +1,8 @@
 {% extends "modal_base.html" %}
 {% import "_icons.html" as icons %}
 
-{% block title %}{{ a.name }} — VIVATLAS{% endblock %}
-{% block modal_title %}<span class="art-owner">{{ a.repository.owner }}/</span>{{ a.name }}{% endblock %}
+{% block title %}{{ tr.name }} — VIVATLAS{% endblock %}
+{% block modal_title %}<span class="art-owner">{{ a.repository.owner }}/</span>{{ tr.name }}{% endblock %}
 
 {# Chips "zone / type / purpose" — up top, next to the title, on the right. #}
 {% block modal_head_extra %}
@@ -31,29 +31,29 @@
 <div class="art-main">
 {% set can_edit = (a.owner_user_id and a.owner_user_id == request.state.user_id) or (request.state.is_admin and a.shared) %}
 {% if preview_url %}
-<div class="art-image"><img src="{{ preview_url }}" alt="{{ t('artifact.preview_alt', name=a.name) }}"></div>
+<div class="art-image"><img src="{{ preview_url }}" alt="{{ t('artifact.preview_alt', name=tr.name) }}"></div>
 {% endif %}
 
 {# The read view. "Edit" (owner/admin) swaps it for the form below — handy when the
    AI summary is wrong or missing, but also just to fix anything by hand. #}
 <div class="art-display" id="art-display">
-    <p class="art-lede">{{ a.summary_short or t('artifact.no_summary') }}</p>
+    <p class="art-lede">{{ tr.summary_short or t('artifact.no_summary') }}</p>
     {% if a.summary_error %}<p class="warn">{{ t('artifact.summary_failed', error=a.summary_error) }}</p>{% endif %}
 
     {# No AI description yet — show the raw text the extension grabbed, so the card still
        says what it is (and can be edited by hand). #}
-    {% if a.doc_text and not a.summary_normal and not a.summary_technical %}
+    {% if a.doc_text and not tr.summary_normal and not tr.summary_technical %}
     <details class="art-captured">
         <summary>{{ t('artifact.captured_text') }}</summary>
         <pre>{{ a.doc_text }}</pre>
     </details>
     {% endif %}
 
-    {% if a.summary_normal %}
-    <section class="art-sec"><h3>{{ t('artifact.what_is') }}</h3><p>{{ a.summary_normal }}</p></section>
+    {% if tr.summary_normal %}
+    <section class="art-sec"><h3>{{ t('artifact.what_is') }}</h3><p>{{ tr.summary_normal }}</p></section>
     {% endif %}
-    {% if a.summary_technical %}
-    <section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ a.summary_technical }}</p></section>
+    {% if tr.summary_technical %}
+    <section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ tr.summary_technical }}</p></section>
     {% endif %}
 </div>
 

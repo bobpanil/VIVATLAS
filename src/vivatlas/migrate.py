@@ -30,6 +30,8 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "shared": "BOOLEAN",
         # A purpose picked by hand; empty means "keep deriving it from the tags".
         "purpose_override": "VARCHAR(32) DEFAULT ''",
+        # The card's name and descriptions in en/ru/he; empty until it's described.
+        "translations_json": "TEXT DEFAULT ''",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",

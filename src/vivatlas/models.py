@@ -122,6 +122,12 @@ class Artifact(Base):
     # someone who keeps it for its contrast rules — so the person wins over the guess.
     purpose_override: Mapped[str] = mapped_column(String(32), default="")
 
+    # The card in all three languages — {"en": {name, summary_short, ...}, "ru": …} —
+    # written when it's described. A card is read as a whole: an English interface with
+    # a Russian title over English prose is incoherent, so the name travels with the
+    # text. Empty = never translated; the card then shows what it was written with.
+    translations_json: Mapped[str] = mapped_column(Text, default="")
+
     # STALE FIELD. The card used to live in exactly one folder — this FK. Now
     # folder membership is stored by the ArtifactCategory table (many-to-many): in
     # both the shared and the private folders at once. The migration moves the old

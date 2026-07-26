@@ -56,9 +56,25 @@ class FakeModel:
 
     def __init__(self, fail: bool = False) -> None:
         self.fail = fail
-        self.calls = 0
+        self.calls = 0        # summaries only — what the tests below are counting
+        self.translations = 0
 
     async def generate_json(self, prompt, schema):
+        # Describing a card and saying it again in the other two languages are both
+        # asks of the same model; tell them apart by the shape that was requested.
+        if "en" in (schema.get("properties") or {}):
+            self.translations += 1
+            if self.fail:
+                raise RuntimeError("out of quota")
+            return {
+                lang: {
+                    "name": "Name",
+                    "summary_short": "Short",
+                    "summary_normal": "Normal",
+                    "summary_technical": "Technical",
+                }
+                for lang in ("en", "ru", "he")
+            }
         self.calls += 1
         if self.fail:
             raise RuntimeError("out of quota")

@@ -457,6 +457,67 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Модель поиска",
         "he": "מודל החיפוש",
     },
+    "admin.key.text_provider": {
+        "en": "Who writes descriptions",
+        "ru": "Кто пишет описания",
+        "he": "מי כותב את התיאורים",
+    },
+    "admin.key.ollama_key": {
+        "en": "Ollama API key",
+        "ru": "Ключ Ollama",
+        "he": "מפתח Ollama",
+    },
+    "admin.key.ollama_url": {
+        "en": "Ollama address",
+        "ru": "Адрес Ollama",
+        "he": "כתובת Ollama",
+    },
+    "admin.key.ollama_model": {
+        "en": "Ollama model",
+        "ru": "Модель Ollama",
+        "he": "מודל Ollama",
+    },
+    "admin.ai.second_h": {
+        "en": "A second model, to spread the load",
+        "ru": "Вторая модель — чтобы разгрузить первую",
+        "he": "מודל שני, לחלוקת העומס",
+    },
+    "admin.ai.second_tip": {
+        "en": (
+            "Writing descriptions and translating them is ordinary text work any capable "
+            "model does, so it can be handed to Ollama and Google's tight free quota left "
+            "for search, which only it can do — every stored vector is Google's, and one "
+            "from another model wouldn't match. If Ollama can't answer, Google still steps "
+            "in, so nothing is left undescribed. Leave the address as it is for Ollama's "
+            "cloud, or point it at your own server (http://host:11434)."
+        ),
+        "ru": (
+            "Писать описания и переводить их — обычная работа с текстом, её сделает любая "
+            "приличная модель. Отдаём это Ollama, а скромную бесплатную квоту Google "
+            "оставляем поиску: все сохранённые векторы — её, чужие с ними не сойдутся. "
+            "Если Ollama не ответит, Google подстрахует — без описания карточка не "
+            "останется. Адрес по умолчанию — облако Ollama; можно указать свой сервер "
+            "(http://host:11434)."
+        ),
+        "he": (
+            "כתיבת תיאורים ותרגומם היא עבודת טקסט רגילה שכל מודל טוב מבצע, ולכן אפשר "
+            "להעביר אותה ל-Ollama ולהשאיר את המכסה החינמית הצרה של Google לחיפוש — שרק "
+            "היא יכולה לבצע, שכן כל הווקטורים השמורים הם שלה ווקטור ממודל אחר לא יתאים "
+            "להם. אם Ollama לא תענה, Google תיכנס במקומה וכך שום כרטיס לא יישאר בלי "
+            "תיאור. אפשר להשאיר את הכתובת לענן של Ollama, או להפנות לשרת שלך "
+            "(http://host:11434)."
+        ),
+    },
+    "admin.ai.provider_google": {
+        "en": "Google AI Studio",
+        "ru": "Google AI Studio",
+        "he": "Google AI Studio",
+    },
+    "admin.ai.provider_ollama": {
+        "en": "Ollama (Google as backup)",
+        "ru": "Ollama (Google — подстраховка)",
+        "he": "Ollama (Google כגיבוי)",
+    },
     # --- category folders: shared and private ---------------------------------
     "err.category_not_found": {
         "en": "Folder not found.",

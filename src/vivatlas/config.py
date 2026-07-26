@@ -12,6 +12,7 @@ _SECRET_FIELDS = frozenset(
         "gitea_token",
         "github_token",
         "google_api_key",
+        "ollama_api_key",
         "secret_key",
     }
 )
@@ -66,6 +67,21 @@ class Settings(BaseSettings):
     llm_model: str = "gemini-3.1-flash-lite"
     embedding_model: str = "gemini-embedding-2"
     embedding_dim: int = 1536
+
+    # A second model, to spread the load. Writing descriptions and translating them is
+    # ordinary text work that any capable model does, while embedding is not
+    # interchangeable — every stored vector is 1536 numbers from the Google model above,
+    # and one from elsewhere wouldn't sit in the same space. So text can move here and
+    # Google's tight free quota is left for the part only it can do.
+    #
+    # "google" (default) keeps everything as it was. "ollama" sends the text work to
+    # Ollama and falls back to Google whenever a reply comes back unusable, so a card is
+    # never left undescribed. ollama_url points at the cloud by default; aim it at your
+    # own server (http://host:11434) and schema enforcement starts working too.
+    text_provider: str = "google"
+    ollama_api_key: str = ""
+    ollama_url: str = "https://ollama.com"
+    ollama_model: str = "gpt-oss:120b"
 
     http_timeout_seconds: float = 30.0
     llm_timeout_seconds: float = 120.0

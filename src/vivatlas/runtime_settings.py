@@ -196,6 +196,11 @@ CFG_GITHUB_USER = "cfg_github_user"
 CFG_GOOGLE_KEY = "cfg_google_api_key"  # secret
 CFG_LLM_MODEL = "cfg_llm_model"
 CFG_EMBEDDING_MODEL = "cfg_embedding_model"
+# The second model — writing and translating. Embedding stays with Google either way.
+CFG_TEXT_PROVIDER = "cfg_text_provider"
+CFG_OLLAMA_KEY = "cfg_ollama_api_key"  # secret
+CFG_OLLAMA_URL = "cfg_ollama_url"
+CFG_OLLAMA_MODEL = "cfg_ollama_model"
 
 # setting key -> (settings attribute, whether secret)
 _CONFIG_MAP: dict[str, tuple[str, bool]] = {
@@ -206,6 +211,10 @@ _CONFIG_MAP: dict[str, tuple[str, bool]] = {
     CFG_GOOGLE_KEY: ("google_api_key", True),
     CFG_LLM_MODEL: ("llm_model", False),
     CFG_EMBEDDING_MODEL: ("embedding_model", False),
+    CFG_TEXT_PROVIDER: ("text_provider", False),
+    CFG_OLLAMA_KEY: ("ollama_api_key", True),
+    CFG_OLLAMA_URL: ("ollama_url", False),
+    CFG_OLLAMA_MODEL: ("ollama_model", False),
 }
 
 _env_defaults: dict[str, str] = {}

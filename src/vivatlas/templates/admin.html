@@ -234,6 +234,24 @@
             {% for c in config if c.attr == 'llm_model' %}{{ model_select(c, 'text') }}{% endfor %}
             {% for c in config if c.attr == 'embedding_model' %}{{ model_select(c, 'embedding') }}{% endfor %}
         </div>
+
+        {# The second model. Writing and translating can go elsewhere; embedding can't —
+           the stored vectors are Google's and another model's wouldn't match them. #}
+        <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('admin.ai.second_h') }}</h3></div>
+        <p class="legend">{{ t('admin.ai.second_tip') }}</p>
+        <div class="field-grid">
+            {% for c in config if c.attr == 'text_provider' %}
+            <label class="fld"><span>{{ c.label }}</span>
+                <select name="text_provider">
+                    <option value="google" {% if c.value != 'ollama' %}selected{% endif %}>{{ t('admin.ai.provider_google') }}</option>
+                    <option value="ollama" {% if c.value == 'ollama' %}selected{% endif %}>{{ t('admin.ai.provider_ollama') }}</option>
+                </select>
+            </label>
+            {% endfor %}
+            {% for c in config if c.attr == 'ollama_model' %}{{ cfg_field(c) }}{% endfor %}
+            {% for c in config if c.attr == 'ollama_api_key' %}{{ cfg_field(c) }}{% endfor %}
+            {% for c in config if c.attr == 'ollama_url' %}{{ cfg_field(c) }}{% endfor %}
+        </div>
         {# Status of the live model-list fetch (filled by the loader script): how
            many models the key exposed, or why the list couldn't be loaded. #}
         <p class="legend" id="ai-models-msg" role="status" aria-live="polite" hidden></p>

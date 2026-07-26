@@ -60,6 +60,10 @@ def _config_rows(session, lang: str = "en") -> list[dict]:
         runtime_settings.CFG_GOOGLE_KEY: "admin.key.google_key",
         runtime_settings.CFG_LLM_MODEL: "admin.key.llm_model",
         runtime_settings.CFG_EMBEDDING_MODEL: "admin.key.embedding_model",
+        runtime_settings.CFG_TEXT_PROVIDER: "admin.key.text_provider",
+        runtime_settings.CFG_OLLAMA_KEY: "admin.key.ollama_key",
+        runtime_settings.CFG_OLLAMA_URL: "admin.key.ollama_url",
+        runtime_settings.CFG_OLLAMA_MODEL: "admin.key.ollama_model",
     }
     rows = runtime_settings.config_view(session)
     for r in rows:
@@ -216,6 +220,10 @@ def config_save(
     google_api_key: Annotated[str | None, Form()] = None,
     llm_model: Annotated[str | None, Form()] = None,
     embedding_model: Annotated[str | None, Form()] = None,
+    text_provider: Annotated[str | None, Form()] = None,
+    ollama_api_key: Annotated[str | None, Form()] = None,
+    ollama_url: Annotated[str | None, Form()] = None,
+    ollama_model: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     """Save configuration edits. Secrets with an empty field are left untouched (like
     the SMTP password); edits apply to settings immediately — no restart needed.
@@ -233,6 +241,10 @@ def config_save(
             runtime_settings.CFG_GOOGLE_KEY: google_api_key,
             runtime_settings.CFG_LLM_MODEL: llm_model,
             runtime_settings.CFG_EMBEDDING_MODEL: embedding_model,
+            runtime_settings.CFG_TEXT_PROVIDER: text_provider,
+            runtime_settings.CFG_OLLAMA_KEY: ollama_api_key,
+            runtime_settings.CFG_OLLAMA_URL: ollama_url,
+            runtime_settings.CFG_OLLAMA_MODEL: ollama_model,
         }
         runtime_settings.save_config(
             session, {k: v for k, v in submitted.items() if v is not None}

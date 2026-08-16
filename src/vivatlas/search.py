@@ -96,7 +96,17 @@ async def search(
     mode: Mode = Mode.BOTH,
     limit: int = 10,
     artifact_type: str | None = None,
+    allowed_ids: set[int] | None = None,
 ) -> list[Hit]:
+    """Rank cards for a query.
+
+    allowed_ids, when given, narrows the results to those ids. Pass it here rather
+    than filtering what comes back: the limit is applied while walking the ranked
+    list, so a card removed afterwards has already taken up one of the slots and the
+    caller is left short. That is how a caller asking for five gets three, without
+    any indication the other two were dropped — and how the number missing quietly
+    reports on cards the caller was never meant to know about.
+    """
     by_words: list[tuple[int, float]] = []
     by_meaning: list[tuple[int, float]] = []
 
@@ -119,6 +129,8 @@ async def search(
 
     hits: list[Hit] = []
     for artifact_id, score in order:
+        if allowed_ids is not None and artifact_id not in allowed_ids:
+            continue
         artifact = session.get(Artifact, artifact_id)
         if artifact is None:
             continue

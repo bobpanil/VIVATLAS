@@ -365,10 +365,12 @@ async def search_endpoint(
     try:
         with session_scope() as session:
             user_id = getattr(request.state, "user_id", None)
+            # Zone: we don't hand out others' private items even via the API. Handed to
+            # the search rather than applied to what it returns: see search().
             visible = set(session.scalars(flt.visible_ids(user_id)))
-            hits = await do_search(session, q, model, mode=mode, limit=limit, artifact_type=type)
-            # Zone: we don't hand out others' private items even via the API.
-            hits = [h for h in hits if h.artifact_id in visible]
+            hits = await do_search(
+                session, q, model, mode=mode, limit=limit, artifact_type=type, allowed_ids=visible
+            )
             return {
                 "query": q,
                 "mode": mode,

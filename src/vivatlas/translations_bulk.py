@@ -304,6 +304,18 @@ BULK = {
     'index.sort_name': {"en": 'Name (A–Z)', "ru": 'Название (А–Я)', "he": 'שם (א׳–ת׳)'},
     'index.sort_updated': {"en": 'Recently updated', "ru": 'Недавно обновлённые', "he": 'עודכנו לאחרונה'},
     'index.sort_added': {"en": 'Recently added', "ru": 'Недавно добавленные', "he": 'נוספו לאחרונה'},
+    # The same three orders, said the other way round. The button shows whichever is
+    # in force: "Recently added" over a list starting with the oldest would be a lie.
+    'index.sort_name_rev': {"en": 'Name (Z–A)', "ru": 'Название (Я–А)', "he": 'שם (ת׳–א׳)'},
+    'index.sort_updated_rev': {"en": 'Longest without an update', "ru": 'Дольше всех без обновлений', "he": 'הכי מזמן ללא עדכון'},
+    'index.sort_added_rev': {"en": 'Added longest ago', "ru": 'Добавлены раньше всех', "he": 'נוספו מזמן'},
+    # The reverse row says what it will DO, in the terms of the order you're in:
+    # names run A–Z, dates run oldest/newest. "Reverse" alone leaves you guessing
+    # which end you'd end up at.
+    'index.sort_flip_za': {"en": 'Turn around — Z to A', "ru": 'Наоборот — от Я к А', "he": 'להפוך — מת׳ לא׳'},
+    'index.sort_flip_az': {"en": 'Turn around — A to Z', "ru": 'Наоборот — от А к Я', "he": 'להפוך — מא׳ לת׳'},
+    'index.sort_flip_oldest': {"en": 'Turn around — oldest first', "ru": 'Наоборот — сначала старые', "he": 'להפוך — הישנים תחילה'},
+    'index.sort_flip_newest': {"en": 'Turn around — newest first', "ru": 'Наоборот — сначала новые', "he": 'להפוך — החדשים תחילה'},
     'index.source_group': {"en": 'Source', "ru": 'Источник', "he": 'מקור'},
     'index.type_all': {"en": 'all', "ru": 'все', "he": 'הכול'},
     'index.updated_aria': {"en": 'When updated', "ru": 'Когда обновлялись', "he": 'מתי עודכנו'},

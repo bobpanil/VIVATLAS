@@ -47,6 +47,10 @@ class Filters:
     draft: str = ""
     zone: str = ""  # "private" | "common" — filter by card zone
     sort: str = ""  # "" | "name" | "updated" | "added" — order in the catalogue
+    # "" keeps each order's natural direction (A→Z by name, newest first by date);
+    # "asc"/"desc" say it outright. Kept separate from `sort` so reversing doesn't
+    # multiply the orders into six names to choose between.
+    dir: str = ""
 
     def active(self) -> bool:
         # Sorting is not a filter: it hides nothing, so it's not counted in the
@@ -70,6 +74,7 @@ class Filters:
             "draft": self.draft,
             "zone": self.zone,
             "sort": self.sort,
+            "dir": self.dir,
         }
         out.update(override)
         if drop:
@@ -179,10 +184,22 @@ def count_matching(session: Session, f: Filters) -> int:
     return session.scalar(apply(select(func.count(Artifact.id)), f, session=session)) or 0
 
 
-def sort_order(sort: str) -> list:
+def descending_by_default(sort: str) -> bool:
+    """Which way an order runs when nobody has said. Dates read newest-first — that's
+    what you mean by "recently added" — while a name reads A→Z."""
+    return sort in ("updated", "added")
+
+
+def sort_order(sort: str, direction: str = "") -> list:
     """ORDER BY for browsing the catalogue. Default is by name (A→Z). "updated" —
     freshly updated on top, "added" — recently created. We take the source date via
-    a subquery, not a join, so it won't clash with a possible join on owner."""
+    a subquery, not a join, so it won't clash with a possible join on owner.
+
+    `direction` ("asc"/"desc") turns any of them around; empty keeps the natural one.
+    The tie-breaker stays A→Z either way: reversing "recently added" should hand back
+    the oldest first, not shuffle the cards that share a date.
+    """
+    down = descending_by_default(sort) if direction not in ("asc", "desc") else direction == "desc"
     if sort == "updated":
         upd = (
             select(Repository.remote_updated_at)
@@ -190,10 +207,10 @@ def sort_order(sort: str) -> list:
             .scalar_subquery()
         )
         # In SQLite NULL sinks to the bottom on DESC by itself — undated cards end up last.
-        return [upd.desc(), Artifact.name]
+        return [upd.desc() if down else upd.asc(), Artifact.name]
     if sort == "added":
-        return [Artifact.created_at.desc(), Artifact.name]
-    return [Artifact.name]
+        return [Artifact.created_at.desc() if down else Artifact.created_at.asc(), Artifact.name]
+    return [Artifact.name.desc() if down else Artifact.name.asc()]
 
 
 def tag_groups(

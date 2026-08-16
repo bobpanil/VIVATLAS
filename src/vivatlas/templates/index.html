@@ -61,20 +61,49 @@
                and the order the catalogue is in is not a filter, it's what you're
                looking at. On search, relevance sets the order, so it steps aside. #}
             {% if not link and not q %}
+            {# Which way it runs now, and which way the toggle would put it. Dates read
+               newest-first naturally, a name A→Z; "dir" only says so when it differs. #}
+            {% set down = (f.dir == 'desc') if f.dir else (f.sort in ('updated', 'added')) %}
+            {% set flip = 'asc' if down else 'desc' %}
+            {# The button names the order that is actually in force — "Recently added"
+               over a list starting with the oldest would simply be untrue. #}
+            {% set natural = (f.sort in ('updated', 'added')) == down %}
+            {% if natural %}
             {% set sort_label = {'updated': t('index.sort_updated'), 'added': t('index.sort_added')}.get(f.sort, t('index.sort_name')) %}
+            {% else %}
+            {% set sort_label = {'updated': t('index.sort_updated_rev'), 'added': t('index.sort_added_rev')}.get(f.sort, t('index.sort_name_rev')) %}
+            {% endif %}
             <div class="sortctl" id="sortctl">
                 <button class="filters-btn sort-btn" type="button" id="sort-btn"
                         aria-expanded="false" aria-controls="sort-menu"
                         title="{{ t('index.sort_group') }}">
                     {{ icons.ic('sort') }}<span class="sort-cur">{{ sort_label }}</span>
+                    <span class="sort-dir" aria-hidden="true">{{ '↓' if down else '↑' }}</span>
                 </button>
+                {# Picking an order leaves its direction out (dir=''), so each one comes
+                   back the way you last had IT — carrying the current direction across
+                   would silently stand a different order on its head. #}
                 <div class="sort-menu" id="sort-menu" role="menu" hidden>
-                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='name') | urlencode }}"
+                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='name', dir='') | urlencode }}"
                        {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
-                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='updated') | urlencode }}"
+                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='updated', dir='') | urlencode }}"
                        {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
-                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='added') | urlencode }}"
+                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='added', dir='') | urlencode }}"
                        {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
+                    {# Which way round — a row of its own rather than six orders to
+                       choose between, worded in the terms of the order you're in:
+                       names run A–Z, dates run oldest/newest. #}
+                    {% set dated = f.sort in ('updated', 'added') %}
+                    {% if dated %}
+                    {% set flip_label = t('index.sort_flip_oldest') if down else t('index.sort_flip_newest') %}
+                    {% else %}
+                    {% set flip_label = t('index.sort_flip_az') if down else t('index.sort_flip_za') %}
+                    {% endif %}
+                    <a class="sort-opt sort-flip" role="menuitem" id="sort-flip"
+                       href="/?{{ f.as_query(dir=flip) | urlencode }}">
+                        <span aria-hidden="true">{{ '↑' if down else '↓' }}</span>
+                        {{ flip_label }}
+                    </a>
                 </div>
             </div>
             {% endif %}

@@ -188,13 +188,20 @@ async def index(
     draft: str = "",
     zone: str = "",
     sort: str = "",
+    dir: str = "",
 ) -> HTMLResponse:
     # Default the catalogue to newest-added, and remember an explicit sort choice in a
     # cookie so it holds across navigations, tabs and windows — no re-picking on return.
     chosen_sort = sort or request.cookies.get("vivatlas_sort") or "added"
+    # The direction is remembered per order, not globally: reversing names says nothing
+    # about which way you want dates, and one shared setting would have picking a
+    # different order silently turn it upside down.
+    chosen_dir = dir or request.cookies.get(f"vivatlas_dir_{chosen_sort}") or ""
+    if chosen_dir not in ("asc", "desc"):
+        chosen_dir = ""
     f = flt.Filters(
         type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat,
-        purpose=purpose, draft=draft, zone=zone, sort=chosen_sort,
+        purpose=purpose, draft=draft, zone=zone, sort=chosen_sort, dir=chosen_dir,
     )
 
     # A link pasted into search — searching for it among names is pointless: such
@@ -244,7 +251,7 @@ async def index(
             else:
                 query = flt.apply(
                     select(Artifact), f, fav_ids, user_id, session=session
-                ).order_by(*flt.sort_order(f.sort))
+                ).order_by(*flt.sort_order(f.sort, f.dir))
                 items = [
                     _card(session, a, [], fav_ids, lang, user_id) for a in session.scalars(query)
                 ]
@@ -278,6 +285,11 @@ async def index(
             if sort:  # an explicit sort choice — remember it for next time
                 resp.set_cookie(
                     "vivatlas_sort", sort, max_age=180 * 24 * 3600, samesite="lax", path="/"
+                )
+            if dir:  # …and which way round, kept per order (see above)
+                resp.set_cookie(
+                    f"vivatlas_dir_{chosen_sort}", dir,
+                    max_age=180 * 24 * 3600, samesite="lax", path="/",
                 )
             return resp
     finally:

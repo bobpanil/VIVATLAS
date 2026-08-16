@@ -5631,6 +5631,25 @@ a.art-chip-pur:hover { border-color: currentColor; }
     white-space: nowrap;
 }
 
+/* Which way the order runs, on the button itself — so it's answered without opening. */
+.sort-dir {
+    font-size: 13px;
+    line-height: 1;
+    color: var(--mute);
+}
+
+/* The reverse row sits apart from the orders: it changes a different thing. */
+.sort-flip {
+    margin-top: 4px;
+    padding-top: 11px;
+    border-top: 1px solid var(--hairline);
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+    color: var(--mute);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .sort-menu {
     position: absolute;
     top: calc(100% + 6px);

@@ -70,10 +70,12 @@ def test_a_chosen_purpose_wins_over_the_tags(make_session):
 
 
 def test_a_card_the_tags_cannot_place_can_still_be_given_one(make_session):
-    """The whole complaint: 'undetermined' with no way out."""
+    """A card the tags can't place still gets a purpose — from the kind of card it is —
+    and the person can still overrule whatever that guess landed on."""
     session = make_session()
     art = _card(session, "mystery")
-    assert purposes.detect_for(session, art.id, art.name)[0].key == "unknown"
+    guessed = purposes.detect_for(session, art.id, art.name)[0].key
+    assert guessed != "unknown"
 
     art.purpose_override = "design"
     session.commit()

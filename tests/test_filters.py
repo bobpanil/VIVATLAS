@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from vivatlas import filters
+from vivatlas import filters, purposes
 from vivatlas.models import Artifact, ArtifactTag, Repository, Source, Tag, UpstreamLink
 
 
@@ -163,8 +163,8 @@ def test_active_knows_when_nothing_is_set():
 
 @pytest.fixture
 def pcatalog(make_session):
-    """Cards whose tags resolve to a clear purpose. detect() needs at least two
-    matching signals, so each card carries two purpose tags (or none)."""
+    """Cards whose tags resolve to a clear purpose. One matching signal is enough to
+    decide, and a card with none falls back on the kind of card it is."""
     s = make_session()
     source = Source(kind="f", base_url="https://x", display_name="F")
     s.add(source)
@@ -191,7 +191,7 @@ def pcatalog(make_session):
     add("tokens", ["design-system", "typography"])   # -> design
     add("palette-kit", ["color-palette", "css"])      # -> design
     add("scanner", ["security-scanning", "sast"])     # -> security
-    add("misc", ["python"])                            # -> unknown (no purpose signal)
+    add("misc", ["python"])                            # no purpose signal -> falls back on type
     s.commit()
     return s
 
@@ -209,15 +209,19 @@ def test_filter_by_purpose_security(pcatalog):
     assert _pnames(pcatalog, filters.Filters(purpose="security")) == ["scanner"]
 
 
-def test_purpose_options_count_and_hide_unknown(pcatalog):
+def test_purpose_options_count_every_card(pcatalog):
+    # "misc" has no purpose signal in its tags, so it falls back on the kind of card
+    # it is. Every card lands somewhere and "unknown" is never a facet.
     opts = {o.value: o.count for o in filters.purpose_options(pcatalog)}
-    assert opts == {"design": 2, "security": 1}
-    assert "unknown" not in opts  # an unclassifiable card is never offered as a facet
+    assert opts == {"design": 2, "security": 1, "automation": 1}
+    assert "unknown" not in opts
 
 
 def test_purpose_options_ordered_as_in_purposes(pcatalog):
-    # PURPOSES lists security before design, so the facet follows that order.
-    assert [o.value for o in filters.purpose_options(pcatalog)] == ["security", "design"]
+    # PURPOSES lists security before design before automation, and the facet follows.
+    order = [o.value for o in filters.purpose_options(pcatalog)]
+    assert order == sorted(order, key=[p.key for p in purposes.all_purposes()].index)
+    assert order == ["security", "automation", "design"]
 
 
 def test_purpose_without_session_is_skipped(pcatalog):

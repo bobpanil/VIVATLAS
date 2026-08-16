@@ -364,9 +364,9 @@ def _purpose_map(session: Session, user_id: int | None = None) -> dict[int, str]
     own section and no purpose to speak of."""
     vis = visible_ids(user_id)
     rows = session.execute(
-        select(Artifact.id, Artifact.name, Artifact.purpose_override).where(
-            Artifact.id.in_(vis), Artifact.artifact_type != "draft"
-        )
+        select(
+            Artifact.id, Artifact.name, Artifact.purpose_override, Artifact.artifact_type
+        ).where(Artifact.id.in_(vis), Artifact.artifact_type != "draft")
     ).all()
     tags: dict[int, list[str]] = {}
     for aid, slug in session.execute(
@@ -376,11 +376,15 @@ def _purpose_map(session: Session, user_id: int | None = None) -> dict[int, str]
     ).all():
         tags.setdefault(aid, []).append(slug)
     out: dict[int, str] = {}
-    for aid, name, override in rows:
+    for aid, name, override, atype in rows:
         # A purpose chosen by hand wins here too, or filtering by it would quietly
         # disagree with the chip the card shows.
         chosen = purposes.by_key(override or "")
-        out[aid] = chosen.key if chosen else purposes.detect(tags.get(aid, []), name or "")[0].key
+        out[aid] = (
+            chosen.key
+            if chosen
+            else purposes.detect(tags.get(aid, []), name or "", atype or "")[0].key
+        )
     return out
 
 

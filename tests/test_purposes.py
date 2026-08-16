@@ -39,26 +39,40 @@ def test_performance_auditor():
     assert p.key == "performance"
 
 
-# --- no guessing ---
+# --- always an answer ---
 
 
-def test_single_tag_is_not_enough():
-    # A single match is a coincidence. Real case:
-    # site-unused-items-auditor came out as "security" from one tag.
+def test_single_tag_decides():
+    # One match is enough now. It can be a coincidence — site-unused-items-auditor
+    # comes out "security" off one tag — and the card's own picker is the correction.
     p, score = detect(["static-analysis"], "site-unused-items-auditor")
-    assert p.key == "unknown"
+    assert p.key != "unknown"
     assert score == 1
 
 
-def test_no_tags_no_purpose():
-    p, score = detect([], "whatever")
-    assert p.key == "unknown"
-    assert score == 0
+def test_no_tags_falls_back_to_the_kind_of_card():
+    # Nothing to read from tags or name, so the type answers instead.
+    assert detect([], "whatever", "design-kit")[0].key == "design"
+    assert detect([], "whatever", "page")[0].key == "research"
+    assert detect([], "whatever", "project")[0].key == "code"
+    # Skills, agents, commands, plugins, MCP servers all do work.
+    assert detect([], "whatever", "claude-agent")[0].key == "automation"
 
 
-def test_unrelated_tags_give_unknown():
-    p, _ = detect(["something", "weird", "unrelated"], "mystery-box")
-    assert p.key == "unknown"
+def test_unrelated_tags_still_get_a_purpose():
+    p, _ = detect(["something", "weird", "unrelated"], "mystery-box", "project")
+    assert p.key == "code"
+
+
+def test_nothing_is_ever_undetermined():
+    """The whole point: no combination of inputs answers "undetermined"."""
+    types = ["design-kit", "claude-skill", "skill", "claude-agent", "mcp-server",
+             "plugin", "project", "page", "unknown", ""]
+    tagsets = [[], ["static-analysis"], ["something", "weird"], ["wcag"]]
+    for atype in types:
+        for tags in tagsets:
+            for name in ("", "mystery-box"):
+                assert detect(tags, name, atype)[0].key != "unknown"
 
 
 def test_two_tags_are_enough():

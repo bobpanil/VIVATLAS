@@ -226,14 +226,34 @@ _NAME_HINTS: list[tuple[str, tuple[str, ...]]] = [
 ]
 
 NAME_WEIGHT = 3
-MIN_SCORE = 2  # a single chance match isn't a conclusion
+MIN_SCORE = 1  # one match decides; a card is never left without an answer
+
+# What a card is for when its tags and name say nothing — read off the one thing we
+# always know, the kind of card it is. A guess from the type is still a guess, but it
+# is made from something real rather than from nothing, and it means no card in the
+# catalogue is ever shown as undetermined.
+_TYPE_FALLBACK = {
+    "design-kit": "design",
+    "page": "research",
+    "project": "code",
+}
+# Skills, agents, commands, plugins, MCP servers: things that go and do the work.
+_FALLBACK_DEFAULT = "automation"
 
 
-def detect(tag_slugs: list[str], name: str = "") -> tuple[Purpose, int]:
-    """Purpose from tags and name. Returns (purpose, weight).
+def _from_type(artifact_type: str) -> Purpose:
+    """The answer when tags and name give nothing. Always a real purpose."""
+    key = _TYPE_FALLBACK.get(artifact_type, _FALLBACK_DEFAULT)
+    return next(p for p, _ in PURPOSES if p.key == key)
 
-    Fewer than two matches — we don't decide. A lone tag is coincidence, and
-    a wrong icon is worse than none: it lies, an empty one just stays silent.
+
+def detect(tag_slugs: list[str], name: str = "", artifact_type: str = "") -> tuple[Purpose, int]:
+    """Purpose from tags and name, falling back to the kind of card. Returns
+    (purpose, weight).
+
+    One match is enough to decide. Nothing at all falls back to the card's type, so
+    this never answers "undetermined" — every card carries a purpose, and anyone who
+    disagrees with the one it picked can set it by hand, which always wins.
     """
     tags = {t.lower() for t in tag_slugs}
     lowered = name.lower()
@@ -249,12 +269,12 @@ def detect(tag_slugs: list[str], name: str = "") -> tuple[Purpose, int]:
             scores[key] = scores.get(key, 0) + NAME_WEIGHT
 
     if not scores:
-        return UNKNOWN, 0
+        return _from_type(artifact_type), 0
 
     order = {p.key: i for i, (p, _) in enumerate(PURPOSES)}
     best_key = min(scores, key=lambda k: (-scores[k], order.get(k, 99)))
     if scores[best_key] < MIN_SCORE:
-        return UNKNOWN, scores[best_key]
+        return _from_type(artifact_type), scores[best_key]
 
     purpose = next(p for p, _ in PURPOSES if p.key == best_key)
     return purpose, scores[best_key]
@@ -277,7 +297,11 @@ def resolve(artifact, tag_slugs: list[str]) -> tuple[Purpose, int]:
     chosen = by_key(getattr(artifact, "purpose_override", "") or "")
     if chosen is not None:
         return chosen, 99
-    return detect(tag_slugs, getattr(artifact, "name", "") or "")
+    return detect(
+        tag_slugs,
+        getattr(artifact, "name", "") or "",
+        getattr(artifact, "artifact_type", "") or "",
+    )
 
 
 def detect_for(session: Session, artifact_id: int, name: str = "") -> tuple[Purpose, int]:
@@ -294,7 +318,7 @@ def detect_for(session: Session, artifact_id: int, name: str = "") -> tuple[Purp
     chosen = by_key(getattr(art, "purpose_override", "") or "") if art is not None else None
     if chosen is not None:
         return chosen, 99
-    return detect(slugs, name)
+    return detect(slugs, name, getattr(art, "artifact_type", "") or "")
 
 
 def all_purposes() -> list[Purpose]:

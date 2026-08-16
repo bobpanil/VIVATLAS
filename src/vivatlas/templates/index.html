@@ -12,6 +12,11 @@
 {% set sa = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) + (1 if f.purpose else 0) %}
 <button class="tnav-btn{% if sa %} on{% endif %}" type="button" id="filters-btn-top"
         aria-expanded="false" aria-controls="sheet" aria-label="{{ t('index.filters') }}">{{ icons.ic('filter') }}{% if sa %}<b class="fbadge">{{ sa }}</b>{% endif %}</button>
+{% if not q %}
+<button class="tnav-btn" type="button" id="sort-btn-top"
+        aria-expanded="false" aria-controls="sort-menu"
+        aria-label="{{ t('index.sort_group') }}">{{ icons.ic('sort') }}</button>
+{% endif %}
 <button class="tnav-btn" type="button" id="search-toggle"
         aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">{{ icons.ic('search') }}</button>
 {% endif %}
@@ -51,6 +56,28 @@
         </form>
 
         <div class="toolbar-right">
+            {# Sorting, out where it can be seen. It used to live inside the Filters
+               panel, which meant you had to already know it was there to find it —
+               and the order the catalogue is in is not a filter, it's what you're
+               looking at. On search, relevance sets the order, so it steps aside. #}
+            {% if not link and not q %}
+            {% set sort_label = {'updated': t('index.sort_updated'), 'added': t('index.sort_added')}.get(f.sort, t('index.sort_name')) %}
+            <div class="sortctl" id="sortctl">
+                <button class="filters-btn sort-btn" type="button" id="sort-btn"
+                        aria-expanded="false" aria-controls="sort-menu"
+                        title="{{ t('index.sort_group') }}">
+                    {{ icons.ic('sort') }}<span class="sort-cur">{{ sort_label }}</span>
+                </button>
+                <div class="sort-menu" id="sort-menu" role="menu" hidden>
+                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='name') | urlencode }}"
+                       {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
+                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='updated') | urlencode }}"
+                       {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
+                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='added') | urlencode }}"
+                       {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
+                </div>
+            </div>
+            {% endif %}
             {% if not link %}
             <button class="filters-btn{% if sheet_active %} on{% endif %}" type="button"
                     id="filters-btn" aria-expanded="false" aria-controls="sheet"
@@ -84,19 +111,10 @@
                     <button class="sheet-x" type="button" id="sheet-x" aria-label="{{ t('index.close') }}">×</button>
                 </div>
                 <div class="sheet-body">
-                    {# Catalogue sorting. On search, relevance sets the order —
-                       there we don't show sorting. #}
-                    {% if not q %}
-                    <p class="fgroup">{{ t('index.sort_group') }}</p>
-                    <nav class="filters" aria-label="{{ t('index.sort_group') }}">
-                        <a class="filter" href="/?{{ f.as_query(sort='name') | urlencode }}"
-                           {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
-                        <a class="filter" href="/?{{ f.as_query(sort='updated') | urlencode }}"
-                           {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
-                        <a class="filter" href="/?{{ f.as_query(sort='added') | urlencode }}"
-                           {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
-                    </nav>
-                    {% endif %}
+                    {# Sorting used to sit here, first in the panel, and was missed
+                       precisely because it sat here: you had to open Filters to learn
+                       it existed. It now lives in the toolbar, where the order the
+                       catalogue is in can be seen without opening anything. #}
 
                     {# Type/zone/favourites — now here, not as a separate row at the top. #}
                     <p class="fgroup">{{ t('index.view_group') }}</p>
@@ -303,6 +321,36 @@ function dismissRemoved() {
     apply(saved || slider.value, false);
 
     slider.addEventListener('input', function () { apply(slider.value, true); });
+})();
+
+// Sort menu. Three links, so it needs no state of its own — the page reloads in the
+// chosen order and the button then shows it. Closes on a click elsewhere or Esc, the
+// same way the account menu does.
+(function () {
+    var menu = document.getElementById('sort-menu');
+    if (!menu) return;
+    var buttons = ['sort-btn', 'sort-btn-top']
+        .map(function (id) { return document.getElementById(id); })
+        .filter(Boolean);
+    if (!buttons.length) return;
+
+    function open(yes) {
+        menu.hidden = !yes;
+        buttons.forEach(function (b) { b.setAttribute('aria-expanded', yes ? 'true' : 'false'); });
+    }
+
+    buttons.forEach(function (b) {
+        b.addEventListener('click', function (e) {
+            e.stopPropagation();
+            open(menu.hidden);
+        });
+    });
+    document.addEventListener('click', function (e) {
+        if (!menu.hidden && !menu.contains(e.target)) open(false);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !menu.hidden) { open(false); buttons[0].focus(); }
+    });
 })();
 
 // Filters sheet. On desktop it drops down under the button, on the phone — from the bottom.

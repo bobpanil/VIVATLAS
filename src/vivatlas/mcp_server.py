@@ -135,13 +135,19 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
     model = build_embedding_model()
     try:
         with session_scope() as session:
-            hits = await do_search(
-                session, query, model, mode=Mode.BOTH, limit=limit, artifact_type=type or None
-            )
             # MCP connects without sign-in, so it's anonymous — we return only
             # shared cards. Otherwise other people's private stuff would leak through it.
+            # Handed to the search rather than applied to what it returns: see search().
             visible = set(session.scalars(flt.visible_ids(_caller_user_id())))
-            hits = [h for h in hits if h.artifact_id in visible]
+            hits = await do_search(
+                session,
+                query,
+                model,
+                mode=Mode.BOTH,
+                limit=limit,
+                artifact_type=type or None,
+                allowed_ids=visible,
+            )
             return {
                 "query": query,
                 "found": len(hits),

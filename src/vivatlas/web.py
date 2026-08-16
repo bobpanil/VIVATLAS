@@ -468,7 +468,7 @@ def _card(
         "categories": _artifact_categories(session, a.id, user_id, lang),
         "id": a.id,
         "name": tr["name"],
-        "owner": a.repository.owner,
+        "owner": a.repository.owner_label,
         "type": a.artifact_type,
         "summary_short": tr["summary_short"],
         "preview_url": preview_url(a),
@@ -1881,7 +1881,7 @@ async def add_run(
             card = {
                 "id": art.id,
                 "name": art.name,
-                "owner": art.repository.owner,
+                "owner": art.repository.owner_label,
                 "summary_short": art.summary_short,
                 "preview_url": preview_url(art),
             }
@@ -1968,7 +1968,7 @@ def add_draft(
         card = {
             "id": art.id,
             "name": art.name,
-            "owner": art.repository.owner,
+            "owner": art.repository.owner_label,
             "summary_short": art.summary_short,
             "preview_url": preview_url(art),
         }

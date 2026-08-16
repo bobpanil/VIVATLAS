@@ -2,7 +2,7 @@
 {% import "_icons.html" as icons %}
 
 {% block title %}{{ tr.name }} — VIVATLAS{% endblock %}
-{% block modal_title %}<span class="art-owner">{{ a.repository.owner }}/</span>{{ tr.name }}{% endblock %}
+{% block modal_title %}{% if a.repository.owner_label %}<span class="art-owner">{{ a.repository.owner_label }}/</span>{% endif %}{{ tr.name }}{% endblock %}
 
 {# Chips "zone / type / purpose" — up top, next to the title, on the right. #}
 {% block modal_head_extra %}

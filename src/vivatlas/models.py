@@ -20,6 +20,11 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+# The owner a hand-added card is parked under until a link says where it came from.
+# Storage, not a name to show — see Repository.owner_label.
+DRAFT_OWNER = "draft"
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -99,8 +104,19 @@ class Repository(Base):
     __table_args__ = (UniqueConstraint("source_id", "external_id", name="uq_repo_external"),)
 
     @property
+    def owner_label(self) -> str:
+        """Who the card came from, for showing. Empty when there's nobody to name.
+
+        A card added by hand is parked in the "Drafts" bin under the literal owner
+        "draft" until a link tells us the site it came from. With no link there never
+        is one, and the card still graduates to the catalogue once the AI describes
+        it — so without this the bin's name is what the catalogue shows: "draft/…".
+        """
+        return "" if self.owner == DRAFT_OWNER else self.owner
+
+    @property
     def full_name(self) -> str:
-        return f"{self.owner}/{self.name}"
+        return f"{self.owner_label}/{self.name}" if self.owner_label else self.name
 
 
 class Artifact(Base):

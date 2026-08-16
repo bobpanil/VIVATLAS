@@ -131,7 +131,7 @@
         <img class="done-thumb" src="{{ card.preview_url }}" alt="">
         {% endif %}
         <div class="done-card-body">
-            <div class="card-name"><span class="card-owner">{{ card.owner }}/</span>{{ card.name }}</div>
+            <div class="card-name">{% if card.owner %}<span class="card-owner">{{ card.owner }}/</span>{% endif %}{{ card.name }}</div>
             <p class="card-sum">{{ card.summary_short or t('add.done.no_summary') }}</p>
         </div>
     </div>

@@ -14,7 +14,10 @@ dependencies = [
     "typer>=0.15",
     "numpy>=2.0",
     "jinja2>=3.1",
-    "mcp>=1.2",
+    # MCP for remote assistants. Held below 2.0: that release moved the package to new
+    # stewardship and dropped mcp.server.fastmcp, which we import. Lift the ceiling only
+    # together with the migration to the 2.x server API.
+    "mcp>=1.28,<2",
     # --- door ---
     # argon2 — not bcrypt: bcrypt silently truncates the password at 72 bytes, while argon2id
     # is the password-hashing-competition winner and can be tuned by memory.

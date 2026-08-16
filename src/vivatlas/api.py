@@ -16,7 +16,6 @@ from vivatlas.admin_web import router as admin_router
 from vivatlas.ai import build_embedding_model
 from vivatlas.auth_web import router as auth_router
 from vivatlas.db import session_scope
-from vivatlas.mcp_server import http_app as mcp_http_app
 from vivatlas.models import Artifact, ArtifactTag, Repository, ScanRun, Source, Tag, TagSuppression
 from vivatlas.search import Mode
 from vivatlas.search import search as do_search
@@ -129,7 +128,19 @@ async def _lifespan(app: FastAPI):
             runtime_settings.apply_config_overrides(s)
     tasks = [asyncio.create_task(_autoscan_loop()), asyncio.create_task(_retry_loop())]
     try:
-        yield
+        async with contextlib.AsyncExitStack() as stack:
+            # The mounted MCP application has a lifespan of its own, and that lifespan is
+            # what starts the streamable-http session manager's task group. Starlette
+            # does not run the lifespan of a mounted app — mounting only wires up
+            # routing — so we enter it here, by hand. Without this every request to
+            # /mcp-server dies on "Task group is not initialized", which is what the
+            # connector did, silently, for as long as it has existed: the health check
+            # only ever asks for "/".
+            if _mcp_asgi_app is not None:
+                await stack.enter_async_context(
+                    _mcp_asgi_app.router.lifespan_context(_mcp_asgi_app)
+                )
+            yield
     finally:
         for task in tasks:
             task.cancel()
@@ -231,10 +242,21 @@ app.include_router(settings_router)
 app.include_router(admin_router)
 app.include_router(web_router)
 
-# The OAuth consent page for the MCP connector.
-from vivatlas.mcp_web import router as mcp_router  # noqa: E402
+# The OAuth consent page for the MCP connector, and the connector itself. Both reach
+# into the mcp package — the consent page through mcp_oauth — so both are brought in
+# here, together, behind one guard. MCP is one way into the catalogue, not the
+# catalogue: if that package moves under us, the site keeps serving and only the
+# connector goes dark.
+try:
+    from vivatlas.mcp_web import router as mcp_router  # noqa: E402
+    from vivatlas.mcp_server import http_app as mcp_http_app  # noqa: E402
+except Exception:
+    mcp_router = None
+    mcp_http_app = None
+    log.warning("MCP unavailable; serving without it", exc_info=True)
 
-app.include_router(mcp_router)
+if mcp_router is not None:
+    app.include_router(mcp_router)
 
 # The browser extension's JSON API. Imported here (not at the top) so its dependency
 # on web.py is resolved after the web router is in place.
@@ -243,8 +265,13 @@ from vivatlas.ext_api import router as ext_router  # noqa: E402
 app.include_router(ext_router)
 
 # MCP for remote AI assistants. As a separate application: it has its own lifecycle, and
-# mixing it with the regular pages isn't allowed.
-app.mount("/mcp-server", mcp_http_app())
+# mixing it with the regular pages isn't allowed. Built once and kept here: _lifespan
+# has to start this exact instance, and a second call to http_app() would hand it a
+# different one — routing would point at an application nobody ever started.
+_mcp_asgi_app = None
+if mcp_http_app is not None:
+    _mcp_asgi_app = mcp_http_app()
+    app.mount("/mcp-server", _mcp_asgi_app)
 
 
 @app.get("/health")

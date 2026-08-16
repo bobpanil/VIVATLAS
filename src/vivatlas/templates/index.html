@@ -76,8 +76,8 @@
             <div class="sortctl" id="sortctl">
                 <button class="filters-btn sort-btn" type="button" id="sort-btn"
                         aria-expanded="false" aria-controls="sort-menu"
-                        title="{{ t('index.sort_group') }}">
-                    {{ icons.ic('sort') }}<span class="sort-cur">{{ sort_label }}</span>
+                        aria-label="{{ sort_label }}" title="{{ sort_label }}">
+                    {{ icons.ic('sort') }}
                     <span class="sort-dir" aria-hidden="true">{{ '↓' if down else '↑' }}</span>
                 </button>
                 {# Picking an order leaves its direction out (dir=''), so each one comes

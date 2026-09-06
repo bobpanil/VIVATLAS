@@ -237,3 +237,69 @@ async def test_the_candidates_go_as_one_picture():
     model = _StubModel(pick=2)
     await previews.pick_with_model(model, imgs, "Thing")
     assert model.calls == 1  # not three
+
+
+# --- the filler must keep moving --------------------------------------------
+
+
+def test_a_page_that_is_not_a_repository_gets_no_raw_base():
+    """For a scanned repo or a GitHub link, raw files live somewhere. For ltx.io
+    they do not, and hunting for README.md there is five 404s per card per pass."""
+    assert previews.raw_base("https://github.com/o/r", "main")
+    assert previews.raw_base("https://git.example.com/o/r", "main")
+    # the caller decides; but a bare page URL must at least round-trip harmlessly
+    assert previews.host_card("https://ltx.io/some/page") == ""
+
+
+@pytest.mark.asyncio
+async def test_the_filler_rotates_rather_than_starving(make_session, monkeypatch):
+    """The bug this guards: ordering by "most recently updated" put the same
+    twenty link captures — with nothing to find — at the front of every pass,
+    so the rest of the catalogue never got a turn. Every attempt is stamped, and
+    never-checked cards go first."""
+    from datetime import UTC, datetime
+
+    from vivatlas import web
+    from vivatlas.models import Artifact, Repository
+
+    session = make_session()
+    for i in range(6):
+        repo = Repository(
+            source_id=1, external_id=f"e{i}", owner="o", name=f"r{i}", default_branch="main",
+            html_url="", original_url="https://example.invalid/nothing",
+        )
+        session.add(repo)
+        session.flush()
+        session.add(Artifact(repository_id=repo.id, name=f"r{i}", artifact_type="page",
+                             updated_at=datetime.now(UTC)))
+    session.commit()
+
+    # every attempt finds nothing — the worst case for starvation
+    async def nothing(*a, **k):
+        return False
+    monkeypatch.setattr(previews, "refresh_artifact", nothing)
+    monkeypatch.setattr(web, "session_scope", lambda: _Scope(session))
+
+    touched = []
+    for _ in range(3):
+        before = {a.id for a in session.query(Artifact) if a.preview_checked_at}
+        await web.fill_missing_previews(2)
+        after = {a.id for a in session.query(Artifact) if a.preview_checked_at}
+        touched.append(after - before)
+
+    # three passes of two, six cards: each pass reached two NEW ones
+    assert [len(t) for t in touched] == [2, 2, 2]
+    assert len(set().union(*touched)) == 6
+
+
+class _Scope:
+    """A session_scope() stand-in that hands back the test's own session."""
+
+    def __init__(self, session):
+        self.session = session
+
+    def __enter__(self):
+        return self.session
+
+    def __exit__(self, *exc):
+        return False

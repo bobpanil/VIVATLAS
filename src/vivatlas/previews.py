@@ -219,6 +219,22 @@ def raw_base(html_url: str, branch: str) -> str:
     return f"{url}/raw/branch/{branch}"
 
 
+async def page_image(url: str) -> str:
+    """The og:image a page names for itself — what a link shared into a chat
+    would show. For a captured link that is not a repository, it is the only
+    picture there is, and it is usually a good one: sites choose it on purpose."""
+    if not url.lower().startswith(("http://", "https://")):
+        return ""
+    try:
+        from vivatlas.finder import fetch_page_meta
+
+        og = await fetch_page_meta(url, timeout=15.0)
+        return (og.get("image") or "").strip()
+    except Exception as exc:  # noqa: BLE001 — a page that won't open is no failure of ours
+        log.debug("preview: no og:image for %s (%s)", url, exc)
+        return ""
+
+
 def host_card(html_url: str) -> str:
     """The social card the host draws for a repository — name, description, owner's
     avatar, stars. Never the project's own work, so it is the last resort; but it
@@ -491,8 +507,19 @@ async def refresh_artifact(
         return False
 
     repo = artifact.repository
-    html_url = repo.html_url if repo else ""
-    base = raw_base(html_url, repo.default_branch if repo else "main")
+    # A scanned repository has html_url; a link captured from a phone or the
+    # extension has html_url="" and keeps the page it came from in original_url.
+    # Those were getting nothing at all — no raw base, no host card — while the
+    # page they point at usually carries a perfectly good og:image.
+    html_url = (repo.html_url or repo.original_url or "") if repo else ""
+    # A raw base only where there is a repository to read raw files from: one we
+    # scanned, or a captured link that is itself a GitHub repo. For an ordinary
+    # web page it would be nonsense — five 404s hunting for a README on ltx.io.
+    is_repo = bool(repo and repo.html_url) or "github.com/" in html_url
+    base = raw_base(html_url, repo.default_branch if repo else "main") if is_repo else ""
+    og = host_card(html_url)
+    if html_url and not og:
+        og = await page_image(html_url)
 
     paths: list[str] = []
     if artifact.file_paths:
@@ -514,7 +541,7 @@ async def refresh_artifact(
         text,
         paths,
         base,
-        og_image=host_card(html_url),
+        og_image=og,
         model=model,
         name=artifact.name or "",
         about=artifact.summary_short or "",

@@ -36,6 +36,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # what the catalogue listing reads, so it must stay NULL for old rows
         # rather than defaulting to an empty string.
         "preview_src": "VARCHAR(1024)",
+        "preview_checked_at": "DATETIME",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",

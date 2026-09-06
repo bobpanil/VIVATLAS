@@ -207,6 +207,13 @@ class Artifact(Base):
     # image so a rescan can tell "same source, nothing to redo" from "the project
     # changed its banner".
     preview_src: Mapped[str | None] = mapped_column(String(1024))
+    # When we last LOOKED for a picture, whether or not one was found. This is
+    # what keeps the filler moving: without it, a batch of cards that have no
+    # picture to find — link captures, mostly — sits at the top of "most recently
+    # updated" and gets picked again every pass, and every card behind them
+    # waits forever. Ordering by this instead means every card gets its turn, and
+    # a card that yielded nothing is tried again only after all the others.
+    preview_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     doc_text: Mapped[str] = mapped_column(Text, default="")
     file_count: Mapped[int] = mapped_column(Integer, default=0)
     file_paths: Mapped[str] = mapped_column(Text, default="")  # JSON list of paths

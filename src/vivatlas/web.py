@@ -1306,10 +1306,14 @@ async def fill_missing_previews(limit: int = 20) -> int:
 
     filled = 0
     with session_scope() as session:
+        # Never-checked first, then whoever was checked longest ago. NOT "most
+        # recently updated": that put the same twenty link captures — which have
+        # no picture to find — at the front of every pass, and the whole
+        # catalogue behind them never got its turn.
         rows = (
             session.query(Artifact)
             .filter(Artifact.preview_src.is_(None))
-            .order_by(Artifact.updated_at.desc())
+            .order_by(Artifact.preview_checked_at.asc().nulls_first(), Artifact.id.asc())
             .limit(limit)
             .all()
         )
@@ -1319,7 +1323,11 @@ async def fill_missing_previews(limit: int = 20) -> int:
                     filled += 1
             except Exception:  # noqa: BLE001 — one bad card must not stop the batch
                 log.debug("preview for %s failed", art.name, exc_info=True)
+            # Stamped whether or not a picture came of it — that is the whole point.
+            art.preview_checked_at = datetime.now(UTC)
             session.commit()
+    if not filled:
+        log.info("previews: checked %d card(s), none had a picture to find", len(rows))
     return filled
 
 

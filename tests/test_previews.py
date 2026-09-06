@@ -489,3 +489,72 @@ def test_the_preview_address_changes_when_the_picture_does():
     assert before.startswith("/preview/7?v=") and after.startswith("/preview/7?v=")
     A.preview_src = None
     assert preview_url(A()) is None
+
+
+# --- Pollinations: free, keyless, opt-in ---------------------------------------
+
+
+def test_the_image_model_setting_names_the_drawer():
+    from vivatlas.ai import pollinations as pl
+
+    assert pl.is_pollinations("pollinations:flux")
+    assert pl.is_pollinations("Pollinations")
+    assert not pl.is_pollinations("gemini-3.1-flash-lite-image")
+    assert pl.model_name("pollinations:turbo") == "turbo"
+    assert pl.model_name("pollinations") == "flux"
+
+
+@pytest.mark.asyncio
+async def test_pollinations_needs_no_model_object(monkeypatch):
+    """It is a URL. A catalogue with no AI configured at all can still draw."""
+    import respx
+    from httpx import Response
+
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "pollinations:flux")
+    monkeypatch.setattr(previews, "_draw_paused_until", 0.0)
+    with respx.mock(base_url="https://image.pollinations.ai") as mock:
+        route = mock.get(path__startswith="/prompt/").mock(
+            return_value=Response(
+                200, content=_png(1280, 800), headers={"content-type": "image/png"}
+            )
+        )
+        webp, src = await previews.generated_picture(None, _Art())
+    assert webp and src == "generated:pollinations:flux"
+    assert route.called
+    params = route.calls[0].request.url.params
+    assert params["model"] == "flux" and params["nologo"] == "true"
+    assert params["width"] == "1280" and params["height"] == "800"
+
+
+@pytest.mark.asyncio
+async def test_a_stalled_pollinations_queue_pauses_briefly_and_the_cover_steps_in(monkeypatch):
+    import respx
+    from httpx import Response
+
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "pollinations:flux")
+    monkeypatch.setattr(previews, "_draw_paused_until", 0.0)
+    with respx.mock(base_url="https://image.pollinations.ai") as mock:
+        route = mock.get(path__startswith="/prompt/").mock(
+            return_value=Response(502, text="bad gateway")
+        )
+        first = await previews.generated_picture(None, _Art())
+        second = await previews.generated_picture(None, _Art())
+    assert first == (None, None) and second == (None, None)
+    assert route.call_count == 1  # paused after the first refusal
+    monkeypatch.setattr(previews, "_draw_paused_until", 0.0)
+
+
+@pytest.mark.asyncio
+async def test_google_is_still_the_drawer_for_a_google_model(monkeypatch):
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "gemini-3.1-flash-lite-image")
+    monkeypatch.setattr(previews, "_draw_paused_until", 0.0)
+    drawer = _Drawer(png=_png(1280, 800))
+    webp, src = await previews.generated_picture(drawer, _Art())
+    assert webp and src == "generated:gemini-3.1-flash-lite-image"
+    assert drawer.prompts[0][1] == "gemini-3.1-flash-lite-image"

@@ -566,7 +566,7 @@ async def refresh_artifact(
         name=artifact.name or "",
         about=artifact.summary_short or "",
     )
-    if not webp and model is not None:
+    if not webp:
         webp, src = await generated_picture(model, artifact)
     if not webp:
         # Nothing to find and nothing drawn: make a cover. Never None from here.
@@ -609,12 +609,12 @@ def _drawing_paused() -> bool:
     return time.monotonic() < _draw_paused_until
 
 
-def _pause_drawing(reason: str) -> None:
+def _pause_drawing(reason: str, seconds: float = _DRAW_PAUSE_SECONDS) -> None:
     import time
 
     global _draw_paused_until
-    _draw_paused_until = time.monotonic() + _DRAW_PAUSE_SECONDS
-    log.warning("preview: drawing paused for an hour — %s", reason[:160])
+    _draw_paused_until = time.monotonic() + seconds
+    log.warning("preview: drawing paused for %d min — %s", int(seconds // 60), reason[:160])
 
 
 async def generated_picture(model, artifact) -> tuple:
@@ -631,23 +631,39 @@ async def generated_picture(model, artifact) -> tuple:
     On a key with no image quota this fails with a 429 and the card stays plain;
     the filler comes back to it next lap.
     """
+    from vivatlas.ai import pollinations
     from vivatlas.config import settings
 
     which = (settings.image_model or "").strip()
-    if not which or not hasattr(model, "generate_image") or _drawing_paused():
+    if not which or _drawing_paused():
         return None, None
+
+    # Who draws: Pollinations needs no model object at all — it is a URL — so it
+    # works even when no text model is configured. Anything else is a Google
+    # image model, reached through the model that writes.
+    free = pollinations.is_pollinations(which)
+    if not free and not hasattr(model, "generate_image"):
+        return None, None
+
+    prompt = draw_prompt(
+        artifact.name or "", artifact.artifact_type or "", artifact.summary_short or ""
+    )
+    drawer = pollinations.PollinationsImages() if free else None
     try:
-        prompt = draw_prompt(
-            artifact.name or "", artifact.artifact_type or "", artifact.summary_short or ""
-        )
-        png = await model.generate_image(prompt, which)
-    except Exception as exc:  # noqa: BLE001 — quota, safety block, outage: the card stays plain
+        png = await (drawer or model).generate_image(prompt, which)
+    except Exception as exc:  # noqa: BLE001 — quota, outage, a slow queue: the card gets a cover
         text = str(exc)
-        if "429" in text or "quota" in text.lower():
+        if free:
+            # Their queue stalls now and then; ten minutes off, then try again.
+            _pause_drawing(text, seconds=600)
+        elif "429" in text or "quota" in text.lower():
             _pause_drawing(text)
         else:
             log.warning("preview: could not draw one for %s (%s)", artifact.name, text[:160])
         return None, None
+    finally:
+        if drawer is not None:
+            await drawer.aclose()
     webp = to_card_webp(png)
     return (webp, f"generated:{which}") if webp else (None, None)
 

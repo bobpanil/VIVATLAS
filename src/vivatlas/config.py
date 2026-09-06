@@ -66,9 +66,12 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     llm_model: str = "gemini-3.1-flash-lite"
     # The model that DRAWS — a card picture for a project that offers none of its
-    # own (no banner, no logo, no preview.svg). Empty disables generation and such
-    # cards keep the plain text box. On a free-tier key the image models answer
-    # 429 "quota exceeded" until billing is enabled; generation then just waits.
+    # own (no banner, no logo, no preview.svg). A Google image model needs billing
+    # on the project (the free tier has no image quota; it answers 429 and drawing
+    # waits). "pollinations:flux" uses Pollinations instead — free and keyless,
+    # soft and generic pictures, the card's name and summary sent to them. Empty
+    # means no drawing: such cards get the designed cover, which is also what any
+    # drawer falls back to.
     image_model: str = "gemini-3.1-flash-lite-image"
     embedding_model: str = "gemini-embedding-2"
     embedding_dim: int = 1536

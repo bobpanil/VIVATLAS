@@ -17,8 +17,8 @@ from urllib.parse import quote, urlsplit
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import delete as sa_delete
 from sqlalchemy import case, func, or_, select, text
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import update as sa_update
 
 from vivatlas import cardtext, caticons, catnames, i18n, security

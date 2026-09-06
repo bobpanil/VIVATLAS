@@ -65,7 +65,14 @@ def auth_token() -> str:
 
 
 @pytest.fixture(scope="session")
-def _browser():
+def _browser(base_url):
+    """Depends on base_url so the "no server" skip happens BEFORE Playwright starts.
+
+    Without that dependency pytest resolves this fixture first (it comes first in
+    `context`'s signature), so sync_playwright() opens its greenlet event loop and —
+    being session-scoped — holds it open for the whole run, even though the suite is
+    about to skip. Every later sync test that calls asyncio.run() then dies with
+    "Runner.run() cannot be called from a running event loop"."""
     pw = pytest.importorskip("playwright.sync_api")
     with pw.sync_playwright() as p:
         try:

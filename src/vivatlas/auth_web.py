@@ -5,7 +5,6 @@ itself. They also have their own template, without the catalogue sidebar:
 until you sign in, the catalogue must not be visible.
 """
 
-import ipaddress
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -214,18 +213,6 @@ async def _send_reset_quietly(cfg, to: str, subject: str, html: str, text: str) 
         log.warning("reset email failed to reach %s: %s", to, exc)
 
 
-def _is_local_host(host: str) -> bool:
-    """Is this our own address — loopback or home network. Only such hosts do we
-    trust to put themselves into the link when site_url is not set."""
-    if host == "localhost":
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return ip.is_loopback or ip.is_private
-
-
 def _reset_link_base(session, request: Request) -> str | None:
     """Where to get the domain for the link in the email. None — nowhere safe to take it from.
 
@@ -236,13 +223,7 @@ def _reset_link_base(session, request: Request) -> str | None:
     to a foreign domain and used to change the password (reset poisoning). On a
     public address without site_url we simply don't send the link.
     """
-    configured = runtime_settings.site_url(session)
-    if configured:
-        return configured
-    host = request.url.hostname or ""
-    if _is_local_host(host):
-        return str(request.base_url).rstrip("/")
-    return None
+    return runtime_settings.public_base_url(session, request)
 
 
 @router.post("/forgot")

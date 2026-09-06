@@ -24,13 +24,13 @@ def _req(host, base):
 
 
 def test_is_local_host():
-    assert auth_web._is_local_host("localhost")
-    assert auth_web._is_local_host("127.0.0.1")
-    assert auth_web._is_local_host("192.168.1.5")
-    assert auth_web._is_local_host("10.0.0.3")
-    assert not auth_web._is_local_host("evil.attacker.example")
-    assert not auth_web._is_local_host("8.8.8.8")  # public address — not our own
-    assert not auth_web._is_local_host("")
+    assert rs._is_local_host("localhost")
+    assert rs._is_local_host("127.0.0.1")
+    assert rs._is_local_host("192.168.1.5")
+    assert rs._is_local_host("10.0.0.3")
+    assert not rs._is_local_host("evil.attacker.example")
+    assert not rs._is_local_host("8.8.8.8")  # public address — not our own
+    assert not rs._is_local_host("")
 
 
 def test_configured_site_url_wins_over_spoofed_host(session):

@@ -20,10 +20,11 @@ from vivatlas.models import QrLogin, User
 class _FakeReq:
     """Enough of a Request for auth and qrlogin: headers, scheme, client, base_url."""
 
-    def __init__(self, headers=None, base_url="https://atlas.example.com/", scheme="https"):
+    def __init__(self, headers=None, base_url="http://127.0.0.1:8710/", scheme="https",
+                 host="127.0.0.1"):
         self.cookies = {}
         self.headers = headers or {}
-        self.url = SimpleNamespace(scheme=scheme)
+        self.url = SimpleNamespace(scheme=scheme, hostname=host)
         self.client = SimpleNamespace(host="9.9.9.9")
         self.base_url = base_url
 
@@ -130,30 +131,42 @@ def test_who_claimed_it_is_recorded(user):
     assert row.used_user_agent == "VIVATLAS-Android"
 
 
-def test_the_code_carries_the_server_the_browser_is_actually_on(user):
-    """One scan has to tell the phone *which* VIVATLAS as well as who — that is what
-    lets a fresh install sign in without being told an address."""
+def test_on_our_own_host_the_request_address_will_do(user):
+    """One scan has to tell the phone *which* VIVATLAS as well as who. On a LAN or
+    loopback address the request says so truthfully, and a home install should not
+    have to configure anything to sign a phone in."""
     session, _ = user
-    url = qrlogin.code_url(session, _FakeReq(base_url="https://atlas.example.com/"), "TOK")
-    assert url == "https://atlas.example.com/qr/TOK"
-
-    url = qrlogin.code_url(session, _FakeReq(base_url="http://10.0.0.5:8710/"), "TOK")
+    req = _FakeReq(base_url="http://10.0.0.5:8710/", host="10.0.0.5")
+    url = qrlogin.code_url(session, req, "TOK")
     assert url == "http://10.0.0.5:8710/qr/TOK"
 
 
 def test_the_configured_site_address_wins_over_the_request(user):
     """Behind a TLS-terminating proxy the request arrives as plain http on an
-    internal host, so base_url names an address the phone must not be sent to: an
-    http code for an https site walks the app into a 301 it will not follow, and the
-    sign-in fails with nothing on screen to explain it. The owner's configured
-    address is the real one — the same setting the reset emails use."""
+    internal address, so base_url names somewhere the phone must not be sent: an
+    http code for an https site walks the app into a 301 it will not follow, and
+    the sign-in fails with nothing on screen to explain it."""
     session, _ = user
     runtime_settings.set(session, runtime_settings.SITE_URL, "https://atlas.example.com")
     session.flush()
 
-    req = _FakeReq(base_url="http://172.17.0.4:8710/", scheme="http")
+    req = _FakeReq(base_url="http://172.17.0.4:8710/", host="172.17.0.4", scheme="http")
     assert qrlogin.code_url(session, req, "TOK") == "https://atlas.example.com/qr/TOK"
     assert qrlogin.code_origin(session, req) == "https://atlas.example.com"
+
+
+def test_no_code_at_all_for_a_public_host_with_no_site_address(user):
+    """The Host header is the client's word. Building a code from it on a public
+    address is how a reset link gets led off to a foreign domain — and this one
+    carries a credential the phone will hand straight back. Nothing to name means
+    no code: the page tells the owner what to set instead.
+
+    Deliberately not solved by TRUSTED_PROXIES. That makes the scheme truthful,
+    but it is optional, so most installs behind a tunnel would be quietly wrong."""
+    session, _ = user
+    req = _FakeReq(base_url="http://atlas.example.com/", host="atlas.example.com", scheme="http")
+    assert qrlogin.code_origin(session, req) is None
+    assert qrlogin.code_url(session, req, "TOK") is None
 
 
 def test_sweep_clears_stale_passes_but_leaves_live_ones(user):

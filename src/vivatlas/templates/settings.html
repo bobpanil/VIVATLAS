@@ -376,6 +376,12 @@
 {% endif %}
 
 {% if step == 'phoneqr' %}
+{% if not qr %}
+{# No address we are willing to put in a code: site_url is unset and the request
+   arrived on a public host, whose Host header the client chose. Say what to set
+   rather than hand out a code pointing somewhere we can't vouch for. #}
+<p class="warn">{{ t('settings.phone_need_site') }}</p>
+{% else %}
 <p class="legend">{{ t('settings.phone_lede') }}</p>
 
 <div class="qr">{{ qr }}</div>
@@ -389,6 +395,7 @@
    at all: the phone scans, and the sign-in just doesn't happen. #}
 <p class="legend">{{ t('settings.phone_points_at') }} <code>{{ qr_origin }}</code></p>
 <p class="legend">{{ t('settings.phone_warn') }}</p>
+{% endif %}
 {% endif %}
 
 {% if step == 'codes' %}
@@ -408,7 +415,7 @@
     <button class="cta" type="submit" form="qrform">{{ t('settings.confirm_enable') }}</button>
     {% elif step == 'phoneqr' %}
     <a class="btn-secondary foot-left" href="/settings">{{ t('settings.close') }}</a>
-    <form method="post" action="/settings/phone"><button class="cta" type="submit">{{ t('settings.phone_again') }}</button></form>
+    {% if qr %}<form method="post" action="/settings/phone"><button class="cta" type="submit">{{ t('settings.phone_again') }}</button></form>{% endif %}
     {% elif step == 'codes' %}
     <a class="cta" href="/settings">{{ t('settings.saved_next') }}</a>
     {% else %}

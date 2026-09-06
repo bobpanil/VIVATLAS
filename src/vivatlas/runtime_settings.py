@@ -9,8 +9,10 @@ database encrypted (Fernet on the secret key) and leaves only masked. It is
 never stored in plaintext anywhere.
 """
 
+import ipaddress
 from dataclasses import dataclass
 
+from fastapi import Request
 from sqlalchemy.orm import Session
 
 from vivatlas import security
@@ -81,6 +83,43 @@ def site_url(session: Session) -> str:
     back to the address from the request.
     """
     return get(session, SITE_URL, "").strip().rstrip("/")
+
+
+def _is_local_host(host: str) -> bool:
+    """Is this our own address — loopback or home network. Only such hosts do we
+    trust to put themselves into a link when site_url is not set."""
+    if host == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private
+
+
+def public_base_url(session: Session, request: Request) -> str | None:
+    """The address of this VIVATLAS as the outside world reaches it, or None when
+    there is nowhere safe to take one from.
+
+    site_url wins. Failing that the request's own address will do, BUT only for our
+    own host (loopback/LAN): on a public address the Host header is set by the
+    client and cannot be trusted, and an absolute URL built from it is how a
+    password-reset link gets led off to a foreign domain. The same reasoning covers
+    anything else we hand someone to come back to us with — a reset link, a sign-in
+    code — so the rule lives here rather than being re-argued at each of them.
+
+    Note this deliberately does NOT depend on TRUSTED_PROXIES being configured.
+    That setting makes the request's own scheme truthful, which is worth having,
+    but it is optional and easy to miss; a caller that needed it to be right would
+    be silently wrong on most installs behind a tunnel.
+    """
+    configured = site_url(session)
+    if configured:
+        return configured
+    host = request.url.hostname or ""
+    if _is_local_host(host):
+        return str(request.base_url).rstrip("/")
+    return None
 
 
 # --- whether registration is open ------------------------------------------

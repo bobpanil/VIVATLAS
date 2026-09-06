@@ -806,13 +806,20 @@ def phone_qr(request: Request) -> HTMLResponse:
     with session_scope() as session:
         me = _require_me(session, request)
         qrlogin.sweep(session)
+
+        # Where the phone would be sent. Worked out BEFORE a pass is minted: if
+        # there is nowhere safe to name, no code should exist at all.
+        origin = qrlogin.code_origin(session, request)
+        if origin is None:
+            return _page(request, session, "phoneqr", qr=None, qr_origin=None, ttl=0)
+
         raw = qrlogin.mint(session, me)
         return _page(
             request,
             session,
             "phoneqr",
             qr=Markup(twofactor.qr_svg(qrlogin.code_url(session, request, raw))),
-            qr_origin=qrlogin.code_origin(session, request),
+            qr_origin=origin,
             ttl=qrlogin.TTL_SECONDS,
         )
 

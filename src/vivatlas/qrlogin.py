@@ -54,25 +54,31 @@ def mint(session: Session, user: User) -> str:
     return raw
 
 
-def code_url(session: Session, request: Request, raw: str) -> str:
-    """What the QR actually encodes: this server, plus the pass.
+def code_url(session: Session, request: Request, raw: str) -> str | None:
+    """What the QR encodes: this server, plus the pass. None when there is nowhere
+    safe to name — the caller must then show the owner what to set, not a code.
 
-    The owner's configured site address wins over the request's own. Behind a
-    tunnel or a reverse proxy the program cannot see its own public address — the
-    request arrives as plain http on an internal host — and here that is not
-    cosmetic: a code naming http:// for an https-only site sends the phone into a
-    301 it will not follow, and the sign-in fails with nothing to explain it.
-    Same reasoning, and the same setting, as the links we put in emails.
+    The address comes from the one rule that decides such things
+    ([runtime_settings.public_base_url]): the owner's configured site address, or
+    the request's own only on our own host. A code is a credential the phone will
+    carry back, so naming a host the client chose is the same mistake as a
+    poisoned reset link, with the same fix.
+
+    Behind a tunnel this is also simply what makes it work. The request arrives as
+    plain http on an internal address, so a code built from it names http:// for an
+    https-only site and walks the phone into a 301 it will not follow. TRUSTED_PROXIES
+    would make the request truthful, but it is optional and most installs behind a
+    tunnel will not have it, so nothing here is allowed to depend on it.
     """
-    base = runtime_settings.site_url(session) or str(request.base_url).rstrip("/")
-    return f"{base}/qr/{raw}"
+    base = runtime_settings.public_base_url(session, request)
+    return f"{base}/qr/{raw}" if base else None
 
 
-def code_origin(session: Session, request: Request) -> str:
+def code_origin(session: Session, request: Request) -> str | None:
     """Just the address the code will point at — no pass in it. Shown beside the QR
-    so a wrong one (http where the site is https, an internal host) is visible at a
-    glance instead of only as a sign-in that quietly fails."""
-    return runtime_settings.site_url(session) or str(request.base_url).rstrip("/")
+    so a wrong one is visible at a glance rather than only as a sign-in that
+    quietly fails."""
+    return runtime_settings.public_base_url(session, request)
 
 
 def claim(

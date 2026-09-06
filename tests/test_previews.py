@@ -283,7 +283,8 @@ async def test_the_filler_rotates_rather_than_starving(make_session, monkeypatch
     touched = []
     for _ in range(3):
         before = {a.id for a in session.query(Artifact) if a.preview_checked_at}
-        await web.fill_missing_previews(2)
+        filled, examined = await web.fill_missing_previews(2)
+        assert (filled, examined) == (0, 2)
         after = {a.id for a in session.query(Artifact) if a.preview_checked_at}
         touched.append(after - before)
 
@@ -558,3 +559,66 @@ async def test_google_is_still_the_drawer_for_a_google_model(monkeypatch):
     webp, src = await previews.generated_picture(drawer, _Art())
     assert webp and src == "generated:gemini-3.1-flash-lite-image"
     assert drawer.prompts[0][1] == "gemini-3.1-flash-lite-image"
+
+
+
+@pytest.mark.asyncio
+async def test_a_short_pass_means_the_work_is_done(make_session, monkeypatch):
+    """The loop drains while passes come back full and idles when one comes back
+    short. What it reads is the examined count, so that has to be right."""
+    from vivatlas import web
+    from vivatlas.models import Artifact, Repository
+
+    session = make_session()
+    for i in range(3):
+        repo = Repository(source_id=1, external_id=f"s{i}", owner="o", name=f"r{i}",
+                          default_branch="main", html_url="", original_url="https://x.invalid/")
+        session.add(repo)
+        session.flush()
+        session.add(Artifact(repository_id=repo.id, name=f"r{i}", artifact_type="page"))
+    session.commit()
+
+    async def cover(session_, art, **k):  # what really happens: a cover always fills
+        art.preview_src = "generated:cover"
+        return True
+    monkeypatch.setattr(previews, "refresh_artifact", cover)
+    monkeypatch.setattr(web, "session_scope", lambda: _Scope(session))
+
+    assert await web.fill_missing_previews(2) == (2, 2)   # full: more behind it
+    assert await web.fill_missing_previews(2) == (1, 1)   # short: that was the last
+    assert await web.fill_missing_previews(2) == (0, 0)   # nothing left: idle
+
+
+@pytest.mark.asyncio
+async def test_idle_passes_give_a_paused_drawer_another_go_at_covers(make_session, monkeypatch):
+    """A cover is what a card wears when drawing was down — not a verdict. Once a
+    drawer is configured, idle passes revisit cover-wearing cards; busy ones don't."""
+    from vivatlas import web
+    from vivatlas.config import settings
+    from vivatlas.models import Artifact, Repository
+
+    session = make_session()
+    repo = Repository(source_id=1, external_id="c", owner="o", name="r", default_branch="main",
+                      html_url="", original_url="https://x.invalid/")
+    session.add(repo)
+    session.flush()
+    session.add(Artifact(repository_id=repo.id, name="r", artifact_type="page",
+                         preview_src="generated:cover"))
+    session.commit()
+    seen = []
+
+    async def note(session_, art, **k):
+        seen.append(art.name)
+        return False
+    monkeypatch.setattr(previews, "refresh_artifact", note)
+    monkeypatch.setattr(web, "session_scope", lambda: _Scope(session))
+    monkeypatch.setattr(settings, "image_model", "pollinations:flux")
+
+    # a busy pass leaves covers alone; an idle one tries them again
+    assert await web.fill_missing_previews(5) == (0, 0)
+    assert await web.fill_missing_previews(5, retry_covers=True) == (0, 1)
+    assert seen == ["r"]
+
+    monkeypatch.setattr(settings, "image_model", "")
+    # and with no drawer configured there is nothing to retry them with
+    assert await web.fill_missing_previews(5, retry_covers=True) == (0, 0)

@@ -41,8 +41,9 @@ _RETRY_WARMUP_SECONDS = 420
 # Cards without a picture heal the same way summaries do. A batch rather than the
 # lot: each card costs a README and an image, and a catalogue that has just been
 # imported should not answer its first page load by fetching two hundred of them.
-_PREVIEW_EVERY_SECONDS = 900
-_PREVIEW_WARMUP_SECONDS = 90
+_PREVIEW_EVERY_SECONDS = 900   # idle: nothing left to do, look again in a while
+_PREVIEW_DRAIN_SECONDS = 5     # busy: a full batch was found, so there is more
+_PREVIEW_WARMUP_SECONDS = 30
 _PREVIEW_BATCH = 20
 
 
@@ -118,18 +119,27 @@ async def _preview_loop() -> None:
     costing anything at all once every card has one.
     """
     await asyncio.sleep(_PREVIEW_WARMUP_SECONDS)
+    idle = False
     while True:
+        examined = 0
         try:
             from vivatlas.web import fill_missing_previews
 
-            filled = await fill_missing_previews(_PREVIEW_BATCH)
+            # Drain, then idle. A full batch means there is more behind it, so the
+            # next pass follows in seconds — covers are instant and drawing is
+            # free, and a catalogue should fill in minutes, not at twenty cards a
+            # quarter-hour. A short pass means the work is done; then it slows,
+            # and only then does it go back over cover-wearing cards to see if a
+            # drawer that was paused is drawing again.
+            filled, examined = await fill_missing_previews(_PREVIEW_BATCH, retry_covers=idle)
             if filled:
                 log.info("previews: %d card(s) got a picture", filled)
         except asyncio.CancelledError:
             raise
         except Exception:
             log.exception("previews: pass failed")
-        await asyncio.sleep(_PREVIEW_EVERY_SECONDS)
+        idle = examined < _PREVIEW_BATCH
+        await asyncio.sleep(_PREVIEW_EVERY_SECONDS if idle else _PREVIEW_DRAIN_SECONDS)
 
 
 @contextlib.asynccontextmanager

@@ -573,6 +573,8 @@ async def refresh_artifact(
         webp, src = designed_cover(artifact), "generated:cover"
 
     row = session.get(Preview, artifact.id)
+    if row is not None and row.webp == webp and artifact.preview_src == src:
+        return False  # the same cover again is not news
     if row is None:
         session.add(Preview(artifact_id=artifact.id, webp=webp))
     else:

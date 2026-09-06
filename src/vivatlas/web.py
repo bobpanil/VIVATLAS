@@ -1288,18 +1288,21 @@ def _persist_card(plan: _CardPlan, owner_uid: int | None) -> bool:
     return created
 
 
-async def fill_missing_previews(limit: int = 20) -> int:
-    """Give a picture to cards that have none. Returns how many got one.
+async def fill_missing_previews(limit: int = 20, retry_covers: bool = False) -> tuple[int, int]:
+    """Give a picture to cards that have none. Returns (how many got one, how
+    many were examined) — the second is what tells the loop whether there is
+    more to do or it can idle.
 
     The same hunt a scan does, reaching the cards a scan will not: everything that
     was catalogued before pictures existed, and anything whose banner could not be
-    read last time. Called on a slow loop so a catalogue fills itself in rather
-    than waiting for someone to run a command — and so it costs nothing at all
-    once every card has one.
+    read last time. Called on a loop so a catalogue fills itself in rather than
+    waiting for someone to run a command — and so it costs nothing at all once
+    every card has one.
 
-    A card that yields nothing is left alone rather than marked, so it is tried
-    again next time: a README gets a banner, a dead host comes back. The batch
-    size is what keeps that from being expensive.
+    `retry_covers` also revisits cards wearing a designed cover, so a drawer that
+    was paused or down when they were done gets another go. Only asked for on
+    idle passes: it re-runs the whole hunt for each card, README fetch included,
+    and that belongs at the slow cadence, not the fast one.
     """
     from vivatlas import previews as pv
 
@@ -1312,24 +1315,29 @@ async def fill_missing_previews(limit: int = 20) -> int:
         model = None
 
     filled = 0
+    # "No picture" includes a picture that turned out to be somebody's avatar: an
+    # earlier pass accepted a git host's og:image, which is the owner's identicon,
+    # and those cards need doing again. A cover counts too, on idle passes, when
+    # there is a drawer to try — a cover is what a card wears while drawing is
+    # down, not a verdict.
+    wanted = [Artifact.preview_src.is_(None), Artifact.preview_src.like("%/avatars/%")]
+    if retry_covers and (settings.image_model or "").strip():
+        wanted.append(Artifact.preview_src == "generated:cover")
     with session_scope() as session:
-        # Never-checked first, then whoever was checked longest ago. NOT "most
-        # recently updated": that put the same twenty link captures — which have
-        # no picture to find — at the front of every pass, and the whole
-        # catalogue behind them never got its turn.
-        # "No picture" includes a picture that turned out to be somebody's avatar:
-        # an earlier pass accepted a git host's og:image, which is the owner's
-        # identicon, and those cards need doing again.
+        # Wrong before blank before covered: an avatar is actively misleading and
+        # is what the owner is looking at right now; a blank card is only waiting;
+        # a cover is already presentable. Within each: never-checked first, then
+        # whoever was checked longest ago — NOT "most recently updated", which put
+        # the same twenty link captures at the front of every pass forever.
         rows = (
             session.query(Artifact)
-            .filter(
-                or_(Artifact.preview_src.is_(None), Artifact.preview_src.like("%/avatars/%"))
-            )
-            # Wrong before blank: a card wearing somebody's avatar is actively
-            # misleading and is what the owner is looking at right now, so those
-            # go before cards that merely have nothing yet.
+            .filter(or_(*wanted))
             .order_by(
-                case((Artifact.preview_src.like("%/avatars/%"), 0), else_=1),
+                case(
+                    (Artifact.preview_src.like("%/avatars/%"), 0),
+                    (Artifact.preview_src == "generated:cover", 2),
+                    else_=1,
+                ),
                 Artifact.preview_checked_at.asc().nulls_first(),
                 Artifact.id.asc(),
             )
@@ -1345,9 +1353,9 @@ async def fill_missing_previews(limit: int = 20) -> int:
             # Stamped whether or not a picture came of it — that is the whole point.
             art.preview_checked_at = datetime.now(UTC)
             session.commit()
-    if not filled:
-        log.info("previews: checked %d card(s), none had a picture to find", len(rows))
-    return filled
+    if rows and not filled:
+        log.info("previews: checked %d card(s), nothing new to show", len(rows))
+    return filled, len(rows)
 
 
 async def retry_failed_summaries(limit: int = 25) -> int:

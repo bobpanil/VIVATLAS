@@ -48,8 +48,17 @@ object QrCode {
         // Rebuild the origin rather than trusting the string: whatever else was in
         // the scanned URL (query, fragment, credentials) is dropped, and what we
         // keep is exactly what Prefs stores everywhere else — scheme, host, port.
+        //
+        // A public host is talked to over https even if the code said http. This is
+        // the same rule Prefs applies to a typed address, and it matters more here:
+        // the token IS the credential, so sending it in the clear is the one thing
+        // this must not do. It also happens to be what makes the sign-in work at
+        // all behind a TLS-terminating proxy, which cannot see its own https and
+        // may hand out an http code — the app would follow it into a redirect that
+        // HttpURLConnection refuses to cross protocols for.
+        val safeScheme = if (scheme == "http" && !Prefs.isLocalHost(host)) "https" else scheme
         val port = if (uri.port > 0) ":${uri.port}" else ""
-        return Pass(server = "$scheme://$host$port", token = token)
+        return Pass(server = "$safeScheme://$host$port", token = token)
     }
 
     /** The shape of `secrets.token_urlsafe(32)`: URL-safe base64, and long. */

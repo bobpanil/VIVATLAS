@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import Response
 
-from vivatlas import qrlogin, security
+from vivatlas import qrlogin, runtime_settings, security
 from vivatlas.config import settings
 from vivatlas.models import QrLogin, User
 
@@ -130,15 +130,30 @@ def test_who_claimed_it_is_recorded(user):
     assert row.used_user_agent == "VIVATLAS-Android"
 
 
-def test_the_code_carries_the_server_the_browser_is_actually_on():
+def test_the_code_carries_the_server_the_browser_is_actually_on(user):
     """One scan has to tell the phone *which* VIVATLAS as well as who — that is what
     lets a fresh install sign in without being told an address."""
-    url = qrlogin.code_url(_FakeReq(base_url="https://atlas.example.com/"), "TOK")
+    session, _ = user
+    url = qrlogin.code_url(session, _FakeReq(base_url="https://atlas.example.com/"), "TOK")
     assert url == "https://atlas.example.com/qr/TOK"
 
-    # Behind a proxy on a sub-path, base_url carries it and so must the code.
-    url = qrlogin.code_url(_FakeReq(base_url="http://10.0.0.5:8710/"), "TOK")
+    url = qrlogin.code_url(session, _FakeReq(base_url="http://10.0.0.5:8710/"), "TOK")
     assert url == "http://10.0.0.5:8710/qr/TOK"
+
+
+def test_the_configured_site_address_wins_over_the_request(user):
+    """Behind a TLS-terminating proxy the request arrives as plain http on an
+    internal host, so base_url names an address the phone must not be sent to: an
+    http code for an https site walks the app into a 301 it will not follow, and the
+    sign-in fails with nothing on screen to explain it. The owner's configured
+    address is the real one — the same setting the reset emails use."""
+    session, _ = user
+    runtime_settings.set(session, runtime_settings.SITE_URL, "https://atlas.example.com")
+    session.flush()
+
+    req = _FakeReq(base_url="http://172.17.0.4:8710/", scheme="http")
+    assert qrlogin.code_url(session, req, "TOK") == "https://atlas.example.com/qr/TOK"
+    assert qrlogin.code_origin(session, req) == "https://atlas.example.com"
 
 
 def test_sweep_clears_stale_passes_but_leaves_live_ones(user):

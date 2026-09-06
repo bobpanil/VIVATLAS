@@ -23,7 +23,7 @@ from fastapi import Request, Response
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from vivatlas import auth, security
+from vivatlas import auth, runtime_settings, security
 from vivatlas.models import QrLogin, User
 
 # How long a shown code stays good. Long enough to unlock the phone, open the app
@@ -54,11 +54,25 @@ def mint(session: Session, user: User) -> str:
     return raw
 
 
-def code_url(request: Request, raw: str) -> str:
-    """What the QR actually encodes: this server, as the browser reached it, plus
-    the pass. `base_url` is the address the user is really on — behind a tunnel or
-    a proxy that is the public one, which is the one the phone must be told."""
-    return f"{str(request.base_url).rstrip('/')}/qr/{raw}"
+def code_url(session: Session, request: Request, raw: str) -> str:
+    """What the QR actually encodes: this server, plus the pass.
+
+    The owner's configured site address wins over the request's own. Behind a
+    tunnel or a reverse proxy the program cannot see its own public address — the
+    request arrives as plain http on an internal host — and here that is not
+    cosmetic: a code naming http:// for an https-only site sends the phone into a
+    301 it will not follow, and the sign-in fails with nothing to explain it.
+    Same reasoning, and the same setting, as the links we put in emails.
+    """
+    base = runtime_settings.site_url(session) or str(request.base_url).rstrip("/")
+    return f"{base}/qr/{raw}"
+
+
+def code_origin(session: Session, request: Request) -> str:
+    """Just the address the code will point at — no pass in it. Shown beside the QR
+    so a wrong one (http where the site is https, an internal host) is visible at a
+    glance instead of only as a sign-in that quietly fails."""
+    return runtime_settings.site_url(session) or str(request.base_url).rstrip("/")
 
 
 def claim(

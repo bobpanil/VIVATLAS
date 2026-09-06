@@ -56,7 +56,10 @@ object Prefs {
         return url.trimEnd('/')
     }
 
-    private fun isLocalHost(host: String): Boolean {
+    /** Is this a host on this machine or this LAN? Public names get https, these
+     *  keep http — dev servers rarely have a certificate. Shared with [QrCode], so
+     *  the rule is written once. */
+    fun isLocalHost(host: String): Boolean {
         return host == "localhost" ||
             host == "10.0.2.2" ||          // emulator -> host
             host.startsWith("127.") ||

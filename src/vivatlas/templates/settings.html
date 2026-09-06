@@ -384,6 +384,10 @@
    is a code worth little if it is photographed. Counted down in the browser and
    enforced again on the server, which is what actually decides. #}
 <p class="set-secret" id="qrclock" data-seconds="{{ ttl }}">{{ t('settings.phone_valid', n=ttl) }}</p>
+{# The address the code points at — no pass in it. A wrong one (http on an https
+   site, or an internal host) is the one failure that otherwise looks like nothing
+   at all: the phone scans, and the sign-in just doesn't happen. #}
+<p class="legend">{{ t('settings.phone_points_at') }} <code>{{ qr_origin }}</code></p>
 <p class="legend">{{ t('settings.phone_warn') }}</p>
 {% endif %}
 

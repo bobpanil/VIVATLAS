@@ -129,7 +129,7 @@ def open_session(session: Session, user: User, request: Request, response: Respo
         user_id=user.id,
         token_hash=security.token_hash(raw),
         user_agent=(request.headers.get("user-agent") or "")[:256],
-        ip=_client_ip(request),
+        ip=client_ip(request),
         expires_at=_now() + timedelta(days=SESSION_DAYS),
     )
     session.add(row)
@@ -369,7 +369,7 @@ def consume_invite(session: Session, inv: Invite, user: User) -> bool:
     return res.rowcount == 1
 
 
-def _client_ip(request: Request) -> str:
+def client_ip(request: Request) -> str:
     """The visitor's address. Behind a tunnel the real address arrives in a header."""
     fwd = request.headers.get("x-forwarded-for", "")
     if fwd:

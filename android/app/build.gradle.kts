@@ -11,8 +11,8 @@ android {
         applicationId = "com.vivatlas.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
     buildTypes {
@@ -51,4 +51,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    // QR scanning for "sign in by code". ZXing rather than ML Kit: it carries its own
+    // decoder, so a self-hosted app doesn't gain a Google Play services dependency.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 }

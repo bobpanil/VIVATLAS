@@ -41,12 +41,15 @@ android/
     src/main/java/com/vivatlas/app/
       MainActivity.kt                        # the WebView host
       ShareActivity.kt                       # share-sheet capture (zone sheet) → /api/ext/add
+      QrCode.kt                              # reads the scanned sign-in code
       Prefs.kt                               # remembers the server URL
     src/main/res/                            # layout, theme, strings, icon, net-security
 ```
 
 - **minSdk 24** (Android 7) · **targetSdk/compileSdk 34** · Kotlin 1.9 · AGP 8.5.2.
-- Only dependencies: `androidx.core`, `androidx.appcompat`, `androidx.webkit`.
+- Only dependencies: `androidx.core`, `androidx.appcompat`, `androidx.webkit`, and
+  `zxing-android-embedded` for reading the sign-in QR (it carries its own decoder,
+  so there is no Google Play services dependency).
 
 ## 1. Toolchain (this machine had none)
 
@@ -94,7 +97,14 @@ The app asks for your **server URL**:
 - **Phone on the same Wi-Fi →** `http://<your-PC-LAN-IP>:8710`.
 - **Public server →** `https://vivatlas.example.com`.
 
-Log in once in the WebView; that session cookie is what the share target reuses.
+Sign in once; that session cookie is what the share target reuses.
+
+**Signing in without typing the password.** On a computer already signed in, open
+**Settings → Sign in on your phone** and press *Show the code*. On the phone, tap
+**Scan a sign-in code** on the sign-in screen and point it at the screen. The code
+carries the server address as well as the pass, so a fresh install needs nothing
+typed at all — not even the address. It is good once and for 90 seconds; anyone who
+reads it signs in as you, so let it expire before you walk away.
 
 To change it later: hardware **Back** at the home page → **Change server**.
 
@@ -132,6 +142,9 @@ From Chrome/Reddit/Facebook on the device → **Share** → **VIVATLAS**:
   off**. Non-server links open in the system browser, never in-app.
 - The session token is read from the WebView cookie and sent only to your server's
   `/api/ext/add`; it is never logged.
+- The camera is requested only when **Scan a sign-in code** is tapped, and used for
+  nothing else. A scanned code is checked before anything is sent: http/https, a
+  `/qr/<token>` path and a token-shaped token, or it is refused unsent (`QrCode.kt`).
 - Cleartext HTTP is allowed by default because self-hosting on a LAN commonly uses
   plain HTTP (`res/xml/network_security_config.xml`). If you serve over HTTPS, set
   `cleartextTrafficPermitted="false"` there.

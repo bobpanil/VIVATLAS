@@ -37,6 +37,13 @@
     <string name="login_code_hint">123456</string>
     <string name="login_use_backup">Use a backup code instead</string>
 
+    <!-- Signing in by scanning the code a signed-in browser shows. -->
+    <string name="login_scan">Scan a sign-in code</string>
+    <string name="login_scan_tip">On a computer already signed in: Settings → Sign in on your phone</string>
+    <string name="login_scan_prompt">Point the camera at the code on your computer</string>
+    <string name="login_scan_bad">That isn\'t a VIVATLAS sign-in code.</string>
+    <string name="login_scan_no_camera">VIVATLAS needs the camera to read the code. Allow it in Settings, or sign in with your password.</string>
+
     <!-- Offline / error frame. -->
     <string name="err_offline_title">Can\'t reach VIVATLAS</string>
     <string name="err_offline_msg">Check your connection, then try again.</string>

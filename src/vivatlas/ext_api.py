@@ -16,7 +16,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Request, Response
 from fastapi.responses import JSONResponse
 
-from vivatlas import auth, i18n, twofactor
+from vivatlas import auth, i18n, qrlogin, twofactor
 from vivatlas.db import session_scope
 from vivatlas.models import User
 from vivatlas.web import ext_capture
@@ -97,6 +97,35 @@ def ext_mfa(request: Request, payload: Annotated[dict, Body()]) -> JSONResponse:
                 {"ok": False, "error": i18n.translate("auth.err.totp_bad", lang)}, status_code=401
             )
         return _session_response(session, user, request, {"mfa_required": False})
+
+
+@router.post("/qr")
+def ext_qr(request: Request, payload: Annotated[dict, Body()]) -> JSONResponse:
+    """Sign in by a code scanned off a machine that is already signed in. The token
+    from the QR IS the credential — one use, and only for the seconds after it was
+    shown (see qrlogin) — so there is nothing else to send and nothing to remember.
+
+    Open like /login: a phone arriving with a code has no session yet. It answers in
+    exactly the same shape, so the app stores the result the same way."""
+    lang = getattr(request.state, "lang", "en")
+    token = str(payload.get("token", "")).strip()
+    with session_scope() as session:
+        carrier = Response()
+        claimed = qrlogin.claim(session, token, request, carrier)
+        if claimed is None:
+            # One message for unknown, expired and already-used alike: which of the
+            # three it was is not the scanner's business, and saying would help
+            # someone probing codes.
+            return JSONResponse(
+                {"ok": False, "error": i18n.translate("auth.err.qr_bad", lang)}, status_code=401
+            )
+        raw, user = claimed
+        body = {"ok": True, "token": raw, "user": _user_json(user), "mfa_required": False}
+        resp = JSONResponse(body)
+        cookie = carrier.headers.get("set-cookie")
+        if cookie:
+            resp.headers["set-cookie"] = cookie
+        return resp
 
 
 @router.get("/session")

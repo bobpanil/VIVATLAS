@@ -169,6 +169,9 @@ _OPEN_EXACT = {
     # The extension's sign-in pair — open like the web sign-in; everything else under
     # /api/ext (session, add, logout) stays behind the lock.
     "/api/ext/login", "/api/ext/mfa",
+    # Signing a phone in from a scanned code. Open for the same reason: the phone
+    # arrives with no session, and the one-time code IS what it presents.
+    "/api/ext/qr",
 }
 
 

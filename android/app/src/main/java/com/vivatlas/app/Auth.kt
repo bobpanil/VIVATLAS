@@ -25,6 +25,15 @@ object Auth {
     fun login(server: String, email: String, password: String): Result =
         call("$server/api/ext/login", JSONObject().put("email", email).put("password", password))
 
+    /**
+     * Sign in with a one-time code scanned off a machine that is already signed in.
+     * The code IS the credential — the server spends it and answers exactly as
+     * /login does — so there is nothing else to send, and 2FA has already been
+     * satisfied by whoever minted it.
+     */
+    fun qr(server: String, token: String): Result =
+        call("$server/api/ext/qr", JSONObject().put("token", token))
+
     fun mfa(server: String, ticket: String, code: String, backup: Boolean): Result =
         call(
             "$server/api/ext/mfa",

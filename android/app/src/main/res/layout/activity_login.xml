@@ -183,6 +183,47 @@
                 android:textColor="@color/link_gold"
                 android:textSize="14sp"
                 android:padding="6dp" />
+
+            <!-- The easier door: a code shown by a browser already signed in, so the
+                 password never has to be typed on a phone keyboard. Hidden on the 2FA
+                 step, where a scan would be answering a different question. -->
+            <LinearLayout
+                android:id="@+id/scan_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:background="@color/field_border" />
+
+                <Button
+                    android:id="@+id/scan"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="18dp"
+                    android:background="@drawable/btn_secondary"
+                    android:drawableStart="@drawable/ic_scan"
+                    android:drawableTint="@color/login_ink"
+                    android:drawablePadding="10dp"
+                    android:paddingHorizontal="16dp"
+                    android:text="@string/login_scan"
+                    android:textColor="@color/login_ink"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="@string/login_scan_tip"
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView

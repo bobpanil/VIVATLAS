@@ -671,3 +671,37 @@ class RemovedNotice(Base):
     artifact_name: Mapped[str] = mapped_column(String(256))
     removed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class QrLogin(Base):
+    """A one-time pass for signing a phone in by scanning a code.
+
+    Typing a long password on a phone keyboard is the worst place to type one, so
+    a machine that is already signed in can show a QR and the phone reads it
+    instead. What the code carries is a bearer credential — whoever holds it gets
+    in — so it is deliberately the weakest kind of one:
+
+    * short-lived (see qrlogin.TTL_SECONDS) — a code left on screen goes stale by
+      itself, and a photograph of it is worth nothing a minute later;
+    * single-use — `used_at` is stamped on the first claim, and a second claim of
+      the same code is refused, so a shoulder-surfed code is already spent;
+    * hashed, like a session key: whoever reads the database finds no live passes.
+
+    We keep who claimed it (address and agent) because this is the one sign-in the
+    account holder didn't type themselves — if it was not them, the row says so.
+    """
+
+    __tablename__ = "qr_logins"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    # Stamped on the first claim; a second one is refused.
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    used_ip: Mapped[str] = mapped_column(String(64), default="")
+    used_user_agent: Mapped[str] = mapped_column(String(256), default="")

@@ -263,6 +263,12 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Код не подошёл. Проверьте и попробуйте ещё раз.",
         "he": "הקוד לא התאים. בדקו ונסו שוב.",
     },
+    # One message for unknown, expired and already-spent alike — see ext_api.ext_qr.
+    "auth.err.qr_bad": {
+        "en": "That code is no longer good. Show a new one and scan again.",
+        "ru": "Этот код больше не годится. Покажите новый и отсканируйте снова.",
+        "he": "הקוד הזה כבר לא תקף. הציגו קוד חדש וסרקו שוב.",
+    },
     "err.pw_short": {
         "en": "Password shorter than 12 characters. Length protects better than special characters.",
         "ru": "Пароль короче 12 знаков. Длина защищает лучше, чем спецсимволы.",

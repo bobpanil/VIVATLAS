@@ -11,7 +11,10 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.ActivityResultLauncher
 import androidx.appcompat.app.AppCompatActivity
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 /**
  * Native sign-in. Talks to the server's extension API (Auth) and, on success,
@@ -34,7 +37,12 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var progress: ProgressBar
     private lateinit var primaryGroup: View
     private lateinit var mfaGroup: View
+    private lateinit var scanGroup: View
     private lateinit var title: TextView
+
+    /** The scanner screen. Registered up front (it must be, before onCreate ends)
+     *  and only actually opened when the button is tapped. */
+    private lateinit var scanner: ActivityResultLauncher<ScanOptions>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,9 +67,17 @@ class LoginActivity : AppCompatActivity() {
         progress = findViewById(R.id.progress)
         primaryGroup = findViewById(R.id.primary_group)
         mfaGroup = findViewById(R.id.mfa_group)
+        scanGroup = findViewById(R.id.scan_group)
         title = findViewById(R.id.login_title)
 
+        // ZXing asks for the camera itself and hands back the decoded string, or a
+        // null one when the user backed out — which is not an error, just a no.
+        scanner = registerForActivityResult(ScanContract()) { result ->
+            result?.contents?.let { onScanned(it) }
+        }
+
         submit.setOnClickListener { onSubmit() }
+        findViewById<View>(R.id.scan).setOnClickListener { startScan() }
         findViewById<TextView>(R.id.forgot).setOnClickListener {
             startActivity(android.content.Intent(this, ResetPasswordActivity::class.java))
         }
@@ -86,6 +102,41 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    /** Open the camera on the code. */
+    private fun startScan() {
+        clearError()
+        if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)) {
+            showError(getString(R.string.login_scan_no_camera))
+            return
+        }
+        val options = ScanOptions()
+            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            .setPrompt(getString(R.string.login_scan_prompt))
+            .setBeepEnabled(false)
+            .setOrientationLocked(false)
+        scanner.launch(options)
+    }
+
+    /**
+     * A code came back. It carries the server as well as the pass, so a scan can
+     * sign in a fresh install that was never told an address — but only once we are
+     * sure it is one of ours: anything else is refused here, unsent.
+     */
+    private fun onScanned(text: String) {
+        val pass = QrCode.parse(text)
+        if (pass == null) {
+            showError(getString(R.string.login_scan_bad))
+            return
+        }
+        // The code names the server it came from; trust that over what was stored,
+        // and remember it, so the WebView and the share target talk to the same one.
+        if (pass.server != server) {
+            Prefs.setServerUrl(this, pass.server)
+            server = Prefs.serverUrl(this) ?: pass.server
+        }
+        perform { Auth.qr(server, pass.token) }
     }
 
     private fun onSubmit() {
@@ -134,6 +185,7 @@ class LoginActivity : AppCompatActivity() {
         ticket = t
         primaryGroup.visibility = View.GONE
         mfaGroup.visibility = View.VISIBLE
+        scanGroup.visibility = View.GONE
         title.setText(R.string.login_mfa_title)
         submit.setText(R.string.login_verify)
         code.text?.clear()
@@ -145,6 +197,7 @@ class LoginActivity : AppCompatActivity() {
         clearError()
         mfaGroup.visibility = View.GONE
         primaryGroup.visibility = View.VISIBLE
+        scanGroup.visibility = View.VISIBLE
         title.setText(R.string.login_title)
         submit.setText(R.string.login_submit)
     }

@@ -15,7 +15,7 @@ Access from AI assistants (MCP): [docs/MCP.md](docs/MCP.md). Deploy on TrueNAS: 
 - **Recommendations** — three options for the task with an explanation, or an honest "nothing fits".
 - **Folders** — shared (run by the admin) and personal (everyone has their own); a card can be dragged into a folder. Git is untouched in the process.
 - **Zones** — a card is private or shared (in the catalogue); favourites, drafts, change feed and the "stale" feed.
-- **People.** Sign-in by password, the first to sign in becomes the owner. Invitations by link/email, open registration (toggle), two-step sign-in (TOTP + backup codes), password reset by email.
+- **People.** Sign-in by password, the first to sign in becomes the owner. Invitations by link/email, open registration (toggle), two-step sign-in (TOTP + backup codes), password reset by email. **Sign in on your phone by QR** — a browser already signed in shows a one-time code (90 seconds, single use) that the Android app scans, so a long password never has to be typed on a phone keyboard.
 - **Account.** Change email/password, deletion, profile photo (→ WebP) or an avatar from a ready-made set (classical busts), personal folders and sources.
 - **Admin panel.** People, access and invitations, shared folders, email (SMTP), integrations (addresses/tokens/models on top of `.env`, applied without a restart).
 - **Interface.** Custom rendering on the server, no build step. Languages: English (default), Russian, Hebrew (RTL). Themes: light / dark / OLED / system. Works from a phone too.

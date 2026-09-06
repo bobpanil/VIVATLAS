@@ -2,7 +2,7 @@
 {% import "_catmanage.html" as cm with context %}
 
 {% block title %}{{ t('nav.settings') }} — VIVATLAS{% endblock %}
-{% block modal_title %}{% if step == 'qr' %}{{ t('settings.link_app_title') }}{% elif step == 'codes' %}{% if fresh %}{{ t('settings.twofa_enabled_title') }}{% else %}{{ t('settings.new_backup_codes') }}{% endif %}{% else %}{{ t('nav.settings') }}{% endif %}{% endblock %}
+{% block modal_title %}{% if step == 'qr' %}{{ t('settings.link_app_title') }}{% elif step == 'phoneqr' %}{{ t('settings.phone_title') }}{% elif step == 'codes' %}{% if fresh %}{{ t('settings.twofa_enabled_title') }}{% else %}{{ t('settings.new_backup_codes') }}{% endif %}{% else %}{{ t('nav.settings') }}{% endif %}{% endblock %}
 {% block modal_help %}{{ t('settings.modal_help') }}{% endblock %}
 {# Settings don't close on an outside click — only "Exit"/"Save" do. #}
 {% block body_class %}lock-scrim{% endblock %}
@@ -121,6 +121,14 @@
             <button class="btn-secondary" type="submit">{{ t('settings.twofa_enable') }}</button>
         </form>
         {% endif %}
+    </div>
+
+    {# Signing the phone app in without retyping the password on a phone keyboard. #}
+    <div class="box wide">
+        {{ sechead(t('settings.phone_title'), t('settings.phone_tip')) }}
+        <form method="post" action="/settings/phone" class="set-row">
+            <button class="btn-secondary" type="submit">{{ t('settings.phone_show') }}</button>
+        </form>
     </div>
 
     <div class="box">
@@ -367,6 +375,18 @@
 </form>
 {% endif %}
 
+{% if step == 'phoneqr' %}
+<p class="legend">{{ t('settings.phone_lede') }}</p>
+
+<div class="qr">{{ qr }}</div>
+
+{# The clock is the whole point: a code nobody can read after a minute and a half
+   is a code worth little if it is photographed. Counted down in the browser and
+   enforced again on the server, which is what actually decides. #}
+<p class="set-secret" id="qrclock" data-seconds="{{ ttl }}">{{ t('settings.phone_valid', n=ttl) }}</p>
+<p class="legend">{{ t('settings.phone_warn') }}</p>
+{% endif %}
+
 {% if step == 'codes' %}
 <p class="warn">{{ t('settings.codes_warn') }}</p>
 <p class="legend">{{ t('settings.codes_legend') }}</p>
@@ -382,6 +402,9 @@
     {% if step == 'qr' %}
     <a class="btn-secondary foot-left" href="/settings">{{ t('settings.cancel_arrow') }}</a>
     <button class="cta" type="submit" form="qrform">{{ t('settings.confirm_enable') }}</button>
+    {% elif step == 'phoneqr' %}
+    <a class="btn-secondary foot-left" href="/settings">{{ t('settings.close') }}</a>
+    <form method="post" action="/settings/phone"><button class="cta" type="submit">{{ t('settings.phone_again') }}</button></form>
     {% elif step == 'codes' %}
     <a class="cta" href="/settings">{{ t('settings.saved_next') }}</a>
     {% else %}
@@ -397,6 +420,27 @@
 {% block scripts %}
 <script>
 // (Tabs — shared code in modal_base.html: roles, aria, arrows/Home/End.)
+
+// Phone sign-in code: count it down and grey it out when it dies. The server is
+// what actually refuses a stale code — this only stops the user standing there
+// aiming a phone at something that stopped working a minute ago.
+(function () {
+    var clock = document.getElementById('qrclock');
+    if (!clock) return;
+    var left = parseInt(clock.dataset.seconds, 10) || 0;
+    var word = clock.textContent;
+    var qr = document.querySelector('.qr');
+    var tick = setInterval(function () {
+        left -= 1;
+        if (left > 0) {
+            clock.textContent = word.replace(/\d+/, left);
+            return;
+        }
+        clearInterval(tick);
+        clock.textContent = '{{ t('settings.phone_expired') }}';
+        if (qr) { qr.style.opacity = '.15'; }
+    }, 1000);
+})();
 
 // Language — via a dropdown: changing it navigates to the server-side /lang/... .
 (function () {

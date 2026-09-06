@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Viewfinder corners with a code inside — "point the camera at a code".
+     Untinted; the caller tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path
+        android:pathData="M2.6,7 V4.4 A1.8,1.8 0 0 1 4.4,2.6 H7 M13,2.6 H15.6 A1.8,1.8 0 0 1 17.4,4.4 V7 M17.4,13 V15.6 A1.8,1.8 0 0 1 15.6,17.4 H13 M7,17.4 H4.4 A1.8,1.8 0 0 1 2.6,15.6 V13"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M6.4,10 H13.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+</vector>

@@ -20,7 +20,7 @@ from markupsafe import Markup
 from sqlalchemy import func, select
 
 from vivatlas import auth, avatars, caticons, catnames, i18n, runtime_settings, security
-from vivatlas import twofactor, usericons
+from vivatlas import qrlogin, twofactor, usericons
 from vivatlas import categories as catperm
 from vivatlas import filters as flt
 from vivatlas.config import settings
@@ -793,6 +793,27 @@ async def source_scan(request: Request, source_id: int) -> Response:
             return _security_page(request, session, me, error=i18n.msg(request, error_key))
     launch_user_scan(user_id, source_id, source_name, getattr(request.state, "lang", "en"))
     return RedirectResponse("/", status_code=303)
+
+
+# --- signing the phone app in by QR ---------------------------------------
+
+
+@router.post("/settings/phone", response_class=HTMLResponse)
+def phone_qr(request: Request) -> HTMLResponse:
+    """Show a one-time code the phone app can scan instead of being told the
+    password. Only ever for the person asking — the pass is minted against the
+    session that asked for it, so there is no way to mint one for somebody else."""
+    with session_scope() as session:
+        me = _require_me(session, request)
+        qrlogin.sweep(session)
+        raw = qrlogin.mint(session, me)
+        return _page(
+            request,
+            session,
+            "phoneqr",
+            qr=Markup(twofactor.qr_svg(qrlogin.code_url(request, raw))),
+            ttl=qrlogin.TTL_SECONDS,
+        )
 
 
 # --- enabling: show the QR -------------------------------------------------

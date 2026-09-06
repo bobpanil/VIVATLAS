@@ -111,7 +111,14 @@ def preview_url(artifact: Artifact) -> str | None:
     listing, and asking the database for a picture we are not going to render is
     the sort of query that only shows up when the catalogue is large.
     """
-    return f"/preview/{artifact.id}" if artifact.preview_src else None
+    if not artifact.preview_src:
+        return None
+    # The image is cached for a day, so the address must change when the picture
+    # does — otherwise a card that traded its identicon for a cover keeps showing
+    # the identicon until tomorrow, on every browser that has seen it. The source
+    # changes whenever the picture does, so a few characters of its hash will do.
+    stamp = hashlib.sha1(artifact.preview_src.encode("utf-8")).hexdigest()[:8]
+    return f"/preview/{artifact.id}?v={stamp}"
 
 
 def _counts(session, user_id: int | None = None) -> dict:

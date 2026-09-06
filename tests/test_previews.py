@@ -471,3 +471,21 @@ async def test_a_card_with_nothing_at_all_gets_a_cover(make_session, monkeypatch
     assert await previews.refresh_artifact(session, art, model=None)
     assert art.preview_src == "generated:cover"
     assert session.get(Preview, art.id) is not None
+
+
+def test_the_preview_address_changes_when_the_picture_does():
+    """Served with a day's cache, so a replaced picture needs a new address, or
+    every browser that saw the old one keeps it until tomorrow."""
+    from vivatlas.web import preview_url
+
+    class A:
+        id = 7
+        preview_src = "https://git.example.com/avatars/abc"
+
+    before = preview_url(A())
+    A.preview_src = "generated:cover"
+    after = preview_url(A())
+    assert before and after and before != after
+    assert before.startswith("/preview/7?v=") and after.startswith("/preview/7?v=")
+    A.preview_src = None
+    assert preview_url(A()) is None

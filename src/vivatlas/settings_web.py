@@ -25,7 +25,7 @@ from vivatlas import categories as catperm
 from vivatlas import filters as flt
 from vivatlas.config import settings
 from vivatlas.db import session_scope
-from vivatlas.models import Avatar, Category, OAuthToken, Source, User
+from vivatlas.models import Artifact, Avatar, Category, OAuthToken, Preview, Source, User
 from vivatlas.web import _counts
 
 # Which hosts can be connected as your own source. Only Gitea works so far
@@ -466,6 +466,30 @@ def delete_account(request: Request, password: Annotated[str, Form()] = "") -> R
         auth.close_session(session, request, response)
         _purge_user(session, me, heir_id)
         return response
+
+
+@router.get("/preview/{artifact_id}")
+def preview(request: Request, artifact_id: int) -> Response:
+    """Serve a card's picture (webp). Behind the lock like avatars — a private
+    card's picture is as private as the card. Cached for a day: the image only
+    changes when a scan finds the project has changed its banner, and a card grid
+    asks for a lot of these at once."""
+    with session_scope() as session:
+        row = session.get(Preview, artifact_id)
+        if row is None:
+            raise HTTPException(404, "no preview")
+        # Visible if the card is shared or this user is its owner — the same test
+        # the card's own page makes. A picture is not a lesser thing than the card.
+        art = session.get(Artifact, artifact_id)
+        user_id = getattr(request.state, "user_id", None)
+        mine = art is not None and art.owner_user_id is not None and art.owner_user_id == user_id
+        if art is None or not (art.shared or mine):
+            raise HTTPException(404, "no preview")
+        return Response(
+            content=row.webp,
+            media_type="image/webp",
+            headers={"Cache-Control": "private, max-age=86400"},
+        )
 
 
 @router.get("/avatar/{user_id}")

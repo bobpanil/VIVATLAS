@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from vivatlas import cardtext, changes
+from vivatlas import cardtext, changes, previews
 from vivatlas.ai.base import TextModel
 from vivatlas.archive import read_archive
 from vivatlas.detector import detect
@@ -114,6 +114,17 @@ async def index_repository(
     # end and doesn't survive the truncation.
     session.flush()  # artifact.id is needed
     discover_for_artifact(session, artifact, contents, original_url=row.original_url or "")
+
+    # The card's picture. Uses the README we have just read rather than doc_text —
+    # a banner near the end of a long README would fall outside the truncation, and
+    # the whole point is to find the one the project put there. Only when there
+    # isn't one already, or the content actually changed: a rescan of an unchanged
+    # repository should not re-download its banner.
+    if content_changed or outcome == "created" or not artifact.preview_src:
+        readme = contents.get("README.md")
+        await previews.refresh_artifact(
+            session, artifact, force=True, readme=(readme.text if readme else None)
+        )
 
     if outcome == "created":
         changes.record(

@@ -11,6 +11,7 @@ Access from AI assistants (MCP): [docs/MCP.md](docs/MCP.md). Deploy on TrueNAS: 
 ## What already works
 
 - **Card catalogue.** One repository → one card: name, three levels of description (short / normal / technical), preview, tags (automatic, with source and confidence + manual, manual wins).
+- **Card pictures.** Each card wears the project's own face, found automatically: the banner at the top of its README, a `logo`/`banner` file in the repository, or failing both the social card the host draws. Badges, sponsor logos and subscribe buttons are filtered out. The picture is fetched once and kept as a small webp, so nothing is hot-linked to somebody else's host. Backfill an existing catalogue with `vivatlas previews`.
 - **Search** by words (SQLite FTS) and by meaning (vectors), bilingual — a Russian query finds an English tool.
 - **Recommendations** — three options for the task with an explanation, or an honest "nothing fits".
 - **Folders** — shared (run by the admin) and personal (everyone has their own); a card can be dragged into a folder. Git is untouched in the process.
@@ -73,6 +74,7 @@ src/vivatlas/
   i18n.py, translations*.py   translations (en/ru/he), RTL
   mailer.py            emails (password reset, invitations)
   avatars.py           uploaded photo → square WebP
+  previews.py          the picture on a card: find it, fetch it, fit it
   usericons.py         default avatar set (static/usericons)
   scanner.py, indexer.py  scanning + the private-repo rule, index
   mcp_server.py        MCP server for AI assistants

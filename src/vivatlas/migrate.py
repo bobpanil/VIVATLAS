@@ -32,6 +32,10 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "purpose_override": "VARCHAR(32) DEFAULT ''",
         # The card's name and descriptions in en/ru/he; empty until it's described.
         "translations_json": "TEXT DEFAULT ''",
+        # Where the card's picture came from. NULL means it has none — which is
+        # what the catalogue listing reads, so it must stay NULL for old rows
+        # rather than defaulting to an empty string.
+        "preview_src": "VARCHAR(1024)",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",

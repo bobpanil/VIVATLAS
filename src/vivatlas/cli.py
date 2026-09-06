@@ -28,6 +28,8 @@ from vivatlas.updater import UpdateRefused, apply_update, plan_update
 from vivatlas.upstream import UpstreamChecker
 from vivatlas.upstream_sync import check_all
 
+log = logging.getLogger(__name__)
+
 app = typer.Typer(help="VIVATLAS")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -511,6 +513,45 @@ def secret_cmd() -> None:
     typer.echo(f"  SECRET_KEY={security.new_token(48)}")
     typer.echo("")
     typer.echo("  Don't show it to anyone and don't commit it to Git (.env is ignored anyway).")
+
+
+@app.command("previews")
+def previews_cmd(
+    force: bool = typer.Option(False, help="Redo cards that already have a picture"),
+    limit: int = typer.Option(0, help="Stop after this many (0 = all)"),
+) -> None:
+    """Give cards their picture: a README banner, a logo in the repo, or failing
+    both the social card the host draws. Safe to re-run — it skips cards that
+    already have one unless --force."""
+    import asyncio
+
+    from vivatlas import previews as pv
+    from vivatlas.models import Artifact
+
+    async def _run() -> None:
+        done = failed = 0
+        with session_scope() as session:
+            query = session.query(Artifact).order_by(Artifact.id)
+            if not force:
+                query = query.filter(Artifact.preview_src.is_(None))
+            rows = query.all()
+            if limit:
+                rows = rows[:limit]
+            typer.echo(f"  {len(rows)} card(s) without a picture")
+            for art in rows:
+                try:
+                    if await pv.refresh_artifact(session, art, force=force):
+                        done += 1
+                        typer.echo(f"    ✓ {art.name}")
+                    else:
+                        failed += 1
+                except Exception as exc:  # noqa: BLE001 — one bad card, not the run
+                    failed += 1
+                    log.debug("preview for %s failed: %s", art.name, exc)
+                session.commit()
+        typer.echo(f"  done: {done} with a picture, {failed} without")
+
+    asyncio.run(_run())
 
 
 @app.command("serve")

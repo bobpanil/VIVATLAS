@@ -100,11 +100,18 @@ def author_of(session, artifact: Artifact) -> str:
 
 
 def preview_url(artifact: Artifact) -> str | None:
-    """We take the preview straight from Gitea — the repositories are open, no need to proxy."""
-    if not artifact.preview_path or not artifact.repository.html_url:
-        return None
-    branch = artifact.repository.default_branch
-    return f"{artifact.repository.html_url}/raw/branch/{branch}/{artifact.preview_path}"
+    """Where the card's picture is served from — our own copy, always.
+
+    It used to be built straight from the repository: `<html_url>/raw/branch/<b>/…`,
+    which is Gitea's shape and 404s on GitHub, so every GitHub card that had a
+    picture showed a broken one instead. Nothing is hot-linked now (see [Preview]
+    for why), so the address is simply ours, and the same for every source.
+
+    preview_src rather than the image table: this is called once per card in a
+    listing, and asking the database for a picture we are not going to render is
+    the sort of query that only shows up when the catalogue is large.
+    """
+    return f"/preview/{artifact.id}" if artifact.preview_src else None
 
 
 def _counts(session, user_id: int | None = None) -> dict:

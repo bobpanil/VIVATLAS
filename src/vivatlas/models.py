@@ -200,6 +200,13 @@ class Artifact(Base):
 
     anchor_path: Mapped[str | None] = mapped_column(String(512))
     preview_path: Mapped[str | None] = mapped_column(String(512))
+
+    # Where the card's picture came from. Set only when a Preview row exists, so
+    # it doubles as "has a picture" — which is what the listing needs, and which
+    # it can read without touching the image table at all. Kept as well as the
+    # image so a rescan can tell "same source, nothing to redo" from "the project
+    # changed its banner".
+    preview_src: Mapped[str | None] = mapped_column(String(1024))
     doc_text: Mapped[str] = mapped_column(Text, default="")
     file_count: Mapped[int] = mapped_column(Integer, default=0)
     file_paths: Mapped[str] = mapped_column(Text, default="")  # JSON list of paths
@@ -705,3 +712,29 @@ class QrLogin(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     used_ip: Mapped[str] = mapped_column(String(64), default="")
     used_user_agent: Mapped[str] = mapped_column(String(256), default="")
+
+
+class Preview(Base):
+    """The picture shown on a card — already webp, already the card's shape.
+
+    A separate table for the same reason as Avatar: the artifact row is read for
+    every card in the catalogue, and dragging tens of kilobytes of image through
+    every listing to show a thumbnail would be paying for the picture on every
+    query that isn't displaying one.
+
+    Stored rather than hot-linked. A project's banner usually lives on somebody
+    else's host (postimg, a CDN, the author's blog): linking there would put a
+    dead image on the card the day that host goes away, make a page of cards a
+    page of third-party requests, and tell each of those hosts who is browsing
+    this catalogue. One fetch at scan time avoids all three.
+    """
+
+    __tablename__ = "previews"
+
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("artifacts.id", ondelete="CASCADE"), primary_key=True
+    )
+    webp: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )

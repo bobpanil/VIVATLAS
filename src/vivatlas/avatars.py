@@ -62,10 +62,29 @@ def _raster_to_webp(data: bytes) -> bytes:
     return out.getvalue()
 
 
-def _svg_to_png(data: bytes) -> bytes:
-    """SVG → PNG via headless Chromium. Lazy import of Playwright: raster uploads
-    don't touch it. Called only from the SYNCHRONOUS route (otherwise
-    sync_playwright crashes inside a running asyncio loop)."""
+def _svg_to_png(data: bytes, width: int = SIZE) -> bytes:
+    """SVG → PNG. Cairo where there is one, headless Chromium where there isn't.
+
+    Chromium came first because this was written on Windows, which has no native
+    Cairo — but it is the wrong way round for a server: the container has no
+    browser, so on it every SVG failed, silently, and a card whose repository
+    offers `preview.svg` (which is the convention across this catalogue's own
+    Gitea) simply never got a picture. Cairo is a few megabytes in the image and
+    renders font weights faithfully, which these generated cards lean on.
+
+    Cairo also has no objection to being called inside a running event loop,
+    which sync_playwright does — so with it first, this is safe from async code
+    as well as from the synchronous upload route.
+    """
+    try:
+        import cairosvg
+
+        return cairosvg.svg2png(bytestring=data, output_width=width)
+    except ImportError:
+        pass  # no Cairo here — try a browser
+    except Exception as e:  # noqa: BLE001 — a malformed SVG is not "unsupported"
+        raise AvatarError("avatar.err.svg_failed") from e
+
     try:
         from playwright.sync_api import sync_playwright
     except Exception as e:  # noqa: BLE001

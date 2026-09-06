@@ -33,6 +33,15 @@ dependencies = [
     "aiosmtplib>=3.0",
     # Encrypting third-party tokens in the database.
     "cryptography>=44.0",
+    # Images: avatars (upload -> square webp) and card pictures (banner -> card webp).
+    # It was missing here, and the container had no PIL at all — so avatar uploads
+    # failed on it and every card picture failed on it, both silently, because the
+    # import error looks exactly like "this image is no good".
+    "pillow>=11.0",
+    # SVG -> PNG without a browser. Half this catalogue's repositories carry their
+    # picture as preview.svg, and the Chromium path avatars used cannot run in the
+    # container. Needs libcairo2 in the image (see Dockerfile).
+    "cairosvg>=2.7",
 ]
 
 [project.optional-dependencies]

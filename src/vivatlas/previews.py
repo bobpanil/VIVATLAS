@@ -288,8 +288,11 @@ def to_card_webp(data: bytes, content_type: str = "") -> bytes | None:
         return None
     if avatars._is_svg(data) or "svg" in (content_type or "").lower():
         try:
-            data = avatars._svg_to_png(data)
-        except Exception:  # noqa: BLE001 — no SVG renderer here is not an error
+            # At the card's own width, not an avatar's 256: these are wide generated
+            # cards, and rendering them small then scaling up is how text turns to mush.
+            data = avatars._svg_to_png(data, width=CARD_W * 2)
+        except Exception as exc:  # noqa: BLE001 — a preview is never worth a failure
+            log.warning("preview: could not render an SVG (%s)", exc)
             return None
 
     Image.MAX_IMAGE_PIXELS = avatars.MAX_PIXELS

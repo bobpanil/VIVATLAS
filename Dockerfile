@@ -12,6 +12,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Cairo, for turning an SVG into a picture. cairosvg is a binding, not a renderer:
+# without the library beside it every repository whose face is a preview.svg gets
+# no card picture at all. --no-install-recommends keeps this to a few megabytes.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libcairo2 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install the package. Templates, static assets, fonts and avatars are bundled
 # in the wheel, so no separate copy of them is needed at runtime.
 COPY pyproject.toml ./

@@ -529,6 +529,10 @@ def previews_cmd(
     from vivatlas.models import Artifact
 
     async def _run() -> None:
+        try:
+            model = build_text_model()
+        except Exception:  # noqa: BLE001 — choosing by order is a fine fallback
+            model = None
         done = failed = 0
         with session_scope() as session:
             query = session.query(Artifact).order_by(Artifact.id)
@@ -540,7 +544,7 @@ def previews_cmd(
             typer.echo(f"  {len(rows)} card(s) without a picture")
             for art in rows:
                 try:
-                    if await pv.refresh_artifact(session, art, force=force):
+                    if await pv.refresh_artifact(session, art, force=force, model=model):
                         done += 1
                         typer.echo(f"    ✓ {art.name}")
                     else:

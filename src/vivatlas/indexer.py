@@ -122,8 +122,14 @@ async def index_repository(
     # repository should not re-download its banner.
     if content_changed or outcome == "created" or not artifact.preview_src:
         readme = contents.get("README.md")
+        # The same model that writes the card's description chooses its picture —
+        # it already has the project in mind by the time it gets here.
         await previews.refresh_artifact(
-            session, artifact, force=True, readme=(readme.text if readme else None)
+            session,
+            artifact,
+            force=True,
+            readme=(readme.text if readme else None),
+            model=text_model,
         )
 
     if outcome == "created":

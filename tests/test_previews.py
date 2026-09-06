@@ -167,3 +167,73 @@ def test_the_padding_takes_the_picture_s_own_colour():
     im = Image.open(io.BytesIO(out)).convert("RGB")
     r, g, b = im.getpixel((previews.CARD_W // 2, 4))  # in the top bar
     assert abs(r - 12) < 24 and abs(g - 24) < 24 and abs(b - 36) < 24
+
+
+# --- letting a vision model choose ------------------------------------------
+
+
+class _StubModel:
+    """A vision model that answers however the test needs it to."""
+
+    def __init__(self, pick=None, boom=False):
+        self.pick, self.boom, self.calls = pick, boom, 0
+        self.last_media_len = 0
+
+    async def generate_json_with_media(self, prompt, schema, mime_type, data_base64):
+        self.calls += 1
+        self.last_media_len = len(data_base64)
+        if self.boom:
+            raise RuntimeError("rate limited")
+        return {"pick": self.pick, "why": "it names the project"}
+
+
+@pytest.mark.asyncio
+async def test_the_model_s_choice_is_used():
+    """The rules can only judge an image by its name and its size, and by those a
+    sponsor's logo and a product screenshot look the same. Looking is the only way
+    to tell them apart, so when the model answers, its answer wins."""
+    imgs = [_png(800, 500, (1, 1, 1)), _png(800, 500, (2, 2, 2)), _png(800, 500, (3, 3, 3))]
+    model = _StubModel(pick=3)
+    assert await previews.pick_with_model(model, imgs, "Thing") == 2
+    assert model.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_a_model_that_fails_falls_back_to_document_order():
+    """A rate-limited vision model must cost the card its best picture, not its
+    picture — and never the scan."""
+    imgs = [_png(800, 500), _png(800, 500)]
+    assert await previews.pick_with_model(_StubModel(boom=True), imgs, "Thing") == 0
+
+
+@pytest.mark.asyncio
+async def test_an_answer_outside_the_range_is_ignored():
+    imgs = [_png(800, 500), _png(800, 500)]
+    assert await previews.pick_with_model(_StubModel(pick=9), imgs, "Thing") == 0
+    assert await previews.pick_with_model(_StubModel(pick=0), imgs, "Thing") == 0
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_asked_when_there_is_no_choice():
+    """One candidate is not a decision. No model, no call, no token spent."""
+    model = _StubModel(pick=1)
+    assert await previews.pick_with_model(model, [_png(800, 500)], "Thing") == 0
+    assert await previews.pick_with_model(None, [_png(800, 500)] * 3, "Thing") == 0
+    assert model.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_the_candidates_go_as_one_picture():
+    """One image, not one call each: the interface takes a single piece of media,
+    and "which of these is best" is a question that only makes sense side by side."""
+    from PIL import Image
+
+    imgs = [_png(800, 500), _png(800, 500), _png(800, 500)]
+    sheet = previews.contact_sheet(imgs)
+    im = Image.open(io.BytesIO(sheet))
+    # three tiles, two to a row -> two rows
+    assert im.size == (previews.CARD_W * 2, previews.CARD_H * 2)
+
+    model = _StubModel(pick=2)
+    await previews.pick_with_model(model, imgs, "Thing")
+    assert model.calls == 1  # not three

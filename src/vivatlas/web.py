@@ -1296,6 +1296,14 @@ async def fill_missing_previews(limit: int = 20) -> int:
     """
     from vivatlas import previews as pv
 
+    # A vision model to choose between candidates, if one is configured. Built
+    # once for the batch rather than per card, and optional throughout: without it
+    # the picture is chosen by document order, which is how this worked before.
+    try:
+        model = build_text_model()
+    except Exception:  # noqa: BLE001 — no AI configured is not an error here
+        model = None
+
     filled = 0
     with session_scope() as session:
         rows = (
@@ -1307,7 +1315,7 @@ async def fill_missing_previews(limit: int = 20) -> int:
         )
         for art in rows:
             try:
-                if await pv.refresh_artifact(session, art):
+                if await pv.refresh_artifact(session, art, model=model):
                     filled += 1
             except Exception:  # noqa: BLE001 — one bad card must not stop the batch
                 log.debug("preview for %s failed", art.name, exc_info=True)

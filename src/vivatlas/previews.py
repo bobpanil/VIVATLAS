@@ -16,6 +16,7 @@ Three rules shape everything here:
   like it does today. Nothing in here may take a scan down with it.
 """
 
+import base64
 import io
 import logging
 import re
@@ -337,28 +338,141 @@ def to_card_webp(data: bytes, content_type: str = "") -> bytes | None:
 # enough that a repo listing forty images doesn't hold a scan hostage.
 MAX_TRIES = 4
 
+# What the model is asked. It sees the candidates side by side, so it is choosing
+# between real alternatives rather than judging one image against an idea of what
+# a good one would look like.
+_PICK_PROMPT = """These are candidate pictures for a catalogue card about "{name}".
+{about}
+They are laid out in a grid, two per row, numbered left to right and then top to
+bottom: 1 is top-left, 2 is top-right, 3 is the left of the next row, and so on.
+There are {count} of them.
 
-async def build(readme: str, paths: list[str], raw_base: str, og_image: str = "") -> tuple:
+Pick the one that best shows what this project IS — its own banner, logo, product
+screenshot or title card. Prefer a picture that names or depicts the project over
+one that is generic.
+
+Reject, by preferring something else: status badges and shields, sponsor and
+partner logos, "buy me a coffee" and subscribe buttons, contributor avatar
+collages, star-history charts, and unrelated stock imagery. If every candidate is
+one of those, pick the least bad one and say so.
+
+Answer with the number of your pick."""
+
+_PICK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "pick": {"type": "integer"},
+        "why": {"type": "string"},
+    },
+    "required": ["pick"],
+}
+
+
+def contact_sheet(images: list[bytes]) -> bytes:
+    """The candidates as one picture, two to a row.
+
+    One image rather than several calls: the model interface here takes a single
+    piece of media, and asking about each candidate separately would be N requests
+    to answer one question — and would ask "is this good?" rather than "which of
+    these is best", which is the question that actually has an answer.
+
+    Numbered by position rather than by drawing labels: the layout is stated in the
+    prompt, so nothing depends on a font being installed or legible after scaling.
+    """
+    from PIL import Image
+
+    cols = 2
+    rows = (len(images) + cols - 1) // cols
+    sheet = Image.new("RGB", (CARD_W * cols, CARD_H * rows), (255, 255, 255))
+    for i, raw in enumerate(images):
+        tile = Image.open(io.BytesIO(raw)).convert("RGB")
+        sheet.paste(tile, (CARD_W * (i % cols), CARD_H * (i // cols)))
+    out = io.BytesIO()
+    sheet.save(out, format="WEBP", quality=80, method=4)
+    return out.getvalue()
+
+
+async def pick_with_model(model, images: list[bytes], name: str, about: str = "") -> int:
+    """Which candidate actually represents the project. Returns its index, or 0 —
+    the order-based first choice — whenever the model can't be reached, answers
+    with nonsense, or there is nothing to choose between.
+
+    Never fatal, and never blocking a picture: a card getting the second-best
+    image is a far smaller failure than a scan stopping because a vision model
+    was rate-limited.
+    """
+    if model is None or len(images) < 2:
+        return 0
+    try:
+        prompt = _PICK_PROMPT.format(
+            name=name or "this project",
+            about=f"It is described as: {about.strip()[:300]}" if about.strip() else "",
+            count=len(images),
+        )
+        sheet = contact_sheet(images)
+        data = await model.generate_json_with_media(
+            prompt, _PICK_SCHEMA, "image/webp", base64.b64encode(sheet).decode()
+        )
+        pick = int(data.get("pick") or 1) - 1  # the model counts from one
+        if 0 <= pick < len(images):
+            log.info("preview: model chose %d of %d (%s)",
+                     pick + 1, len(images), (data.get("why") or "")[:120])
+            return pick
+        log.warning("preview: model answered %r, outside 1..%d", data.get("pick"), len(images))
+    except Exception as exc:  # noqa: BLE001 — the heuristic order is a fine answer
+        # WARNING, not debug, and deliberately. Falling back returns index 0, which
+        # is exactly what a genuine "the first one is best" looks like — so a model
+        # that is never actually reached (a stale key, no vision support) would
+        # look from the outside like a model that always agrees. This line is the
+        # only thing that tells those two apart.
+        log.warning("preview: model couldn't choose, falling back to order (%s)", exc)
+    return 0
+
+
+async def build(
+    readme: str,
+    paths: list[str],
+    raw_base: str,
+    og_image: str = "",
+    model=None,
+    name: str = "",
+    about: str = "",
+) -> tuple:
     """Pick, fetch and convert. Returns (webp_bytes, source_url), or (None, None)
     when nothing usable turned up.
 
-    Walks the candidates rather than betting on the first: the leading image in a
-    README is often something we cannot use — an SVG with no renderer here, a
-    dead host — and giving up there would leave a grey card next to a repo that
-    plainly has a picture further down.
+    Gathers what it can rather than betting on the first: the leading image in a
+    README is often unusable — an SVG with no renderer here, a dead host — and
+    giving up there would leave a grey card beside a repo that plainly has a
+    picture further down.
+
+    With a vision model it then asks which of them is actually the project. The
+    rules above can only judge an image by its name, its declared size and its
+    dimensions, and by those a sponsor's logo and a product screenshot are
+    indistinguishable. Looking at them is the only way to tell, so when there is
+    something that can look, it does. Without one, document order decides — which
+    is the old behaviour, and still right most of the time.
     """
+    viable: list[tuple[bytes, str]] = []
     for url in choose(readme, paths, raw_base, og_image)[:MAX_TRIES]:
         data = await fetch(url)
         if not data:
             continue
         webp = to_card_webp(data)
         if webp:
-            return webp, url
-    return None, None
+            viable.append((webp, url))
+
+    if not viable:
+        return None, None
+    if len(viable) == 1:
+        return viable[0]
+
+    index = await pick_with_model(model, [w for w, _ in viable], name, about)
+    return viable[index]
 
 
 async def refresh_artifact(
-    session, artifact, force: bool = False, readme: str | None = None
+    session, artifact, force: bool = False, readme: str | None = None, model=None
 ) -> bool:
     """Give one card a picture, if it can have one. True when a new one was stored.
 
@@ -393,7 +507,15 @@ async def refresh_artifact(
     if base and not image_candidates(text):
         text = await fetch_readme(base) or text
 
-    webp, src = await build(text, paths, base, og_image=host_card(html_url))
+    webp, src = await build(
+        text,
+        paths,
+        base,
+        og_image=host_card(html_url),
+        model=model,
+        name=artifact.name or "",
+        about=artifact.summary_short or "",
+    )
     if not webp:
         return False
 

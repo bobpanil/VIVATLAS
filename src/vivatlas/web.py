@@ -18,7 +18,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import case, func, or_, select, text
 from sqlalchemy import update as sa_update
 
 from vivatlas import cardtext, caticons, catnames, i18n, security
@@ -1318,7 +1318,14 @@ async def fill_missing_previews(limit: int = 20) -> int:
             .filter(
                 or_(Artifact.preview_src.is_(None), Artifact.preview_src.like("%/avatars/%"))
             )
-            .order_by(Artifact.preview_checked_at.asc().nulls_first(), Artifact.id.asc())
+            # Wrong before blank: a card wearing somebody's avatar is actively
+            # misleading and is what the owner is looking at right now, so those
+            # go before cards that merely have nothing yet.
+            .order_by(
+                case((Artifact.preview_src.like("%/avatars/%"), 0), else_=1),
+                Artifact.preview_checked_at.asc().nulls_first(),
+                Artifact.id.asc(),
+            )
             .limit(limit)
             .all()
         )

@@ -20,6 +20,7 @@ import base64
 import io
 import logging
 import re
+from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -568,7 +569,8 @@ async def refresh_artifact(
     if not webp and model is not None:
         webp, src = await generated_picture(model, artifact)
     if not webp:
-        return False
+        # Nothing to find and nothing drawn: make a cover. Never None from here.
+        webp, src = designed_cover(artifact), "generated:cover"
 
     row = session.get(Preview, artifact.id)
     if row is None:
@@ -648,3 +650,186 @@ async def generated_picture(model, artifact) -> tuple:
         return None, None
     webp = to_card_webp(png)
     return (webp, f"generated:{which}") if webp else (None, None)
+
+
+# --- the designed cover ------------------------------------------------------
+#
+# What a card wears when there is nothing to find: no banner, no logo, no preview
+# file, no host card, and no image model with quota to draw one. VIVATLAS makes a
+# cover itself — the name set large in the brand face, the kind above it, the
+# owner at the foot, on a ground colour and a geometric motif that both come from
+# the name. Deterministic: the same card always gets the same cover, and two cards
+# rarely share one side by side. No model, no network, no cost.
+#
+# It names the thing rather than depicting it. That is the trade a catalogue
+# cover normally makes — it is what book spines do — and it is a great deal better
+# than the alternatives this replaces: an identicon, or a grey box.
+
+_FONT_DIR = Path(__file__).parent / "static" / "fonts"
+_CREAM = (247, 240, 229)
+_GOLD = (247, 165, 1)
+# Grounds from the brand family — ink, navy, and the accents — all deep enough
+# that cream type reads on them.
+_GROUNDS = (
+    (35, 37, 29), (4, 6, 13), (21, 122, 86), (124, 68, 166),
+    (44, 132, 224), (205, 66, 57), (138, 93, 0), (44, 140, 102),
+)
+
+
+def _font(bold: bool, size: int):
+    """IBM Plex Sans, bundled (OFL). Pillow's built-in face if the file is somehow
+    missing — ugly, but a cover with the wrong font beats no cover."""
+    from PIL import ImageFont
+
+    path = _FONT_DIR / ("IBMPlexSans-Bold.ttf" if bold else "IBMPlexSans-Regular.ttf")
+    try:
+        return ImageFont.truetype(str(path), size)
+    except Exception:  # noqa: BLE001
+        try:
+            return ImageFont.load_default(size)
+        except TypeError:  # older Pillow: no size argument
+            return ImageFont.load_default()
+
+
+def _stable(text: str, n: int) -> int:
+    """A small integer that depends only on the text — so the choice it drives
+    (colour, motif) is the same on every render and every machine."""
+    import hashlib
+
+    return int(hashlib.sha256(text.encode("utf-8")).hexdigest()[:8], 16) % n
+
+
+def _tint(colour: tuple, k: float) -> tuple:
+    return tuple(int(v + (255 - v) * k) for v in colour)
+
+
+def _motif(draw, family: int, fg: tuple, seed: int) -> None:
+    """One of five geometric families, in a lighter shade of the ground. Quiet on
+    purpose: the name is the picture, this is the wallpaper behind it."""
+    if family == 0:  # rings, top-right
+        cx, cy = CARD_W + 40, -40
+        for r in range(60, 560, 60):
+            draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=fg, width=14)
+    elif family == 1:  # diagonal bands
+        for i in range(-8, 14):
+            x = i * 90 + seed % 90
+            draw.polygon([(x, 0), (x + 34, 0), (x + 34 - 260, CARD_H), (x - 260, CARD_H)], fill=fg)
+    elif family == 2:  # triangles, bottom-left
+        step = 70
+        for row in range(4):
+            for col in range(6):
+                if (row + col + seed) % 3 == 0:
+                    x, y = col * step - 30, CARD_H - (row + 1) * step + 20
+                    draw.polygon([(x, y + step), (x + step, y + step), (x + step / 2, y)], fill=fg)
+    elif family == 3:  # a sparse dot grid, right half
+        for gx in range(380, CARD_W + 20, 48):
+            for gy in range(24, CARD_H, 48):
+                if (gx // 48 + gy // 48 + seed) % 2 == 0:
+                    draw.ellipse([gx - 5, gy - 5, gx + 5, gy + 5], fill=fg)
+    else:  # a quarter-circle, bottom-right
+        r = 340
+        draw.pieslice([CARD_W - r, CARD_H - r, CARD_W + r, CARD_H + r], 180, 270, fill=fg)
+
+
+def _pieces(text: str) -> list[str]:
+    """Where a name may break: at spaces, and AFTER a hyphen or underscore. So
+    site-compatibility-auditor wraps as site- / compatibility- / auditor, and never
+    as compatibi- / lity, which is what breaking anywhere produced."""
+    out: list[str] = []
+    cur = ""
+    for ch in text:
+        if ch == " ":
+            if cur:
+                out.append(cur)
+            cur = ""
+        elif ch in "-_":
+            out.append(cur + "-")
+            cur = ""
+        else:
+            cur += ch
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _fit_name(draw, text: str, max_w: int, max_lines: int = 3, start: int = 64, floor: int = 26):
+    """The largest size at which the name fits in `max_lines`, wrapping only at
+    word and hyphen boundaries. Returns (font, lines, line_height). Below the floor
+    a single monstrous token is cut rather than allowed to run off the card."""
+    toks = _pieces(text)
+    font, lines = _font(True, floor), []
+    for size in range(start, floor - 1, -4):
+        font = _font(True, size)
+        lines, cur = [], ""
+        for t in toks:
+            joiner = "" if cur.endswith("-") else " "
+            trial = (cur + joiner + t) if cur else t
+            if draw.textlength(trial, font=font) <= max_w:
+                cur = trial
+            else:
+                if cur:
+                    lines.append(cur)
+                cur = t
+        if cur:
+            lines.append(cur)
+        if len(lines) <= max_lines and all(draw.textlength(ln, font=font) <= max_w for ln in lines):
+            return font, lines, size * 1.15
+    cut = []
+    for ln in lines[:max_lines]:
+        while ln and draw.textlength(ln, font=font) > max_w:
+            ln = ln[:-1]
+        cut.append(ln)
+    return font, cut, floor * 1.15
+
+
+def cover_image(name: str, kind: str = "", owner: str = ""):
+    """The cover as a Pillow image, the card's own shape."""
+    from PIL import Image, ImageDraw
+
+    name = (name or "untitled").strip()
+    ground = _GROUNDS[_stable(name, len(_GROUNDS))]
+    im = Image.new("RGB", (CARD_W, CARD_H), ground)
+    draw = ImageDraw.Draw(im)
+    _motif(draw, _stable(name + "/motif", 5), _tint(ground, 0.13), _stable(name, 1000))
+
+    if kind:
+        draw.text((48, 84), kind.upper(), font=_font(True, 15), fill=_GOLD)
+    font, lines, line_h = _fit_name(draw, name, CARD_W - 96)
+    y = 118
+    for ln in lines:
+        draw.text((48, y), ln, font=font, fill=_CREAM)
+        y += line_h
+    if owner:
+        draw.text((48, CARD_H - 52), owner, font=_font(False, 17), fill=_tint(ground, 0.55))
+    draw.ellipse([CARD_W - 76, CARD_H - 66, CARD_W - 48, CARD_H - 38], fill=_GOLD)
+    return im
+
+
+def _kind_label(artifact_type: str) -> str:
+    """"claude-skill" -> "claude skill"; the types that say nothing say nothing."""
+    t = (artifact_type or "").strip().lower()
+    if t in ("", "unknown"):
+        return ""
+    if t == "page":
+        return "link"
+    return t.replace("-", " ").replace("_", " ")
+
+
+def _owner_label(artifact) -> str:
+    repo = artifact.repository
+    if repo is None:
+        return ""
+    if repo.owner and repo.owner != "draft":
+        return repo.owner
+    host = urlparse(repo.original_url or "").hostname or ""
+    return host.removeprefix("www.")
+
+
+def designed_cover(artifact) -> bytes:
+    """A card's cover as webp bytes, ready to store."""
+    im = cover_image(
+        artifact.name or "", _kind_label(artifact.artifact_type), _owner_label(artifact)
+    )
+    out = io.BytesIO()
+    im.save(out, format="WEBP", quality=82, method=6)
+    return out.getvalue()

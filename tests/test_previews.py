@@ -391,3 +391,83 @@ async def test_one_quota_refusal_pauses_drawing_for_the_pass(monkeypatch):
     await previews.generated_picture(drawer, _Art())
     assert len(drawer.prompts) == 1  # asked once, then left alone
     monkeypatch.setattr(previews, "_draw_paused_until", 0.0)  # don't leak into other tests
+
+
+# --- the designed cover ------------------------------------------------------
+
+
+def test_a_cover_is_the_card_s_shape_and_deterministic():
+    """Same card, same cover — on every render and every machine. That is what
+    lets a rescan tell "unchanged" from "changed" by bytes alone."""
+    from PIL import Image
+
+    a = previews.cover_image("output-skill", "claude skill", "skills-lib")
+    b = previews.cover_image("output-skill", "claude skill", "skills-lib")
+    assert a.size == (previews.CARD_W, previews.CARD_H)
+    assert a.tobytes() == b.tobytes()
+    art = type(
+        "A", (), {"name": "output-skill", "artifact_type": "claude-skill", "repository": None}
+    )()
+    webp = previews.designed_cover(art)
+    assert Image.open(io.BytesIO(webp)).size == (previews.CARD_W, previews.CARD_H)
+
+
+def test_different_cards_get_different_grounds():
+    """A catalogue of one colour is the identicon problem in a new coat."""
+    names = ["output-skill", "redesign-skill", "minimalist-skill", "site-compatibility-auditor",
+             "imagegen-frontend-web", "soft-skill", "taste-skill-v1", "dify"]
+    grounds = {previews.cover_image(n).getpixel((4, 4)) for n in names}
+    assert len(grounds) >= 3
+
+
+def test_names_wrap_at_hyphens_never_inside_words():
+    """site-compatibility-auditor became "compatibi- / lity" when breaks were
+    allowed anywhere. Only spaces and hyphens are break points now."""
+    from PIL import Image, ImageDraw
+
+    draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    for name in ("site-compatibility-auditor", "imagegen-frontend-web", "minimalist-skill"):
+        _, lines, _ = previews._fit_name(draw, name, previews.CARD_W - 96)
+        assert "".join(lines) == name, lines  # every break sat on a hyphen
+        assert 1 <= len(lines) <= 3
+
+
+def test_a_very_long_title_still_fits_three_lines():
+    from PIL import Image, ImageDraw
+
+    draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    title = "Don't publish the first video until you set this up – the video explains everything"
+    font, lines, _ = previews._fit_name(draw, title, previews.CARD_W - 96)
+    assert len(lines) <= 3
+    assert all(draw.textlength(ln, font=font) <= previews.CARD_W - 96 for ln in lines)
+
+
+def test_the_bundled_face_is_used():
+    """Plex is bundled so the cover looks the same in the container as here — the
+    image has no system fonts, and Pillow's built-in face is not a look."""
+    assert (previews._FONT_DIR / "IBMPlexSans-Bold.ttf").exists()
+    assert (previews._FONT_DIR / "IBMPlexSans-Regular.ttf").exists()
+
+
+@pytest.mark.asyncio
+async def test_a_card_with_nothing_at_all_gets_a_cover(make_session, monkeypatch):
+    """The end of the chain: no banner, no logo, no host card, no drawing model —
+    the card still gets a picture, and it is marked as ours so a real one wins later."""
+    from vivatlas.models import Artifact, Preview, Repository
+
+    session = make_session()
+    repo = Repository(source_id=1, external_id="x", owner="skills-lib", name="output-skill",
+                      default_branch="main", html_url="", original_url="https://example.invalid/x")
+    session.add(repo)
+    session.flush()
+    art = Artifact(repository_id=repo.id, name="output-skill", artifact_type="claude-skill")
+    session.add(art)
+    session.flush()
+
+    async def no_page(url):
+        return ""
+    monkeypatch.setattr(previews, "page_image", no_page)
+
+    assert await previews.refresh_artifact(session, art, model=None)
+    assert art.preview_src == "generated:cover"
+    assert session.get(Preview, art.id) is not None

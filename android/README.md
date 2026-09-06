@@ -20,9 +20,11 @@ A deliberately thin **Kotlin WebView** app. It is two things at once:
 1. **The mobile/tablet UI** — a full-screen WebView onto your VIVATLAS server, so
    you get the same responsive web UI as a real installed app.
 2. **A share target** — scroll Reddit / Facebook / Chrome → **Share → VIVATLAS**,
-   and the link is captured straight into your library (background `POST
-   /api/ext/add`), with a "Added to VIVATLAS" toast. No separate native login: the
-   share reuses the WebView's own session cookie as a Bearer token.
+   and an "Add to VIVATLAS" sheet shows the link and which zone it will land in —
+   **Private** or **Public** — starting from your standing choice in App settings.
+   Tap **Add** and it goes (background `POST /api/ext/add`), with a toast that names
+   the zone. No separate native login: the share reuses the WebView's own session
+   cookie as a Bearer token.
 
 There is **no APK checked in** — you build it from this source. Nothing here needs
 changing to build; the server address is entered on first launch and stored on the
@@ -38,7 +40,7 @@ android/
     src/main/AndroidManifest.xml            # MainActivity + ShareActivity (ACTION_SEND)
     src/main/java/com/vivatlas/app/
       MainActivity.kt                        # the WebView host
-      ShareActivity.kt                       # share-sheet capture → /api/ext/add
+      ShareActivity.kt                       # share-sheet capture (zone sheet) → /api/ext/add
       Prefs.kt                               # remembers the server URL
     src/main/res/                            # layout, theme, strings, icon, net-security
 ```
@@ -116,7 +118,10 @@ it:
 
 From Chrome/Reddit/Facebook on the device → **Share** → **VIVATLAS**:
 
-- Logged in → toast **"Added to VIVATLAS"**; the card appears in your library.
+- Logged in → the **Add to VIVATLAS** sheet, with the zone preset from App settings.
+  Change it for this one share if you like, tap **Add**, and the toast says where it
+  went — *"Added to VIVATLAS — private"* or *"Added to the shared catalogue"*. The
+  card appears in your library. **Cancel** (or Back) drops the share without saving.
 - Not logged in → the app opens the **Add** form pre-filled with the link
   (`/add?source=…`); the server's login-then-continue flow takes over, so the share
   isn't lost.

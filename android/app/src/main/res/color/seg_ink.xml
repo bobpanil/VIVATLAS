@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Label and icon inside a zone segment: near-black on the gold pill when
+     chosen, muted against the rail when not. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:color="@color/on_gold" />
+    <item android:color="@color/text_muted" />
+</selector>

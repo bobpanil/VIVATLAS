@@ -60,6 +60,16 @@
     <string name="download_started">Download started</string>
     <string name="download_failed">Download failed</string>
 
-    <string name="share_added">Added to VIVATLAS</string>
+    <!-- The share sheet: where this link is about to land, before it lands. -->
+    <string name="share_dialog_title">Add to VIVATLAS</string>
+    <string name="share_zone_private">Private</string>
+    <string name="share_zone_shared">Public</string>
+    <string name="share_zone_hint_private">Only you will see this card. You can change it later on the card.</string>
+    <string name="share_zone_hint_shared">This card goes into the shared catalogue, where everyone sees it.</string>
+    <string name="share_zone_default">Set what this starts as in App settings.</string>
+    <string name="share_add">Add</string>
+
+    <string name="share_added_private">Added to VIVATLAS — private</string>
+    <string name="share_added_shared">Added to the shared catalogue</string>
     <string name="share_failed">Couldn\'t add — open VIVATLAS and sign in</string>
 </resources>

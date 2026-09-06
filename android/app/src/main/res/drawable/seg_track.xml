@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The rail the two zone segments sit in: a shade deeper than the ivory card,
+     so the selected pill reads as raised out of it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/field_border" />
+    <corners android:radius="12dp" />
+</shape>

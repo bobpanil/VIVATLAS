@@ -58,14 +58,16 @@
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation" />
 
         <!-- The share target: appears in the Android share sheet for links/text.
-             It has no UI of its own — it captures, toasts, and finishes. -->
+             Its only UI is the "Add to VIVATLAS" sheet — link, zone, Add — then
+             it captures, toasts where the card landed, and finishes. -->
         <activity
             android:name=".ShareActivity"
             android:exported="true"
             android:theme="@style/Theme.Vivatlas.Transparent"
             android:excludeFromRecents="true"
             android:taskAffinity=""
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|density|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

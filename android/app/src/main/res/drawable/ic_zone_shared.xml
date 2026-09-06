@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Globe — the shared catalogue. Mirrors the extension's globe icon.
+     Left untinted: the caller tints it from the segment's state. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="17dp"
+    android:height="17dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:pathData="M14,8 A6,6 0 1 1 2,8 A6,6 0 1 1 14,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.3" />
+    <path
+        android:pathData="M2,8 H14"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.3" />
+    <path
+        android:pathData="M8,2 C10.2,4 10.2,12 8,14"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.3" />
+    <path
+        android:pathData="M8,2 C5.8,4 5.8,12 8,14"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.3" />
+</vector>

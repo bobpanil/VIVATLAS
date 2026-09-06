@@ -1281,6 +1281,40 @@ def _persist_card(plan: _CardPlan, owner_uid: int | None) -> bool:
     return created
 
 
+async def fill_missing_previews(limit: int = 20) -> int:
+    """Give a picture to cards that have none. Returns how many got one.
+
+    The same hunt a scan does, reaching the cards a scan will not: everything that
+    was catalogued before pictures existed, and anything whose banner could not be
+    read last time. Called on a slow loop so a catalogue fills itself in rather
+    than waiting for someone to run a command — and so it costs nothing at all
+    once every card has one.
+
+    A card that yields nothing is left alone rather than marked, so it is tried
+    again next time: a README gets a banner, a dead host comes back. The batch
+    size is what keeps that from being expensive.
+    """
+    from vivatlas import previews as pv
+
+    filled = 0
+    with session_scope() as session:
+        rows = (
+            session.query(Artifact)
+            .filter(Artifact.preview_src.is_(None))
+            .order_by(Artifact.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+        for art in rows:
+            try:
+                if await pv.refresh_artifact(session, art):
+                    filled += 1
+            except Exception:  # noqa: BLE001 — one bad card must not stop the batch
+                log.debug("preview for %s failed", art.name, exc_info=True)
+            session.commit()
+    return filled
+
+
 async def retry_failed_summaries(limit: int = 25) -> int:
     """Re-attempt the AI summary for cards that don't have one — a prior Gemini failure
     (usually a rate limit). Uses the documentation ALREADY stored on the card, so there

@@ -38,6 +38,12 @@ _AUTOSCAN_WARMUP_SECONDS = 300
 # hiccup should heal within the hour, not the day.
 _RETRY_EVERY_SECONDS = 1800
 _RETRY_WARMUP_SECONDS = 420
+# Cards without a picture heal the same way summaries do. A batch rather than the
+# lot: each card costs a README and an image, and a catalogue that has just been
+# imported should not answer its first page load by fetching two hundred of them.
+_PREVIEW_EVERY_SECONDS = 900
+_PREVIEW_WARMUP_SECONDS = 90
+_PREVIEW_BATCH = 20
 
 
 async def _autoscan_pass() -> None:
@@ -101,6 +107,31 @@ async def _retry_loop() -> None:
         await asyncio.sleep(_RETRY_EVERY_SECONDS)
 
 
+async def _preview_loop() -> None:
+    """Cards with no picture get one, by themselves.
+
+    The finding and fetching is the same work a scan does; this is only what makes
+    it reach cards the scan is not going to touch — everything that was already in
+    the catalogue before pictures existed, and anything whose banner could not be
+    read the first time. Runs in small batches on a slow cadence, so a catalogue
+    fills in over an hour or so of being up rather than in one burst, and stops
+    costing anything at all once every card has one.
+    """
+    await asyncio.sleep(_PREVIEW_WARMUP_SECONDS)
+    while True:
+        try:
+            from vivatlas.web import fill_missing_previews
+
+            filled = await fill_missing_previews(_PREVIEW_BATCH)
+            if filled:
+                log.info("previews: %d card(s) got a picture", filled)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("previews: pass failed")
+        await asyncio.sleep(_PREVIEW_EVERY_SECONDS)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     # Without the secret key the door won't lock: it backs the signatures (2FA,
@@ -126,7 +157,11 @@ async def _lifespan(app: FastAPI):
 
         with session_scope() as s:
             runtime_settings.apply_config_overrides(s)
-    tasks = [asyncio.create_task(_autoscan_loop()), asyncio.create_task(_retry_loop())]
+    tasks = [
+        asyncio.create_task(_autoscan_loop()),
+        asyncio.create_task(_retry_loop()),
+        asyncio.create_task(_preview_loop()),
+    ]
     try:
         async with contextlib.AsyncExitStack() as stack:
             # The mounted MCP application has a lifespan of its own, and that lifespan is

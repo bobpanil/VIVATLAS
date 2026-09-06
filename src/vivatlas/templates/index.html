@@ -12,11 +12,6 @@
 {% set sa = (1 if f.days else 0) + (1 if f.status else 0) + (1 if f.tag else 0) + (1 if f.type else 0) + (1 if f.zone else 0) + (1 if f.fav else 0) + (1 if f.purpose else 0) %}
 <button class="tnav-btn{% if sa %} on{% endif %}" type="button" id="filters-btn-top"
         aria-expanded="false" aria-controls="sheet" aria-label="{{ t('index.filters') }}">{{ icons.ic('filter') }}{% if sa %}<b class="fbadge">{{ sa }}</b>{% endif %}</button>
-{% if not q %}
-<button class="tnav-btn" type="button" id="sort-btn-top"
-        aria-expanded="false" aria-controls="sort-menu"
-        aria-label="{{ t('index.sort_group') }}">{{ icons.ic('sort') }}</button>
-{% endif %}
 <button class="tnav-btn" type="button" id="search-toggle"
         aria-expanded="false" aria-controls="q" aria-label="{{ t('index.search_aria') }}">{{ icons.ic('search') }}</button>
 {% endif %}
@@ -140,10 +135,42 @@
                     <button class="sheet-x" type="button" id="sheet-x" aria-label="{{ t('index.close') }}">×</button>
                 </div>
                 <div class="sheet-body">
-                    {# Sorting used to sit here, first in the panel, and was missed
-                       precisely because it sat here: you had to open Filters to learn
-                       it existed. It now lives in the toolbar, where the order the
-                       catalogue is in can be seen without opening anything. #}
+                    {# Sorting, on the phone only. On a wide screen it stays out in the
+                       toolbar, where the order the catalogue is in can be read without
+                       opening anything — that is why it moved out of here in the first
+                       place, and it has not moved back. But the phone's top bar has room
+                       for two icons beside the centred wordmark, not three, and the third
+                       was landing on the logo. So on a phone the order joins the filters:
+                       same chips, same panel, one button. (.sheet-sort is display:none
+                       above 768px.) #}
+                    {% if not q %}
+                    {% set m_down = (f.dir == 'desc') if f.dir else (f.sort in ('updated', 'added')) %}
+                    {% set m_flip = 'asc' if m_down else 'desc' %}
+                    {% if f.sort in ('updated', 'added') %}
+                    {% set m_flip_label = t('index.sort_flip_oldest') if m_down else t('index.sort_flip_newest') %}
+                    {% else %}
+                    {% set m_flip_label = t('index.sort_flip_az') if m_down else t('index.sort_flip_za') %}
+                    {% endif %}
+                    <div class="sheet-sort">
+                        <p class="fgroup">{{ icons.ic('sort') }}{{ t('index.sort_group') }}</p>
+                        <nav class="filters" aria-label="{{ t('index.sort_group') }}">
+                            {# Picking an order leaves its direction out (dir=''), so each
+                               comes back the way you last had IT — carrying the current
+                               direction across would stand a different order on its head. #}
+                            <a class="filter" href="/?{{ f.as_query(sort='name', dir='') | urlencode }}"
+                               {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
+                            <a class="filter" href="/?{{ f.as_query(sort='updated', dir='') | urlencode }}"
+                               {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
+                            <a class="filter" href="/?{{ f.as_query(sort='added', dir='') | urlencode }}"
+                               {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
+                            {# Which way round — a chip of its own, set apart, because it
+                               changes a different thing from the three beside it. #}
+                            <a class="filter filter-flip" href="/?{{ f.as_query(dir=m_flip) | urlencode }}">
+                                <span aria-hidden="true">{{ '↑' if m_down else '↓' }}</span> {{ m_flip_label }}
+                            </a>
+                        </nav>
+                    </div>
+                    {% endif %}
 
                     {# Type/zone/favourites — now here, not as a separate row at the top. #}
                     <p class="fgroup">{{ t('index.view_group') }}</p>

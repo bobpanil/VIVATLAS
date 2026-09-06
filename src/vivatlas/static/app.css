@@ -5808,6 +5808,32 @@ a.art-chip-pur:hover { border-color: currentColor; }
 
 /* Filters — as a list, a full-width row, not pills. Icon and label on the
    left, the counter pinned to the right. */
+/* Sorting inside the filter sheet — the phone's copy of it, and only the phone's.
+   On a wide screen the toolbar carries the order out in the open where it can be
+   read without opening anything, so this stays out of the way there. */
+.sheet-sort {
+    display: none;
+}
+
+/* The order joins the filters on the phone, because the top bar has room for two
+   icons beside the centred wordmark, not three. */
+@media (max-width: 768px) {
+    .sheet-sort {
+        display: block;
+    }
+
+    /* Which way round is a different question from which order, so the row that
+       asks it is set apart from the three that answer the first — the same hairline
+       the desktop sort menu puts above its own reverse row. */
+    .sheet-sort .filter-flip {
+        margin-top: 4px;
+        padding-top: 10px;
+        border-top: 1px solid var(--hairline);
+        border-radius: 0;
+        color: var(--mute);
+    }
+}
+
 .sheet .filters {
     display: flex;
     flex-direction: column;

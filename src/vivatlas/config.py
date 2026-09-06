@@ -93,6 +93,22 @@ class Settings(BaseSettings):
     # anonymous (shared cards only), exactly as before.
     public_url: str = ""
 
+    # Who is allowed to say "this request really arrived over https".
+    #
+    # Behind a proxy that terminates TLS (Cloudflare, Traefik, nginx) the request
+    # reaches us as plain http on an internal address, so request.url.scheme is
+    # http and every cookie we set goes out WITHOUT Secure — on a site the browser
+    # reached over https. The proxy states the truth in X-Forwarded-Proto, but a
+    # header anyone can send is only worth trusting from the proxy itself, so the
+    # address it connects FROM has to be named here.
+    #
+    # In Docker that is usually the bridge gateway:
+    #   docker exec <container> ip route | awk '/default/ {print $3}'
+    # Comma-separated for several. "*" trusts whoever asks — safe ONLY when nothing
+    # but the proxy can reach the port, which is not true if you also publish it on
+    # a LAN. Empty keeps uvicorn's own default: loopback only.
+    trusted_proxies: str = ""
+
     # How many repositories a scan builds at once. Each card is mostly waiting —
     # on a download and on the AI — so overlapping several fills that idle time and
     # is the difference between a scan taking minutes and taking an hour. The ceiling

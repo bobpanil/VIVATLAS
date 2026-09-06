@@ -77,6 +77,12 @@ services:
       # If left empty, a stable key is generated and stored in the data folder.
       SECRET_KEY: ""
       DATABASE_URL: "sqlite:////data/vivatlas.db"
+      # Only if a proxy in front terminates TLS (Cloudflare, Traefik, NPM…).
+      # Without it the container sees plain http and sets cookies without Secure
+      # on a site the browser reached over https. Put the address the proxy
+      # connects FROM — in Docker usually the bridge gateway:
+      #   docker exec vivatlas ip route | awk '/default/ {print $3}'
+      TRUSTED_PROXIES: ""
     volumes:
       - type: bind
         source: /mnt/your-pool/apps/vivatlas/data
@@ -127,5 +133,10 @@ break on an older database.
 - **HTTPS / remote access:** the container serves plain HTTP on 8710. To reach it
   from outside your LAN, put it behind a reverse proxy (Traefik, Nginx Proxy
   Manager, Caddy) or a tunnel that terminates TLS — don't expose 8710 directly.
+  When you do, set **`TRUSTED_PROXIES`** to the address the proxy connects from.
+  The container cannot otherwise tell that the visitor arrived over https, and
+  every cookie it sets goes out without the `Secure` flag. Also set the site
+  address in **admin → integrations**, so links in emails and the phone sign-in
+  code name the public https URL rather than the container's internal one.
 - **Email, Gitea/GitHub sources, AI keys:** all optional and configurable later from
   the in-app **Admin → Integrations** panel; nothing extra is needed to boot.

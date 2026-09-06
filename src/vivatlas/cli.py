@@ -553,10 +553,25 @@ def serve(
     app_log = logging.getLogger("vivatlas")
     app_log.addHandler(handler)
     app_log.setLevel(logging.INFO)
+    if settings.trusted_proxies:
+        typer.echo(f"    trusting proxy   : {settings.trusted_proxies}")
     typer.echo(f"  Log: logs/serve-{port}.log")
 
     typer.echo("")
-    uvicorn.run("vivatlas.api:app", host=host, port=port, log_level="warning")
+    uvicorn.run(
+        "vivatlas.api:app",
+        host=host,
+        port=port,
+        log_level="warning",
+        # Behind a TLS-terminating proxy the request arrives as plain http, so
+        # without this every cookie we set is missing Secure on a site the browser
+        # reached over https. X-Forwarded-Proto says otherwise, but only the proxy
+        # may be believed — see settings.trusted_proxies for what to put there.
+        # None hands uvicorn its own default (loopback only), so an unset install
+        # behaves exactly as before rather than trusting the network.
+        proxy_headers=True,
+        forwarded_allow_ips=settings.trusted_proxies or None,
+    )
 
 
 @app.command("mcp")

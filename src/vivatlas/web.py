@@ -18,7 +18,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy import update as sa_update
 
 from vivatlas import cardtext, caticons, catnames, i18n, security
@@ -1310,16 +1310,21 @@ async def fill_missing_previews(limit: int = 20) -> int:
         # recently updated": that put the same twenty link captures — which have
         # no picture to find — at the front of every pass, and the whole
         # catalogue behind them never got its turn.
+        # "No picture" includes a picture that turned out to be somebody's avatar:
+        # an earlier pass accepted a git host's og:image, which is the owner's
+        # identicon, and those cards need doing again.
         rows = (
             session.query(Artifact)
-            .filter(Artifact.preview_src.is_(None))
+            .filter(
+                or_(Artifact.preview_src.is_(None), Artifact.preview_src.like("%/avatars/%"))
+            )
             .order_by(Artifact.preview_checked_at.asc().nulls_first(), Artifact.id.asc())
             .limit(limit)
             .all()
         )
         for art in rows:
             try:
-                if await pv.refresh_artifact(session, art, model=model):
+                if await pv.refresh_artifact(session, art, model=model, force=True):
                     filled += 1
             except Exception:  # noqa: BLE001 — one bad card must not stop the batch
                 log.debug("preview for %s failed", art.name, exc_info=True)

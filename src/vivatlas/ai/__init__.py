@@ -78,6 +78,10 @@ class FallbackTextModel:
         self.model = getattr(self._google, "model", self.model)
         return result
 
+    async def generate_image(self, prompt: str, model: str) -> bytes:
+        """Only Google draws; Ollama has no image models here."""
+        return await self._fallback().generate_image(prompt, model)
+
     async def aclose(self) -> None:
         try:
             await self._primary.aclose()

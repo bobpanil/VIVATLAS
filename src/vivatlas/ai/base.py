@@ -19,6 +19,11 @@ class TextModel(Protocol):
         """Same, but with an image, video, or audio."""
         ...
 
+    async def generate_image(self, prompt: str, model: str) -> bytes:
+        """A picture from a description — PNG bytes. `model` names the drawing
+        model, which is not the one that writes."""
+        ...
+
     async def aclose(self) -> None: ...
 
 

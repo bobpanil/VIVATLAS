@@ -1,6 +1,7 @@
 """Google AI Studio (Gemini)."""
 
 import asyncio
+import base64
 import json
 import logging
 
@@ -138,6 +139,32 @@ class GoogleTextModel(_GoogleClient):
         return await self._generate(
             [{"text": prompt}, {"inline_data": {"mime_type": mime_type, "data": data_base64}}],
             schema,
+        )
+
+    async def generate_image(self, prompt: str, model: str) -> bytes:
+        """A picture from a description — PNG bytes.
+
+        Same endpoint as text, different modality: the image models answer
+        generateContent with an inline image part instead of text. `model` is
+        passed in rather than taken from self.model, because the model that
+        writes descriptions is not the one that draws, and the caller owns that
+        choice (settings.image_model).
+        """
+        data = await self._post(
+            model,
+            "generateContent",
+            {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"responseModalities": ["IMAGE"]},
+            },
+        )
+        candidate = (data.get("candidates") or [{}])[0]
+        for part in candidate.get("content", {}).get("parts") or []:
+            blob = part.get("inlineData") or part.get("inline_data")
+            if blob and blob.get("data"):
+                return base64.b64decode(blob["data"])
+        raise GoogleAIError(
+            f"{model}: no image in response, finishReason={candidate.get('finishReason')}"
         )
 
     async def _generate(self, parts: list[dict], schema: dict) -> dict:

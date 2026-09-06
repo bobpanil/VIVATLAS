@@ -525,6 +525,8 @@ def previews_cmd(
     already have one unless --force."""
     import asyncio
 
+    from sqlalchemy import or_
+
     from vivatlas import previews as pv
     from vivatlas.models import Artifact
 
@@ -537,14 +539,16 @@ def previews_cmd(
         with session_scope() as session:
             query = session.query(Artifact).order_by(Artifact.id)
             if not force:
-                query = query.filter(Artifact.preview_src.is_(None))
+                query = query.filter(
+                    or_(Artifact.preview_src.is_(None), Artifact.preview_src.like("%/avatars/%"))
+                )
             rows = query.all()
             if limit:
                 rows = rows[:limit]
             typer.echo(f"  {len(rows)} card(s) without a picture")
             for art in rows:
                 try:
-                    if await pv.refresh_artifact(session, art, force=force, model=model):
+                    if await pv.refresh_artifact(session, art, force=True, model=model):
                         done += 1
                         typer.echo(f"    ✓ {art.name}")
                     else:

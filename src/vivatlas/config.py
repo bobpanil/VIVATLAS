@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # We don't use *-latest aliases: they silently move to a different model.
     google_api_key: str = ""
     llm_model: str = "gemini-3.1-flash-lite"
+    # The model that DRAWS — a card picture for a project that offers none of its
+    # own (no banner, no logo, no preview.svg). Empty disables generation and such
+    # cards keep the plain text box. On a free-tier key the image models answer
+    # 429 "quota exceeded" until billing is enabled; generation then just waits.
+    image_model: str = "gemini-3.1-flash-lite-image"
     embedding_model: str = "gemini-embedding-2"
     embedding_dim: int = 1536
 

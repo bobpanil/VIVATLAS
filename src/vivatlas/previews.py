@@ -78,8 +78,22 @@ _ASSET_DIRS = ("", "assets/", "docs/", "img/", "images/", "media/", ".github/", 
 _ASSET_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")
 
 
+# Where hosts keep people's faces. Gitea's og:image for a repository is the
+# owner's avatar — for an organisation with none set, an identicon — and a
+# catalogue of identical green quilts is not what "every card has a picture"
+# meant. An avatar is a picture of who made it, never of what it is.
+_AVATAR_HINTS = ("/avatars/", "/avatar/", "gravatar.com", "identicon", "/user/avatar")
+
+
+def is_avatar(url: str) -> bool:
+    low = (url or "").lower()
+    return any(h in low for h in _AVATAR_HINTS)
+
+
 def is_badge(url: str, alt: str = "") -> bool:
     """A status pill rather than a picture of the thing."""
+    if is_avatar(url):
+        return True
     low = url.lower()
     # removeprefix, not lstrip: lstrip takes a SET of characters, so "wow.dev"
     # would come back as "dev" and match hosts it has nothing to do with.
@@ -229,7 +243,8 @@ async def page_image(url: str) -> str:
         from vivatlas.finder import fetch_page_meta
 
         og = await fetch_page_meta(url, timeout=15.0)
-        return (og.get("image") or "").strip()
+        image = (og.get("image") or "").strip()
+        return "" if is_avatar(image) else image
     except Exception as exc:  # noqa: BLE001 — a page that won't open is no failure of ours
         log.debug("preview: no og:image for %s (%s)", url, exc)
         return ""
@@ -518,7 +533,11 @@ async def refresh_artifact(
     is_repo = bool(repo and repo.html_url) or "github.com/" in html_url
     base = raw_base(html_url, repo.default_branch if repo else "main") if is_repo else ""
     og = host_card(html_url)
-    if html_url and not og:
+    scanned = bool(repo and repo.html_url)
+    if html_url and not og and not scanned:
+        # A captured link: the page's og:image is the picture the site chose for
+        # itself. A scanned repository is NOT asked — a git host's page og:image
+        # is the owner's avatar, which is how a row of identicons got in.
         og = await page_image(html_url)
 
     paths: list[str] = []
@@ -546,6 +565,8 @@ async def refresh_artifact(
         name=artifact.name or "",
         about=artifact.summary_short or "",
     )
+    if not webp and model is not None:
+        webp, src = await generated_picture(model, artifact)
     if not webp:
         return False
 
@@ -556,3 +577,74 @@ async def refresh_artifact(
         row.webp = webp
     artifact.preview_src = src[:1024]
     return True
+
+
+_DRAW_PROMPT = """A flat, minimal editorial illustration for a software catalogue card.
+The card is about "{name}"{kind}: {about}
+
+Show the idea, not a screen: abstract shapes and simple objects that suggest what
+it does, in two or three colours on a plain background. Landscape, 16:10.
+No text, no letters, no numbers, no logos, no watermarks, no people's faces."""
+
+
+def draw_prompt(name: str, kind: str, about: str) -> str:
+    kind = f" (a {kind.replace('-', ' ')})" if kind and kind not in ("unknown", "page") else ""
+    return _DRAW_PROMPT.format(name=name or "a tool", kind=kind, about=(about or "").strip()[:400])
+
+
+# When drawing last hit a quota wall, and how long to stay away. A key with no
+# image quota answers every request with a 429, and the client retries each one
+# with backoff — fourteen seconds a card, twenty cards a pass, every pass. One
+# refusal is information enough: stop asking for an hour, and let the cards that
+# need drawing wait for a lap when the quota is back.
+_draw_paused_until: float = 0.0
+_DRAW_PAUSE_SECONDS = 3600.0
+
+
+def _drawing_paused() -> bool:
+    import time
+
+    return time.monotonic() < _draw_paused_until
+
+
+def _pause_drawing(reason: str) -> None:
+    import time
+
+    global _draw_paused_until
+    _draw_paused_until = time.monotonic() + _DRAW_PAUSE_SECONDS
+    log.warning("preview: drawing paused for an hour — %s", reason[:160])
+
+
+async def generated_picture(model, artifact) -> tuple:
+    """The last resort: draw one. Returns (webp, source) or (None, None).
+
+    Only for a card that offered nothing of its own — no banner, no logo, no
+    preview file, no host card — and only when a drawing model is configured.
+    The prompt asks for the idea rather than a fake screenshot, and forbids text:
+    image models still spell badly, and a card with a misspelt title on it looks
+    worse than a card with none.
+
+    Source is recorded as "generated:<model>" so a rescan can tell a drawing from
+    a picture the project supplied, and prefer the latter if one turns up later.
+    On a key with no image quota this fails with a 429 and the card stays plain;
+    the filler comes back to it next lap.
+    """
+    from vivatlas.config import settings
+
+    which = (settings.image_model or "").strip()
+    if not which or not hasattr(model, "generate_image") or _drawing_paused():
+        return None, None
+    try:
+        prompt = draw_prompt(
+            artifact.name or "", artifact.artifact_type or "", artifact.summary_short or ""
+        )
+        png = await model.generate_image(prompt, which)
+    except Exception as exc:  # noqa: BLE001 — quota, safety block, outage: the card stays plain
+        text = str(exc)
+        if "429" in text or "quota" in text.lower():
+            _pause_drawing(text)
+        else:
+            log.warning("preview: could not draw one for %s (%s)", artifact.name, text[:160])
+        return None, None
+    webp = to_card_webp(png)
+    return (webp, f"generated:{which}") if webp else (None, None)

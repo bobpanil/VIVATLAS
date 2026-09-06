@@ -303,3 +303,91 @@ class _Scope:
 
     def __exit__(self, *exc):
         return False
+
+
+# --- an avatar is not a picture; a drawing is the last resort ---------------
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://git.example.com/avatars/6bedb8c7ba5e906d6f85c270fbc63549",
+        "https://git.example.com/user/avatar/someone/-1",
+        "https://www.gravatar.com/avatar/abc?s=200",
+    ],
+)
+def test_an_avatar_is_never_a_project_picture(url):
+    """Gitea's og:image for a repository is the owner's avatar — for an org with
+    none set, an identicon. A row of identical green quilts is what accepting it
+    produced on a real catalogue."""
+    assert previews.is_avatar(url)
+    assert previews.is_badge(url)
+
+
+class _Drawer:
+    def __init__(self, png=None, boom=False):
+        self.png, self.boom, self.prompts = png, boom, []
+
+    async def generate_image(self, prompt, model):
+        self.prompts.append((prompt, model))
+        if self.boom:
+            raise RuntimeError("HTTP 429 quota exceeded")
+        return self.png
+
+
+class _Art:
+    name, artifact_type, summary_short = "output-skill", "claude-skill", "Forces complete outputs."
+
+
+@pytest.mark.asyncio
+async def test_a_card_with_nothing_gets_a_drawing(monkeypatch):
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "test-image-model")
+    drawer = _Drawer(png=_png(1280, 800))
+    webp, src = await previews.generated_picture(drawer, _Art())
+    assert webp and src == "generated:test-image-model"
+    prompt, model = drawer.prompts[0]
+    assert model == "test-image-model"
+    assert "output-skill" in prompt and "Forces complete outputs." in prompt
+    assert "No text" in prompt  # image models spell badly; a card wears no caption
+
+
+@pytest.mark.asyncio
+async def test_no_quota_means_a_plain_card_not_a_failure(monkeypatch):
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "test-image-model")
+    assert await previews.generated_picture(_Drawer(boom=True), _Art()) == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_generation_is_off_when_no_drawing_model_is_set(monkeypatch):
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "")
+    drawer = _Drawer(png=_png(1280, 800))
+    assert await previews.generated_picture(drawer, _Art()) == (None, None)
+    assert drawer.prompts == []
+
+
+def test_the_prompt_names_what_the_thing_is():
+    p = previews.draw_prompt("redesign-skill", "claude-skill", "Upgrades websites.")
+    assert "redesign-skill" in p and "(a claude skill)" in p and "Upgrades websites." in p
+    # a captured page has no useful type to announce
+    assert "(a page)" not in previews.draw_prompt("x", "page", "y")
+
+
+@pytest.mark.asyncio
+async def test_one_quota_refusal_pauses_drawing_for_the_pass(monkeypatch):
+    """A key with no image quota answers every request 429, and each one costs a
+    backoff. One refusal is information enough: the second card must not ask."""
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "image_model", "test-image-model")
+    monkeypatch.setattr(previews, "_draw_paused_until", 0.0)
+    drawer = _Drawer(boom=True)
+    await previews.generated_picture(drawer, _Art())
+    await previews.generated_picture(drawer, _Art())
+    assert len(drawer.prompts) == 1  # asked once, then left alone
+    monkeypatch.setattr(previews, "_draw_paused_until", 0.0)  # don't leak into other tests

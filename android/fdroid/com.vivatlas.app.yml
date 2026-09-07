@@ -13,22 +13,6 @@ IssueTracker: https://github.com/bobpanil/VIVATLAS/issues
 Changelog: https://github.com/bobpanil/VIVATLAS/releases
 
 AutoName: VIVATLAS
-Summary: Your self-hosted catalogue of AI skills, agents and MCP servers, in your
-  pocket
-Description: |-
-  VIVATLAS is a self-hosted catalogue for the skills, agents, MCP servers and tools
-  scattered across your Git repositories and saved links. Each one becomes a card
-  with a picture, a description written for a person, and tags — searchable by
-  meaning, not just by name.
-
-  This app is the phone end of it. It needs a VIVATLAS server you run yourself
-  (see the source repository).
-
-  * The whole catalogue, as a proper app rather than a browser tab.
-  * Share → VIVATLAS from any app to save a link. A small sheet shows what you're saving and lets you choose private or public before it goes.
-  * Sign in by scanning a QR from a browser that's already signed in — a long password never has to meet a phone keyboard.
-  * No accounts here, no analytics, no Google services. It talks to your server and nothing else.
-
 RepoType: git
 Repo: https://github.com/bobpanil/VIVATLAS
 

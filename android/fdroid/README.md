@@ -26,5 +26,5 @@ What the file says, and why:
   `versionCode`/`versionName` in `app/build.gradle.kts` in step with the tag.
 
 For a faster first appearance, IzzyOnDroid takes the signed APK straight from the
-GitHub Release and reads the descriptions from `../fastlane/`; it needs no file at all,
+GitHub Release and reads the descriptions from the repositorys `fastlane/`; it needs no file at all,
 only a request at https://apt.izzysoft.de/fdroid/ (or an issue on their tracker).

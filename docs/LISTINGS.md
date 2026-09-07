@@ -43,7 +43,7 @@ are. Each block is written to be posted as-is; change the voice if it isn't your
 - **Obtainium** — nothing to submit; the README tells people to add the repo.
 - **IzzyOnDroid** — request a listing (apt.izzysoft.de/fdroid, or their issue tracker)
   with the repo URL; they take the signed APK from the GitHub Release and the texts
-  from `android/fastlane/`. Days.
+  from `fastlane/`. Days.
 - **F-Droid** — `android/fdroid/com.vivatlas.app.yml` is the ready, linted submission;
   `android/fdroid/README.md` has the four steps. Weeks. Expect the *NonFreeNet* badge.
 

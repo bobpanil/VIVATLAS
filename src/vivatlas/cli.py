@@ -519,10 +519,14 @@ def secret_cmd() -> None:
 def previews_cmd(
     force: bool = typer.Option(False, help="Redo cards that already have a picture"),
     limit: int = typer.Option(0, help="Stop after this many (0 = all)"),
+    drop_drawings: bool = typer.Option(
+        False, "--drop-drawings", help="Take model-drawn pictures off and give those cards a cover"
+    ),
 ) -> None:
     """Give cards their picture: a README banner, a logo in the repo, or failing
     both the social card the host draws. Safe to re-run — it skips cards that
-    already have one unless --force."""
+    already have one unless --force. --drop-drawings undoes a drawer you tried
+    and didn't like: its pictures come off, and the cards get a cover instead."""
     import asyncio
 
     from sqlalchemy import or_
@@ -537,6 +541,10 @@ def previews_cmd(
             model = None
         done = failed = 0
         with session_scope() as session:
+            if drop_drawings:
+                dropped = pv.drop_drawings(session)
+                session.commit()
+                typer.echo(f"  {len(dropped)} drawing(s) taken off")
             query = session.query(Artifact).order_by(Artifact.id)
             if not force:
                 query = query.filter(

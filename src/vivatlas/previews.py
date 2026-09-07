@@ -851,3 +851,33 @@ def designed_cover(artifact) -> bytes:
     out = io.BytesIO()
     im.save(out, format="WEBP", quality=82, method=6)
     return out.getvalue()
+
+
+def is_drawing(preview_src: str | None) -> bool:
+    """A picture a model drew — as opposed to one the project supplied, or the
+    cover we made ourselves. "generated:" is ours; "generated:cover" is the cover;
+    everything else under that prefix names the drawer."""
+    src = preview_src or ""
+    return src.startswith("generated:") and src != "generated:cover"
+
+
+def drop_drawings(session) -> list:
+    """Take the drawings off. Returns the cards that lost one.
+
+    For when a drawer was tried and not liked: the loop never replaces a picture
+    a card already has, so turning the drawer off leaves its work on the cards.
+    This forgets it — picture and source both, and the checked stamp too, so the
+    cards go to the front of the next pass. What they wear next is whatever the
+    hunt finds and, failing that, the cover.
+    """
+    from vivatlas.models import Artifact, Preview
+
+    rows = session.query(Artifact).filter(Artifact.preview_src.like("generated:%")).all()
+    hit = [a for a in rows if is_drawing(a.preview_src)]
+    for art in hit:
+        row = session.get(Preview, art.id)
+        if row is not None:
+            session.delete(row)
+        art.preview_src = None
+        art.preview_checked_at = None
+    return hit

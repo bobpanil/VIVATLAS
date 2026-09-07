@@ -647,3 +647,48 @@ def test_a_paused_drawer_does_not_churn_covers():
     assert api._preview_next(True, 20, 20, True) == (False, api._PREVIEW_EVERY_SECONDS)
     # …but a paused drawer must not stop BLANK cards from being done
     assert api._preview_next(False, 20, 20, True) == (False, api._PREVIEW_DRAIN_SECONDS)
+
+
+# --- taking a drawer's work back off --------------------------------------------
+
+
+def test_only_drawings_are_drawings():
+    assert previews.is_drawing("generated:pollinations:flux")
+    assert previews.is_drawing("generated:gemini-3.1-flash-lite-image")
+    assert not previews.is_drawing("generated:cover")
+    assert not previews.is_drawing("https://cdn.example.com/banner.png")
+    assert not previews.is_drawing(None)
+
+
+def test_dropping_drawings_leaves_covers_and_real_pictures_alone(make_session):
+    """Turning a drawer off leaves its pictures on the cards, because the loop
+    never replaces a picture a card already has. This forgets them — and nothing
+    else — so those cards go to the front of the next pass and get a cover."""
+    from vivatlas.models import Artifact, Preview, Repository
+
+    session = make_session()
+    repo = Repository(source_id=1, external_id="d", owner="o", name="r", default_branch="main",
+                      html_url="", original_url="https://x.invalid/")
+    session.add(repo)
+    session.flush()
+    cards = {}
+    for name, src in [("drawn", "generated:pollinations:flux"), ("covered", "generated:cover"),
+                      ("real", "https://cdn.example.com/banner.png"), ("blank", None)]:
+        a = Artifact(repository_id=repo.id, name=name, artifact_type="page", preview_src=src)
+        session.add(a)
+        session.flush()
+        if src:
+            session.add(Preview(artifact_id=a.id, webp=b"x"))
+        cards[name] = a
+    session.commit()
+
+    dropped = previews.drop_drawings(session)
+    session.commit()
+
+    assert [a.name for a in dropped] == ["drawn"]
+    assert cards["drawn"].preview_src is None
+    assert cards["drawn"].preview_checked_at is None
+    assert session.get(Preview, cards["drawn"].id) is None
+    assert cards["covered"].preview_src == "generated:cover"
+    assert session.get(Preview, cards["covered"].id) is not None
+    assert cards["real"].preview_src == "https://cdn.example.com/banner.png"

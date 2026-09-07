@@ -1,0 +1,5 @@
+First public release.
+
+• Share sheet: see and choose private or public before saving.
+• Sign in by scanning a QR from a signed-in browser.
+• Sorting folded into the filter panel on the phone.

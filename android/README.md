@@ -15,6 +15,10 @@
 > For the phone, set the server URL to the host's **LAN IP** (`http://<host-lan-ip>:8710`),
 > and run the server with `--host 0.0.0.0`.
 
+**Licence:** the app in this directory is [Apache-2.0](LICENSE) — free software, so it
+can be built and distributed by F-Droid and friends. The server it talks to stays under
+the repository's [Business Source License](../LICENSE); the two are separate works.
+
 A deliberately thin **Kotlin WebView** app. It is two things at once:
 
 1. **The mobile/tablet UI** — a full-screen WebView onto your VIVATLAS server, so
@@ -127,7 +131,26 @@ it:
 - **Inspect** the WebView from desktop Chrome at `chrome://inspect` (debugging is
   enabled in debug builds).
 
-## 5. Test the share flow
+## 5. Releasing
+
+A release is a git tag: `android-v<versionName>`, matching `versionName` in
+`app/build.gradle.kts` (the workflow refuses a tag that doesn't). Pushing the tag runs
+`.github/workflows/android.yml`, which builds the signed release APK and attaches it to
+a GitHub Release — that is what Obtainium and IzzyOnDroid watch for updates.
+
+```bash
+# bump versionCode and versionName in app/build.gradle.kts, add a changelog at
+# fastlane/metadata/android/en-US/changelogs/<versionCode>.txt, commit, then:
+git tag -a android-v1.5 -m "Android app 1.5" && git push origin android-v1.5
+```
+
+Signing uses one keystore for the life of the app — an APK signed with a different key
+cannot install over the previous one. It lives outside the repository, in the GitHub
+secrets `ANDROID_KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. A
+local `./gradlew assembleRelease` with none of those set produces an unsigned APK, which
+is fine for checking the build and useless for installing.
+
+## 6. Test the share flow
 
 From Chrome/Reddit/Facebook on the device → **Share** → **VIVATLAS**:
 

@@ -15,6 +15,24 @@ android {
         versionName = "1.4"
     }
 
+    // Release signing comes from the environment, which is how CI hands it in
+    // (.github/workflows/android.yml decodes the keystore from a secret). With
+    // nothing set — a local build — the release APK is simply left unsigned, so
+    // `assembleRelease` still works on any machine; it just isn't installable
+    // until signed. The key is what lets updates install over each other, so it
+    // must be the same one every release: keep it out of the repo, forever.
+    val keystorePath = System.getenv("ANDROID_KEYSTORE_FILE")
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Installed side-by-side with a release build; talks to the dev server.
@@ -27,6 +45,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

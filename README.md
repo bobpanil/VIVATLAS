@@ -48,6 +48,8 @@ Two indexes work together: full-text for words, vectors for meaning. Type in Rus
 - **Android app**: Share → VIVATLAS from any app. A small sheet shows what you're saving and lets you choose *private* or *public* before it goes. Signs in by scanning a QR from a browser that's already signed in, so a long password never meets a phone keyboard. → [android/README.md](android/README.md)
 - **The web form**: a link, a site, a screenshot or a reel → candidates with stars → pick → import.
 
+**Installing the Android app:** grab `vivatlas-android-<version>.apk` from the [latest release](https://github.com/bobpanil/VIVATLAS/releases) — or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) and it updates itself. Releases are signed with one key for the life of the app, so each installs over the last.
+
 <p align="center">
   <img src="docs/images/phone.webp" alt="The Android app: the share sheet asking Private or Public, and the filter panel with sorting folded in" width="720">
 </p>
@@ -106,7 +108,7 @@ Everything optional lives in `.env` (or the container's environment); [.env.exam
 
 **It writes nothing to Git and does not scan private repositories.** That's a rule, not a setting: there's no toggle for it anywhere.
 
-**Licence:** [Business Source License 1.1](LICENSE) — free to use, deploy and modify, including commercially; you may not sell or resell VIVATLAS itself as a product or a hosted service. It converts to Apache-2.0 on 2030-07-21.
+**Licence:** the server — everything under `src/` — is [Business Source License 1.1](LICENSE): free to use, deploy and modify, including commercially; you may not sell or resell VIVATLAS itself as a product or a hosted service. It converts to Apache-2.0 on 2030-07-21. The **Android app** (`android/`) is [Apache-2.0](android/LICENSE), so it can be built and carried by F-Droid.
 
 ## Tests
 

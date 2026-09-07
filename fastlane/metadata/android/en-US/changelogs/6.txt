@@ -1,0 +1,1 @@
+Same app, cleaner build: the APK no longer carries Google's dependency-metadata block, so F-Droid can verify it against the source.

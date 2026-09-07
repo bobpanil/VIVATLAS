@@ -11,8 +11,16 @@ android {
         applicationId = "com.vivatlas.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
+    }
+
+    // Google's "dependency metadata" block, which the Android Gradle plugin puts
+    // into every signed APK by default. It is an opaque blob meant for Play, and
+    // F-Droid refuses APKs that carry it, so it stays out.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     // Release signing comes from the environment, which is how CI hands it in

@@ -13,13 +13,14 @@ IssueTracker: https://github.com/bobpanil/VIVATLAS/issues
 Changelog: https://github.com/bobpanil/VIVATLAS/releases
 
 AutoName: VIVATLAS
+
 RepoType: git
 Repo: https://github.com/bobpanil/VIVATLAS
 
 Builds:
   - versionName: '1.4'
     versionCode: 5
-    commit: android-v1.4
+    commit: 93e14b4aada8b91da7edf5232182145a126d8e3e
     subdir: android/app
     gradle:
       - yes

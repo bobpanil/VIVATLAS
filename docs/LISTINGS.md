@@ -38,6 +38,15 @@ are. Each block is written to be posted as-is; change the voice if it isn't your
   first two paragraphs.
 - **Smithery** hosts servers itself; a per-user self-hosted instance isn't a fit.
 
+## Android
+
+- **Obtainium** — nothing to submit; the README tells people to add the repo.
+- **IzzyOnDroid** — request a listing (apt.izzysoft.de/fdroid, or their issue tracker)
+  with the repo URL; they take the signed APK from the GitHub Release and the texts
+  from `android/fastlane/`. Days.
+- **F-Droid** — `android/fdroid/com.vivatlas.app.yml` is the ready, linted submission;
+  `android/fdroid/README.md` has the four steps. Weeks. Expect the *NonFreeNet* badge.
+
 ## Show HN
 
 **Title:** `Show HN: VIVATLAS – a self-hosted catalogue for your AI skills, agents and MCP servers`

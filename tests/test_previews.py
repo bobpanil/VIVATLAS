@@ -622,3 +622,28 @@ async def test_idle_passes_give_a_paused_drawer_another_go_at_covers(make_sessio
     monkeypatch.setattr(settings, "image_model", "")
     # and with no drawer configured there is nothing to retry them with
     assert await web.fill_missing_previews(5, retry_covers=True) == (0, 0)
+
+
+# --- the loop's pacing --------------------------------------------------------
+
+
+def test_the_first_idle_pass_follows_at_once_not_in_fifteen_minutes():
+    """A full catalogue must start drawing over its covers immediately after the
+    blank pass comes back empty — the first attempt waited a quarter-hour."""
+    from vivatlas import api
+
+    drain, every = api._PREVIEW_DRAIN_SECONDS, api._PREVIEW_EVERY_SECONDS
+    assert api._preview_next(False, 20, 20, False) == (False, drain)   # blanks: more behind
+    assert api._preview_next(False, 0, 20, False) == (True, drain)     # blanks done: covers NOW
+    assert api._preview_next(True, 20, 20, False) == (True, drain)     # covers: more behind
+    assert api._preview_next(True, 3, 20, False) == (False, every)     # lap done: rest, then blanks
+
+
+def test_a_paused_drawer_does_not_churn_covers():
+    """Revisiting a cover re-runs the whole hunt. With the drawer paused it would
+    fetch every README every few seconds to get the same cover back."""
+    from vivatlas import api
+
+    assert api._preview_next(True, 20, 20, True) == (False, api._PREVIEW_EVERY_SECONDS)
+    # …but a paused drawer must not stop BLANK cards from being done
+    assert api._preview_next(False, 20, 20, True) == (False, api._PREVIEW_DRAIN_SECONDS)

@@ -108,38 +108,57 @@ async def _retry_loop() -> None:
         await asyncio.sleep(_RETRY_EVERY_SECONDS)
 
 
+def _preview_next(idle: bool, examined: int, batch: int, paused: bool) -> tuple[bool, float]:
+    """What the loop does after a pass: (retry covers next time?, how long to wait).
+
+    Drain, then idle. A full batch means there is more of the same behind it, so
+    the next pass follows in seconds. A short pass of blank cards means the blanks
+    are done — and the covers are gone over NOW, not a quarter-hour later, which is
+    what a plain "short pass = sleep" did: the first drawing waited fifteen minutes
+    for a queue that was empty. A short pass of covers means a whole lap is done;
+    then it sleeps properly and the next lap starts again from the blanks.
+
+    A paused drawer (quota, a stalled queue) turns the cover pass off: revisiting a
+    cover re-runs the whole hunt, README fetch included, and doing that every few
+    seconds for cards that will only get the same cover back is not work.
+    """
+    if idle and paused:
+        return False, _PREVIEW_EVERY_SECONDS
+    if examined >= batch:
+        return idle, _PREVIEW_DRAIN_SECONDS
+    if not idle:
+        return True, _PREVIEW_DRAIN_SECONDS
+    return False, _PREVIEW_EVERY_SECONDS
+
+
 async def _preview_loop() -> None:
     """Cards with no picture get one, by themselves.
 
     The finding and fetching is the same work a scan does; this is only what makes
     it reach cards the scan is not going to touch — everything that was already in
     the catalogue before pictures existed, and anything whose banner could not be
-    read the first time. Runs in small batches on a slow cadence, so a catalogue
-    fills in over an hour or so of being up rather than in one burst, and stops
-    costing anything at all once every card has one.
+    read the first time. See _preview_next for the pacing.
     """
     await asyncio.sleep(_PREVIEW_WARMUP_SECONDS)
     idle = False
     while True:
         examined = 0
+        paused = False
         try:
+            from vivatlas import previews
             from vivatlas.web import fill_missing_previews
 
-            # Drain, then idle. A full batch means there is more behind it, so the
-            # next pass follows in seconds — covers are instant and drawing is
-            # free, and a catalogue should fill in minutes, not at twenty cards a
-            # quarter-hour. A short pass means the work is done; then it slows,
-            # and only then does it go back over cover-wearing cards to see if a
-            # drawer that was paused is drawing again.
-            filled, examined = await fill_missing_previews(_PREVIEW_BATCH, retry_covers=idle)
-            if filled:
-                log.info("previews: %d card(s) got a picture", filled)
+            paused = previews._drawing_paused()
+            if not (idle and paused):
+                filled, examined = await fill_missing_previews(_PREVIEW_BATCH, retry_covers=idle)
+                if filled:
+                    log.info("previews: %d card(s) got a picture", filled)
         except asyncio.CancelledError:
             raise
         except Exception:
             log.exception("previews: pass failed")
-        idle = examined < _PREVIEW_BATCH
-        await asyncio.sleep(_PREVIEW_EVERY_SECONDS if idle else _PREVIEW_DRAIN_SECONDS)
+        idle, wait = _preview_next(idle, examined, _PREVIEW_BATCH, paused)
+        await asyncio.sleep(wait)
 
 
 @contextlib.asynccontextmanager

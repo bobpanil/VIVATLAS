@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.bobpanil/vivatlas",
+  "description": "Self-hosted catalogue of your skills, agents and MCP servers, searchable by meaning over MCP",
+  "repository": {
+    "url": "https://github.com/bobpanil/VIVATLAS",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "websiteUrl": "https://github.com/bobpanil/VIVATLAS",
+  "packages": [
+    {
+      "registryType": "oci",
+      "registryBaseUrl": "https://ghcr.io",
+      "identifier": "ghcr.io/bobpanil/vivatlas",
+      "version": "1.0.0",
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://localhost:8710/mcp-server/mcp"
+      },
+      "environmentVariables": [
+        {
+          "name": "SECRET_KEY",
+          "description": "Signs sessions and encrypts stored tokens. Set once and keep it; left empty, the container generates one and keeps it in /data.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "GOOGLE_API_KEY",
+          "description": "Gemini key for the descriptions, search embeddings and picture choice. Optional; Ollama works too (OLLAMA_URL). Also settable in the admin panel.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

@@ -11,12 +11,16 @@ VIVATLAS is the shelf. Point it at your repositories and the links you clip, and
 It runs on your own machine — a NAS, a spare box, a laptop — it's built for more than one person, and it only ever *reads*. Public repositories in, nothing written back to Git, ever.
 
 <p align="center">
-  <img src="docs/images/catalogue.webp" alt="The catalogue: a grid of cards, each with a picture, a name and a one-line description" width="900">
+  <img src="docs/images/vivatlas.gif" alt="Browse the catalogue, search for &quot;rag techniques&quot;, open a card" width="900">
 </p>
 
 ## What it does for you
 
 ### Every card has a face
+
+<p align="center">
+  <img src="docs/images/catalogue.webp" alt="The catalogue: a grid of cards, each with a picture, a name and a one-line description" width="900">
+</p>
 
 Nobody browses a wall of grey rectangles. VIVATLAS finds each project's own picture — the banner at the top of its README, a logo in the repo, or the card GitHub draws for it — and throws out the things that only *look* like pictures: build badges, sponsor logos, "buy me a coffee" buttons, the owner's avatar. When a project has several real candidates, the same AI that writes the description looks at them side by side and picks the one that actually shows the thing.
 

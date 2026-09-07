@@ -4,8 +4,13 @@ Parameters
 
 Licensor:             bobpanil
 
-Licensed Work:        VIVATLAS
+Licensed Work:        VIVATLAS, the server: everything in this repository
+                      except the android/ directory.
                       The Licensed Work is (c) 2026 bobpanil.
+
+                      The Android app in android/ is a separate work and is
+                      NOT covered by this License. It is licensed under the
+                      Apache License, Version 2.0 (see android/LICENSE).
 
 Additional Use Grant: You may use, run, deploy, and modify the Licensed Work for
                       any purpose, including internal and commercial use,

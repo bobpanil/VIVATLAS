@@ -60,7 +60,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'vivatlas' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          chmod +x gradlew   # a checkout on a filesystem without the bit must still work
+          ./gradlew --no-daemon assembleRelease
 
       - name: Name the APK by version and record its checksum
         id: apk

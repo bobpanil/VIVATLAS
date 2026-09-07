@@ -667,13 +667,13 @@ def test_dropping_drawings_leaves_covers_and_real_pictures_alone(make_session):
     from vivatlas.models import Artifact, Preview, Repository
 
     session = make_session()
-    repo = Repository(source_id=1, external_id="d", owner="o", name="r", default_branch="main",
-                      html_url="", original_url="https://x.invalid/")
-    session.add(repo)
-    session.flush()
     cards = {}
     for name, src in [("drawn", "generated:pollinations:flux"), ("covered", "generated:cover"),
                       ("real", "https://cdn.example.com/banner.png"), ("blank", None)]:
+        repo = Repository(source_id=1, external_id=name, owner="o", name=name,
+                          default_branch="main", html_url="", original_url="https://x.invalid/")
+        session.add(repo)
+        session.flush()  # one card per repository — that is a real constraint
         a = Artifact(repository_id=repo.id, name=name, artifact_type="page", preview_src=src)
         session.add(a)
         session.flush()

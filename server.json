@@ -1,7 +1,17 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.bobpanil/vivatlas",
+  "title": "VIVATLAS",
   "description": "Self-hosted catalogue of your skills, agents and MCP servers, searchable by meaning over MCP",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/bobpanil/VIVATLAS/main/src/vivatlas/static/apple-touch-icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "180x180"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/bobpanil/VIVATLAS",
     "source": "github"

@@ -60,6 +60,9 @@ jobs:
             type=ref,event=branch
             type=sha,format=short
             type=semver,pattern={{version}}
+            # …and the same with the "v": a git tag is v1.0.0, and a compose line
+            # that copies it should work. Applies from the next tag on.
+            type=semver,pattern=v{{version}}
 
       - name: Build and push
         uses: docker/build-push-action@v6

@@ -14,12 +14,13 @@ AutoName: VIVATLAS
 
 RepoType: git
 Repo: https://github.com/bobpanil/VIVATLAS
-Binaries: https://github.com/bobpanil/VIVATLAS/releases/download/android-v%v/vivatlas-android-%v.apk
+Binaries: 
+  https://github.com/bobpanil/VIVATLAS/releases/download/android-v%v/vivatlas-android-%v.apk
 
 Builds:
-  - versionName: '1.4'
-    versionCode: 5
-    commit: 93e14b4aada8b91da7edf5232182145a126d8e3e
+  - versionName: '1.5'
+    versionCode: 6
+    commit: 8cfd30639fc119aed4579093195341ad6da49be5
     subdir: android/app
     gradle:
       - yes
@@ -28,5 +29,5 @@ AllowedAPKSigningKeys: 71498fb34b123e7adefb27132a4ae1e9c028a2e274d0192977fff5e98
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^android-v
-CurrentVersion: '1.4'
-CurrentVersionCode: 5
+CurrentVersion: '1.5'
+CurrentVersionCode: 6

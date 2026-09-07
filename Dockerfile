@@ -36,6 +36,12 @@ ENV VIVATLAS_BUILD_VERSION=$VIVATLAS_BUILD_VERSION \
     VIVATLAS_BUILD_SHA=$VIVATLAS_BUILD_SHA \
     VIVATLAS_BUILD_DATE=$VIVATLAS_BUILD_DATE
 
+# The MCP registry proves that an image belongs to a listing by reading this
+# label — it must equal the server's name in server.json, or publishing fails.
+LABEL io.modelcontextprotocol.server.name="io.github.bobpanil/vivatlas" \
+      org.opencontainers.image.source="https://github.com/bobpanil/VIVATLAS" \
+      org.opencontainers.image.licenses="BUSL-1.1"
+
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # The unpacked browser extension, served as a one-click zip from Settings → Browser

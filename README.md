@@ -26,6 +26,14 @@ And when a project has nothing at all, VIVATLAS draws a cover itself — the nam
   <img src="docs/images/covers.webp" alt="Six designed covers: each card's name set large on a coloured, patterned ground" width="900">
 </p>
 
+### A card, up close
+
+Open one and you get the same project three ways: a one-liner, a paragraph for a person, and a technical note for when you're deciding whether to use it. Tags with their confidence, what it's for, where it came from and when it last changed — and the buttons to rescan it, file it, or copy the link. The descriptions are written by whichever AI you've configured, from the repository's own README.
+
+<p align="center">
+  <img src="docs/images/card.webp" alt="A card's page: banner, three levels of description, tags, purpose, folders and the card's passport" width="760">
+</p>
+
 ### Search the way you'd ask a colleague
 
 Two indexes work together: full-text for words, vectors for meaning. Type in Russian and find an English tool. Describe a task instead of naming a tool, and the recommender returns three options with a sentence each on why — or an honest "nothing here fits", which is rarer in software than it should be.

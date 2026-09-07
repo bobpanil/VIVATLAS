@@ -11,7 +11,7 @@ Access from AI assistants (MCP): [docs/MCP.md](docs/MCP.md). Deploy on TrueNAS: 
 ## What already works
 
 - **Card catalogue.** One repository → one card: name, three levels of description (short / normal / technical), preview, tags (automatic, with source and confidence + manual, manual wins).
-- **Card pictures.** Each card wears the project's own face, found automatically: the banner at the top of its README, a `logo`/`banner` file in the repository, or failing both the social card the host draws. Badges, sponsor logos and subscribe buttons are filtered out, and where several pictures survive, the same AI that writes the card looks at them side by side and picks the one that actually shows the project (no vision model configured → the README's own order decides). The picture is fetched once and kept as a small webp, so nothing is hot-linked to somebody else's host. A card that offers nothing can have one drawn — a Google image model (billing) or Pollinations (free, keyless: `IMAGE_MODEL=pollinations:flux`) — and otherwise gets a designed cover — its name set in the brand face on a colour and motif drawn from the name — so nothing stays grey. Cards without one fill themselves in while the program runs — nothing to trigger, and it costs nothing once they all have one (`vivatlas previews` forces a pass by hand if you want it now).
+- **Card pictures.** Every card wears a picture, found rather than made wherever possible: the banner at the top of the README, a `logo`/`banner`/`preview` file in the repository, or the social card the host draws. Badges, sponsor logos, subscribe buttons and avatars are thrown out, and where several real pictures survive, the same AI that writes the card looks at them side by side and picks the one that shows the project. A card that offers nothing gets a **designed cover** — its name set in the brand face on a colour and motif derived from the name — or, if you turn it on, a drawing (`IMAGE_MODEL`: a Google image model, or `pollinations:flux` for free and keyless). Pictures are fetched once and kept as small webp, never hot-linked. Cards fill themselves in while the program runs, fast while there is work and idle once there isn't; `vivatlas previews` forces a pass by hand.
 - **Search** by words (SQLite FTS) and by meaning (vectors), bilingual — a Russian query finds an English tool.
 - **Recommendations** — three options for the task with an explanation, or an honest "nothing fits".
 - **Folders** — shared (run by the admin) and personal (everyone has their own); a card can be dragged into a folder. Git is untouched in the process.
@@ -23,6 +23,7 @@ Access from AI assistants (MCP): [docs/MCP.md](docs/MCP.md). Deploy on TrueNAS: 
 - **Sources.** Gitea (shared and personal) and GitHub (an account's or organisation's public repositories), scanned daily and on demand. Failed AI summaries are retried automatically.
 - **Adding.** One door: a link, site, screenshot or reel → candidates with stars → plan → import. An address named by a model is always verified with the host.
 - **Browser extension.** A Chrome/Chromium extension (`extension/`) clips the current page or a pasted link into your catalogue, public or private, from any tab. See [extension/README.md](extension/README.md).
+- **Android app.** A thin WebView shell (`android/`) that is also a share target: Share → VIVATLAS from any app shows the link and a Private/Public choice before saving. Signs in by scanning the QR from a signed-in browser. See [android/README.md](android/README.md).
 - **Upstream.** A card remembers its source; `upstream` compares, `update` installs a new version only where you have not touched the file.
 - **Outward.** REST API and MCP server for AI assistants (MCP).
 
@@ -44,7 +45,9 @@ cp .env.example .env      # SECRET_KEY is required; Gitea address and keys are o
 
 Opens at `http://127.0.0.1:8710` (with `--host 0.0.0.0` — also from a phone on the same network). The first person to go through `/setup` becomes the owner.
 
-> **After updating the code, run `init-db`** — it adds new columns to the database. `serve` does not run migrations: bring up new code on an old database and pages with missing fields will break.
+> **After updating the code, run `init-db`** — it adds new columns to the database. `serve` does not run migrations: bring up new code on an old database and pages with missing fields will break. (The Docker image runs it on every start, so a container never needs this by hand.)
+
+Everything optional lives in `.env` — see [.env.example](.env.example) for the annotated list. Two worth knowing about: `TRUSTED_PROXIES` if a proxy terminates TLS in front of VIVATLAS (otherwise cookies go out without `Secure`), and `IMAGE_MODEL` to have card pictures drawn for projects that offer none. Deploying on TrueNAS: [docs/DEPLOY-TRUENAS.md](docs/DEPLOY-TRUENAS.md).
 
 ## Tests
 
@@ -65,6 +68,7 @@ src/vivatlas/
   security.py          passwords, secret encryption, secret key
   twofactor.py         two-step sign-in (TOTP + backup codes)
   auth.py, auth_web.py sign-in, registration, invitations, password reset
+  qrlogin.py           sign a phone in by a one-time QR shown on a signed-in browser
   admin_web.py         admin panel (people, access, email, integrations)
   settings_web.py      personal settings, avatars, sources, folders
   web.py               catalogue, cards, adding
@@ -74,7 +78,8 @@ src/vivatlas/
   i18n.py, translations*.py   translations (en/ru/he), RTL
   mailer.py            emails (password reset, invitations)
   avatars.py           uploaded photo → square WebP
-  previews.py          the picture on a card: find it, fetch it, fit it
+  previews.py          the picture on a card: find it, fetch it, fit it — or draw a cover
+  ai/                  the models: google.py (text, vision, images), ollama.py, pollinations.py (free images)
   usericons.py         default avatar set (static/usericons)
   scanner.py, indexer.py  scanning + the private-repo rule, index
   mcp_server.py        MCP server for AI assistants
@@ -87,6 +92,7 @@ src/vivatlas/
   templates/, static/  pages and styles (custom app.css, no build step)
 
 extension/             Chrome/Chromium extension (Manifest V3) — clip pages into VIVATLAS
+android/               Kotlin WebView shell: share target with zone choice, QR sign-in
 ```
 
 Adding another host: implement the `providers/base.py` interface in a new provider and wire it in `providers/__init__.py`. The rest of the code stays the same.

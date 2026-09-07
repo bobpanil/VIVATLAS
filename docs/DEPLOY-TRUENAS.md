@@ -83,6 +83,11 @@ services:
       # connects FROM — in Docker usually the bridge gateway:
       #   docker exec vivatlas ip route | awk '/default/ {print $3}'
       TRUSTED_PROXIES: ""
+      # Optional: draw a picture for cards whose project offers none. A Google
+      # image model needs billing on the project; "pollinations:flux" is free and
+      # keyless (soft, generic pictures; card name + summary go to pollinations.ai).
+      # Empty = no drawing; those cards get VIVATLAS's own designed cover.
+      IMAGE_MODEL: ""
     volumes:
       - type: bind
         source: /mnt/your-pool/apps/vivatlas/data
@@ -121,6 +126,16 @@ app's **Pull image** (or **Update**), then **Restart**. On start the entrypoint 
 `init-db`, which adds any new database columns before serving — so upgrades don't
 break on an older database.
 
+Two things that bite:
+
+- **Wait for the build.** Pulling before the Actions run is green fetches the
+  *previous* image. The run is done when the repo's Actions tab shows it green; the
+  running container's build is stamped in **Admin** (`BUILD 1.0.xx · <sha>`), so you
+  can confirm which one you actually got.
+- **Save may not re-pull.** TrueNAS reuses the existing container when the compose
+  text hasn't changed, `pull_policy: always` notwithstanding. Use the explicit
+  **Pull image** / **Update** action, then Restart.
+
 ---
 
 ## 7. Notes
@@ -140,3 +155,13 @@ break on an older database.
   code name the public https URL rather than the container's internal one.
 - **Email, Gitea/GitHub sources, AI keys:** all optional and configurable later from
   the in-app **Admin → Integrations** panel; nothing extra is needed to boot.
+- **Card pictures** fill themselves in after a deploy — a background pass every few
+  seconds while there is work, then every quarter-hour. Nothing to run. The log says
+  `previews: N card(s) got a picture` as it goes; `docker exec <container> python -m
+  vivatlas.cli previews` forces a full pass if you want it now. Pictures are cached
+  by the browser for a day, and their address changes when the picture does, so a
+  replaced picture shows without a hard refresh.
+- **Phone sign-in by QR** needs the site address set in **Admin → Integrations**
+  when VIVATLAS sits behind a proxy or tunnel — the code has to carry the public
+  https address, and the container cannot see that address from the inside. Without
+  it the page says so instead of showing a code.

@@ -104,7 +104,10 @@ Sign in once; that session cookie is what the share target reuses.
 **Scan a sign-in code** on the sign-in screen and point it at the screen. The code
 carries the server address as well as the pass, so a fresh install needs nothing
 typed at all — not even the address. It is good once and for 90 seconds; anyone who
-reads it signs in as you, so let it expire before you walk away.
+reads it signs in as you, so let it expire before you walk away. Behind a proxy or
+tunnel the server needs its site address set (**Admin → Integrations**) before it will
+show a code — the code must carry the public https address, and the app talks https to
+any public host regardless of what the code says.
 
 To change it later: hardware **Back** at the home page → **Change server**.
 

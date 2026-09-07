@@ -1,8 +1,6 @@
 AntiFeatures:
   NonFreeNet:
-    en-US: "The app is a client for a VIVATLAS server you run yourself. The server's\n\
-      source is public but under the Business Source License 1.1, which is not a\n\
-      free-software licence (it converts to Apache-2.0 in 2030)."
+    en-US: Needs a self-hosted VIVATLAS server (BSL 1.1, not free software).
 Categories:
   - Development
   - Internet

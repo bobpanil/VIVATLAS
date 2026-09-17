@@ -2,8 +2,8 @@ AntiFeatures:
   NonFreeNet:
     en-US: Needs a self-hosted VIVATLAS server (BSL 1.1, not free software).
 Categories:
+  - Bookmark
   - Development
-  - Internet
 License: Apache-2.0
 AuthorName: bobpanil
 SourceCode: https://github.com/bobpanil/VIVATLAS

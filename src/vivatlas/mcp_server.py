@@ -12,9 +12,11 @@ The tools only read. Nothing is written to Git or the database.
 """
 
 import logging
+from urllib.parse import urlsplit
 
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import func, select
 
 from vivatlas import changes as ch
@@ -41,11 +43,39 @@ _INSTRUCTIONS = (
 )
 
 
+def _transport_security() -> TransportSecuritySettings:
+    """Which Host and Origin headers the HTTP endpoint accepts.
+
+    The MCP library guards against DNS rebinding by refusing any Host it was not
+    told about, with a 421. Left to itself it knows only localhost, so a client
+    reaching us by our real name, through a tunnel or a proxy, was turned away
+    before OAuth even started. The guard stays on; it just learns our real names:
+    the host of PUBLIC_URL, whatever MCP_ALLOWED_HOSTS adds, and localhost."""
+    hosts = ["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*", "[::1]", "[::1]:*"]
+    origins = ["http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*"]
+    if settings.public_url:
+        parts = urlsplit(settings.public_url.strip())
+        if parts.hostname:
+            netloc = parts.netloc.rsplit("@", 1)[-1].lower()
+            hosts += [netloc, f"{parts.hostname.lower()}:*"]
+            origins += [f"{parts.scheme}://{netloc}"]
+    for extra in (h.strip().lower() for h in settings.mcp_allowed_hosts.split(",")):
+        if extra:
+            hosts.append(extra)
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=list(dict.fromkeys(hosts)),
+        allowed_origins=list(dict.fromkeys(origins)),
+    )
+
+
 def _build_mcp() -> FastMCP:
     """OAuth-enabled when a public URL is configured (so ChatGPT can connect as a
     specific user); otherwise the original anonymous, shared-only, read-only server."""
     if not settings.public_url:
-        return FastMCP("vivatlas", instructions=_INSTRUCTIONS)
+        return FastMCP(
+            "vivatlas", instructions=_INSTRUCTIONS, transport_security=_transport_security()
+        )
 
     from mcp.server.auth.settings import (
         AuthSettings,
@@ -59,6 +89,7 @@ def _build_mcp() -> FastMCP:
     return FastMCP(
         "vivatlas",
         instructions=_INSTRUCTIONS,
+        transport_security=_transport_security(),
         auth_server_provider=provider,
         auth=AuthSettings(
             issuer_url=f"{base}/mcp-server",  # type: ignore[arg-type]

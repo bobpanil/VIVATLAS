@@ -16,12 +16,12 @@
     "url": "https://github.com/bobpanil/VIVATLAS",
     "source": "github"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "websiteUrl": "https://github.com/bobpanil/VIVATLAS",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/bobpanil/vivatlas:1.0.1",
+      "identifier": "ghcr.io/bobpanil/vivatlas:1.0.2",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:8710/mcp-server/mcp"

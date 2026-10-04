@@ -269,3 +269,63 @@ def test_oauth_discovery_documents_served_at_domain_root(monkeypatch):
         "/.well-known/oauth-protected-resource/mcp-server/mcp", follow_redirects=False
     )
     assert r.status_code == 404, r.status_code
+
+
+_INIT = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": {"name": "test", "version": "0"},
+    },
+}
+_MCP_HEADERS = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+
+
+def _post_initialize(monkeypatch, public_url: str, host: str, extra_hosts: str = ""):
+    """Build the MCP HTTP app the way production does and send it one initialize
+    request with the given Host header."""
+    from starlette.testclient import TestClient
+
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "public_url", public_url)
+    monkeypatch.setattr(settings, "mcp_allowed_hosts", extra_hosts)
+    app = mcp_server._build_mcp().streamable_http_app()
+    with TestClient(app, base_url=f"https://{host}") as client:
+        return client.post("/mcp", json=_INIT, headers=_MCP_HEADERS)
+
+
+def test_mcp_accepts_its_public_host_and_asks_for_oauth(monkeypatch):
+    """Reached by its real name (through a tunnel or a proxy) the endpoint must get as
+    far as asking for OAuth, not stop at the library's 421 "Invalid Host header"."""
+    r = _post_initialize(monkeypatch, "https://vivatlas.example.com", "vivatlas.example.com")
+    assert r.status_code == 401, (r.status_code, r.text)
+    assert "resource_metadata" in r.headers.get("www-authenticate", "")
+
+
+def test_mcp_anonymous_accepts_public_host_but_refuses_a_foreign_one(monkeypatch):
+    ok = _post_initialize(monkeypatch, "", "localhost:8710")
+    assert ok.status_code == 200, (ok.status_code, ok.text)
+    foreign = _post_initialize(monkeypatch, "", "evil.example.net")
+    assert foreign.status_code == 421, foreign.status_code
+
+
+def test_mcp_extra_hosts_are_honoured(monkeypatch):
+    r = _post_initialize(monkeypatch, "", "box.tailnet.ts.net:30171", "box.tailnet.ts.net:*")
+    assert r.status_code == 200, (r.status_code, r.text)
+
+
+def test_transport_security_names_the_public_host(monkeypatch):
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "public_url", "https://Vivatlas.Example.com/")
+    monkeypatch.setattr(settings, "mcp_allowed_hosts", "")
+    ts = mcp_server._transport_security()
+    assert ts.enable_dns_rebinding_protection is True
+    assert "vivatlas.example.com" in ts.allowed_hosts
+    assert "vivatlas.example.com:*" in ts.allowed_hosts
+    assert "evil.example.net" not in ts.allowed_hosts
+    assert "https://vivatlas.example.com" in ts.allowed_origins

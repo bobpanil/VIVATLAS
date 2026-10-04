@@ -101,6 +101,14 @@ class Settings(BaseSettings):
     # anonymous (shared cards only), exactly as before.
     public_url: str = ""
 
+    # Extra addresses the remote MCP endpoint answers to, comma-separated, as the
+    # Host header carries them: "nas.local:8710", "box.tailnet.ts.net:30171", or
+    # "name:*" for any port. The MCP library refuses every Host it was not told
+    # about (protection against DNS rebinding), and by default it knows only
+    # localhost plus the host of PUBLIC_URL. Add a LAN or tailnet name here if
+    # clients reach VIVATLAS by that name too.
+    mcp_allowed_hosts: str = ""
+
     # Who is allowed to say "this request really arrived over https".
     #
     # Behind a proxy that terminates TLS (Cloudflare, Traefik, nginx) the request

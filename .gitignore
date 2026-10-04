@@ -10,3 +10,9 @@ design/
 .pytest_cache/
 .ruff_cache/
 logs/
+
+# Android release signing: never in the repository. The key lives in ~/.vivatlas-android-signing/.
+*.jks
+*.keystore
+keystore.base64
+vivatlas-android-signing/

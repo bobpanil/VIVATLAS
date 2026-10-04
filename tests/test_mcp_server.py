@@ -329,3 +329,34 @@ def test_transport_security_names_the_public_host(monkeypatch):
     assert "vivatlas.example.com:*" in ts.allowed_hosts
     assert "evil.example.net" not in ts.allowed_hosts
     assert "https://vivatlas.example.com" in ts.allowed_origins
+
+
+async def test_cards_carry_their_source_link(catalog):
+    """A repository card points at its repository; a saved link (a reel, a page) has
+    no repository page, so source_url must carry the address that was saved."""
+    session, art = catalog
+    d = await call("get_artifact", {"artifact_id": art.id})
+    assert d["source_url"] == "https://git.example.com/design-lib/airbnb"
+    listed = await call("list_artifacts", {})
+    assert listed["items"][0]["source_url"] == "https://git.example.com/design-lib/airbnb"
+
+    art.repository.html_url = ""
+    art.repository.original_url = "https://www.instagram.com/reel/abc123/"
+    session.commit()
+    d = await call("get_artifact", {"artifact_id": art.id})
+    assert d["url"] == ""
+    assert d["source_url"] == "https://www.instagram.com/reel/abc123/"
+    listed = await call("list_artifacts", {})
+    assert listed["items"][0]["source_url"] == "https://www.instagram.com/reel/abc123/"
+
+
+async def test_private_card_link_stays_hidden_from_others(catalog, monkeypatch):
+    session, art = catalog
+    art.shared = False
+    art.owner_user_id = 7
+    session.commit()
+    monkeypatch.setattr(mcp_server, "get_access_token", lambda: None)
+    d = await call("get_artifact", {"artifact_id": art.id})
+    assert "source_url" not in d and "error" in d
+    listed = await call("list_artifacts", {})
+    assert all(i["id"] != art.id for i in listed["items"])

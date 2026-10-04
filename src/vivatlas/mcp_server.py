@@ -143,12 +143,20 @@ def _tags(session, artifact_id: int, limit: int = 8) -> list[str]:
     )
 
 
+def _source_url(a: Artifact) -> str:
+    """Where the card came from, the same link the web card shows: the address that
+    was saved (a reel, a page) or else the repository. "url" alone is the repository
+    page, which a saved link doesn't have, so a reel came back with an empty url."""
+    return a.repository.original_url or a.repository.html_url or ""
+
+
 def _brief(session, a: Artifact) -> dict:
     return {
         "id": a.id,
         "name": f"{a.repository.owner}/{a.name}",
         "type": a.artifact_type,
         "summary": a.summary_short,
+        "source_url": _source_url(a),
         "tags": _tags(session, a.id, limit=5),
     }
 
@@ -286,6 +294,7 @@ def get_artifact(artifact_id: int) -> dict:
             "files": a.file_count,
             "anchor_file": a.anchor_path,
             "url": a.repository.html_url,
+            "source_url": _source_url(a),
             "commit": (a.source_commit or "")[:8],
             # Honest about data quality: let the other side know what to trust.
             "notes": _quality_notes(a),

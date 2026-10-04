@@ -11,8 +11,8 @@ android {
         applicationId = "com.vivatlas.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
     }
 
     // Google's "dependency metadata" block, which the Android Gradle plugin puts

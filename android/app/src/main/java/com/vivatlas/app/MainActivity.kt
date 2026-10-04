@@ -208,12 +208,12 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 val target = request.url
                 val scheme = target.scheme?.lowercase()
-                if (scheme == "http" || scheme == "https") {
-                    if (sameHostAsServer(target)) return false       // stay in the app's own WebView
-                    WebActivity.open(this@MainActivity, target.toString()) // external -> in-app, never a browser
-                    return true
+                if ((scheme == "http" || scheme == "https") && sameHostAsServer(target)) {
+                    return false // our own server: stay in the app's WebView
                 }
-                // mailto:, tel:, geo:, intent: — the matching app, not a browser.
+                // Anything else leaves the app: an external link (a card's GitHub page)
+                // goes to the user's browser, mailto:/tel:/geo: to the matching app.
+                // The app itself only ever loads the server it is pointed at.
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, target))
                     true
@@ -272,7 +272,12 @@ class MainActivity : AppCompatActivity() {
                 req.setNotificationVisibility(
                     DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
                 )
-                req.setDestinationInExternalPublicDir(
+                // The app's own Downloads folder, not the shared one: writing to the
+                // shared folder needs a storage permission on Android 7 to 9, and the
+                // app declares none. The finished-download notification opens the
+                // file either way.
+                req.setDestinationInExternalFilesDir(
+                    this,
                     android.os.Environment.DIRECTORY_DOWNLOADS,
                     name,
                 )
@@ -344,7 +349,7 @@ class MainActivity : AppCompatActivity() {
      * overlay is open, pull-to-refresh stands down.
      *
      * Only our own origin is ever loaded in this WebView (external links go to
-     * WebActivity), and the bridge does nothing but flip this one flag.
+     * the system browser), and the bridge does nothing but flip this one flag.
      */
     private inner class NativeBridge {
         @JavascriptInterface

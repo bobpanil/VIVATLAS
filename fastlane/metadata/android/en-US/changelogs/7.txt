@@ -1,0 +1,1 @@
+Links to other sites now open in your browser instead of inside the app. The login is no longer included in device backups. Dropped an unused permission. Exports work on Android 7 to 9.

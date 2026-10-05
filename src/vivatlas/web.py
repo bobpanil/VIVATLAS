@@ -2238,10 +2238,9 @@ async def ext_capture(
 ) -> dict:
     """"Add this" from the browser extension, the phone's share sheet or the MCP. The
     link is written into the capture queue (captures.py) before this returns, and the
-    queue's one worker turns it into a real card: a GitHub repo is imported into a
-    full card, anything else is described by the AI from the text that came with it
-    (see run_capture). Nothing is left empty: even if the AI or the GitHub import
-    fails, the card keeps the name, link and text it arrived with.
+    queue's one worker turns it into a real card, described by the AI from the page
+    and the text that came with it (see run_capture). Nothing is left empty: even if
+    the AI fails, the card keeps the name, link and text it arrived with.
 
     Raises captures.QueueBusy when the save could not be written. `patience` is how
     long to wait for a busy database first: the phone gives up on its request after
@@ -2262,19 +2261,21 @@ async def ext_capture(
 
 
 async def run_capture(job: dict) -> int | None:
-    """What the capture queue's worker does with one job. Returns the card's id."""
-    url = (job.get("url") or "").strip()
-    args = (
-        url,
+    """What the capture queue's worker does with one job. Returns the card's id.
+
+    A GitHub repo link becomes a card the same way any page does. It is never
+    imported into Gitea from here: an import creates a public repository and writes
+    files into it, and that happens only from the web Add form, after its plan step
+    and the click that confirms it. Saves come from a phone, an extension or an
+    assistant, sometimes hundreds in a row, with nobody looking at a plan."""
+    return await _process_web_capture(
+        (job.get("url") or "").strip(),
         job.get("title") or "",
         job.get("text") or "",
         job.get("user_id"),
         bool(job.get("shared")),
+        text_kind=job.get("text_kind") or "page",
     )
-    kind = job.get("text_kind") or "page"
-    if _is_github_repo_url(url) and settings.gitea_token:
-        return await _import_github_capture(*args, text_kind=kind)
-    return await _process_web_capture(*args, text_kind=kind)
 
 
 # Text an assistant sent along with a link (a transcript of the video, its notes)
@@ -2524,68 +2525,6 @@ async def _process_web_capture(
         if embed_model is not None:
             await embed_model.aclose()
     return aid
-
-
-async def _import_github_capture(
-    url: str,
-    title: str,
-    text: str,
-    user_id: int | None,
-    shared: bool,
-    text_kind: str = "page",
-) -> int | None:
-    """Import a GitHub repo captured from the extension into a full card, in the chosen
-    zone. Returns the card's id. If the import fails, fall back to the plain
-    web-capture path so the card still keeps the name, link and text it arrived
-    with, never an empty draft."""
-    try:
-        fetcher = GitHubFetcher(token=settings.github_token)
-        try:
-            plan = await plan_import(fetcher, url)
-        finally:
-            await fetcher.aclose()
-        provider = build_provider("gitea")
-        try:
-            text_model = build_text_model()
-        except Exception:
-            text_model = None
-        try:
-            embed_model = build_embedding_model()
-        except Exception:
-            embed_model = None
-        try:
-            with session_scope() as session:
-                result = await execute(session, provider, plan, settings.gitea_url)
-                session.commit()
-                repo = session.get(Repository, result.repository_id)
-                await index_repository(session, provider, text_model, repo, force=True)
-                art = session.scalar(select(Artifact).where(Artifact.repository_id == repo.id))
-                art.owner_user_id = user_id
-                art.shared = shared
-                session.commit()
-                record_upstream(session, art.id, plan)
-                # Committed before the next AI call, so the database isn't held
-                # locked while it answers.
-                session.commit()
-                if embed_model is not None:
-                    await embed_artifact(session, embed_model, art)
-                await tag_artifact(session, art, text_model)
-                index_artifact_for_words(session, art)
-                if not shared:
-                    _file_capture(session, art, user_id)
-                session.commit()
-                return art.id
-        finally:
-            await provider.aclose()
-            if text_model is not None:
-                await text_model.aclose()
-            if embed_model is not None:
-                await embed_model.aclose()
-    except Exception:
-        log.exception(
-            "ext capture: GitHub import failed for %s — saving the grabbed page instead", url
-        )
-        return await _process_web_capture(url, title, text, user_id, shared, text_kind)
 
 
 @router.post("/add/save")

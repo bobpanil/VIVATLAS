@@ -443,6 +443,46 @@ async def test_list_captures_shows_your_own_saves_and_how_far_they_got(queue_db,
     assert "error" in (await call("list_captures", {"status": "lost"}))
 
 
+async def test_a_saved_github_link_is_never_imported_into_gitea(queue_db, monkeypatch):
+    """An import creates a public repository in Gitea and writes files into it. Only
+    the web Add form does that, after its plan step and the click that confirms it.
+    A save from an assistant, a phone or the extension never does, even with a Gitea
+    token set: it becomes a card like any other link."""
+    Local, (uid, _), _path = queue_db
+    monkeypatch.setattr(settings, "gitea_token", "a-gitea-token")
+
+    # Recorded, not only raised: the old code caught a failed import and fell back
+    # to a page card, which would have hidden the attempt.
+    attempts: list[tuple] = []
+
+    def must_not_run(*a, **kw):
+        attempts.append(a)
+        raise AssertionError("a save tried to import into Gitea")
+
+    for name in ("plan_import", "execute", "build_provider", "GitHubFetcher"):
+        monkeypatch.setattr(web, name, must_not_run)
+    as_user(monkeypatch, uid)
+
+    readme = "# Tool\nA command-line tool that turns sketches into SVG. " * 3
+    d = await call(
+        "add_to_library",
+        {"url": "https://github.com/octo/tool", "title": "octo/tool", "text": readme},
+    )
+    r = await web.ext_capture("https://github.com/octo/other", "octo/other", "", uid, True)
+    await captures.drain()
+
+    assert attempts == []
+    for job_id in (d["job_id"], r["job_id"]):
+        j = job(Local, job_id)
+        assert j.status == "done", j.error
+    with Local() as s:
+        tool = s.get(Artifact, job(Local, d["job_id"]).artifact_id)
+        assert tool.artifact_type == "page" and tool.name == "octo/tool"
+        assert "turns sketches into SVG" in tool.doc_text
+        other = s.get(Artifact, job(Local, r["job_id"]).artifact_id)
+        assert other.artifact_type == "page" and other.shared is True
+
+
 # --- the extension and the phone ---------------------------------------------------
 
 

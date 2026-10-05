@@ -514,15 +514,16 @@ async def add_to_library(
     """Add a tool to your library from a link: a GitHub repo or any web page. The link
     is saved before this answers, then processed in the background, in order, one at a
     time (described, tagged, filed). Safe to call many times in a row. list_captures
-    shows how far each link got.
+    shows how far each link got. Nothing is written to Git: a GitHub repo becomes a
+    card from its page and the text you send, the same as any other link.
 
     url: the link to add
     title: optional title (otherwise taken from the page/repo)
     shared: true to put it in the shared catalogue; default false = your private zone
     text: optional text that goes with the link, up to 20,000 characters: a
-        transcript of a video's audio, a caption, your notes. For a web page or a
-        video it is read together with the page's own caption when the card is
-        written, and kept on the card. A GitHub repo's card is written from the repo.
+        transcript of a video's audio, a repo's README, a caption, your notes. It is
+        read together with the page's own caption when the card is written, and kept
+        on the card.
     """
     uid = _require_user()
     from vivatlas.captures import TEXT_MAX, QueueBusy

@@ -24,6 +24,7 @@ from sqlalchemy import update as sa_update
 from vivatlas import cardtext, caticons, catnames, i18n, security
 from vivatlas import categories as catperm
 from vivatlas import changes as ch
+from vivatlas import comments as cm
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
 from vivatlas import reviews as rv
@@ -584,6 +585,8 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
             {
                 "a": a,
                 "reviews": reviews,
+                # The post's pinned and author's comments (a tip, a prompt), as written.
+                "author_comments": cm.from_author(cm.loads(a.comments_json)),
                 # The card's own words in the reader's language (name included), or
                 # what it was written with where there's no translation.
                 "tr": cardtext.localized(a, lang),
@@ -1451,7 +1454,7 @@ async def retry_failed_summaries(limit: int = 25) -> int:
                         "name": art.name,
                         "full_name": art.repository.full_name,
                         "artifact_type": art.artifact_type,
-                        "doc": art.doc_text or "",
+                        "doc": cm.doc_for_ai(art.doc_text or "", art.comments_json),
                         "file_count": art.file_count or 0,
                     }
                 ai = await _describe_with_ai(text_model, embed_model, **card)
@@ -1540,6 +1543,7 @@ async def reprocess_draft(artifact_id: int) -> bool:
             return False
         name = art.name
         doc = art.doc_text or ""
+        comments_raw = art.comments_json or ""
         source_url = (art.repository.original_url or "") if art.repository else ""
 
     # A card that was captured as a bare link holds nothing to describe but the link,
@@ -1584,7 +1588,7 @@ async def reprocess_draft(artifact_id: int) -> bool:
                         text_model,
                         full_name=name,
                         artifact_type="page",
-                        doc_text=doc,
+                        doc_text=cm.doc_for_ai(doc, comments_raw),
                         file_count=0,
                     )
                     art.summary_short = summaries["summary_short"]
@@ -2235,6 +2239,7 @@ async def ext_capture(
     text_kind: str = "page",
     via: str = "extension",
     patience: float = 8.0,
+    comments: list[dict] | None = None,
 ) -> dict:
     """"Add this" from the browser extension, the phone's share sheet or the MCP. The
     link is written into the capture queue (captures.py) before this returns, and the
@@ -2244,7 +2249,8 @@ async def ext_capture(
 
     Raises captures.QueueBusy when the save could not be written. `patience` is how
     long to wait for a busy database first: the phone gives up on its request after
-    15 seconds, an assistant can wait longer."""
+    15 seconds, an assistant can wait longer. `comments`: the post's first comments,
+    already cleaned (comments.clean); they replace the card's stored ones."""
     from vivatlas import captures
 
     queued = await captures.enqueue(
@@ -2256,6 +2262,7 @@ async def ext_capture(
         text_kind=text_kind,
         via=via,
         patience=patience,
+        comments=comments,
     )
     return {"kind": "processing", **queued}
 
@@ -2275,6 +2282,7 @@ async def run_capture(job: dict) -> int | None:
         job.get("user_id"),
         bool(job.get("shared")),
         text_kind=job.get("text_kind") or "page",
+        comments_json=job.get("comments_json") or "",
     )
 
 
@@ -2431,6 +2439,7 @@ async def _process_web_capture(
     user_id: int | None,
     shared: bool,
     text_kind: str = "page",
+    comments_json: str = "",
 ) -> int | None:
     """Turn a captured page or link into a real card: described by the AI, embedded,
     tagged, and in the library rather than the drafts. Returns the card's id.
@@ -2482,12 +2491,18 @@ async def _process_web_capture(
             if merged != (art.doc_text or ""):
                 art.doc_text = merged
                 index_artifact_for_words(session, art)
+            # Comments sent with the link replace the ones kept before; a save
+            # without any leaves them as they are.
+            if comments_json:
+                art.comments_json = comments_json
             current = {
                 "summary_short": art.summary_short,
                 "summary_normal": art.summary_normal,
                 "summary_technical": art.summary_technical,
             }
-            return aid, (art.name or display_name or url), (art.doc_text or ""), current
+            # The AI reads the post's comments after its text; the card keeps them apart.
+            ai_doc = cm.doc_for_ai(art.doc_text or "", art.comments_json)
+            return aid, (art.name or display_name or url), ai_doc, current
 
     saved = await run_db(save_card, patience=120)
     if saved is None:

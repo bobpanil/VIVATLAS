@@ -56,6 +56,24 @@
     <section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ tr.summary_technical }}</p></section>
     {% endif %}
 
+    {# The post's own comments: the pinned one and the author's, which is where a
+       reel's tip or prompt usually is. Plain text as written, escaped, never links.
+       Viewers' comments are kept for the AI and the MCP but not shown here. #}
+    {% if author_comments %}
+    <section class="art-sec art-comments">
+        <h3>{{ t('comments.title') }}</h3>
+        {% for c in author_comments %}
+        <div class="art-comment">
+            <p class="art-comment-head">
+                {%- if c.role == 'author' %}<span>{{ t('comments.author') }}</span>{% endif -%}
+                {%- if c.pinned %}<span>{{ t('comments.pinned') }}</span>{% endif -%}
+            </p>
+            <p class="art-comment-text">{{ c.text }}</p>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
     {# Reviews: a verdict someone (usually an AI agent) gave the card, kept apart from
        the card's own text. Everything here is plain text, escaped: the note, the
        project names and the client's name are written by the reviewer, never trusted

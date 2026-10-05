@@ -143,6 +143,10 @@ class Artifact(Base):
     # a Russian title over English prose is incoherent, so the name travels with the
     # text. Empty = never translated; the card then shows what it was written with.
     translations_json: Mapped[str] = mapped_column(Text, default="")
+    # The first comments under the post the card came from (a reel, a video), as a
+    # JSON list of {"role": "author"|"other", "pinned", "text"}, kept apart from the
+    # card's own text. Sent by whoever added the link (comments.py). Empty = none.
+    comments_json: Mapped[str] = mapped_column(Text, default="")
 
     # STALE FIELD. The card used to live in exactly one folder — this FK. Now
     # folder membership is stored by the ArtifactCategory table (many-to-many): in
@@ -818,6 +822,8 @@ class CaptureJob(Base):
     # share sheet. "note": the text was sent along with the link (an assistant's
     # transcript of a video, say), so it goes next to the page's own caption.
     text_kind: Mapped[str] = mapped_column(String(8), default="page")
+    # Comments sent with the link, already cleaned (comments.py); empty = none sent.
+    comments_json: Mapped[str] = mapped_column(Text, default="")
     shared: Mapped[bool] = mapped_column(default=False)
     via: Mapped[str] = mapped_column(String(16), default="")  # extension | mcp
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)

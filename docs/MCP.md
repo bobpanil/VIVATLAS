@@ -23,7 +23,7 @@ Read (both connection types):
 | `catalog_overview` | What's there overall: how much of what, from which repositories |
 | `search_artifacts` | Find by query, by meaning (understands Russian too) |
 | `recommend_artifact` | Pick one for a task: what to take, why, what it can't do |
-| `get_artifact` | Full card: three descriptions, tags, where it came from |
+| `get_artifact` | Full card: three descriptions, tags, where it came from, reviews, and the first comments under the post it came from |
 | `list_artifacts` | A list, optionally of a single type |
 | `list_tags` | All tags with the number of tools |
 | `list_recent_changes` | What appeared / changed / disappeared recently |
@@ -34,7 +34,7 @@ Write (only when signed in over OAuth — never anonymously):
 
 | Tool | What it does |
 |---|---|
-| `add_to_library` | Add a tool from a link (GitHub repo or any page), optionally with text such as a video's transcript. Saved at once, then processed in the background, in order |
+| `add_to_library` | Add a tool from a link (GitHub repo or any page), optionally with text such as a video's transcript, and the post's first comments (pinned, the author's, then others; kept without names). Saved at once, then processed in the background, in order |
 | `list_captures` | The links you added and how far each got: waiting, done (with the card), or failed (with the reason) |
 | `edit_card` | Edit one of your cards (name, type, the three descriptions) |
 | `set_review` | Leave your verdict on a card, with a note and the projects it fits |

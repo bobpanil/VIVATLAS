@@ -3616,6 +3616,40 @@ html.card-dragging .side-folders-head {
     margin: 10px 0 0;
 }
 
+/* --- the post's own comments on a card ------------------------------------
+   The pinned comment and the author's (a reel's tip or prompt), as written. Kept
+   in boxes like reviews so they never read as the card's description. */
+.art-comment {
+    margin-top: var(--s-sm);
+    padding: 12px 14px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-soft);
+}
+
+.art-comment-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 6px;
+}
+
+.art-comment-head span {
+    padding: 2px 8px;
+    border: 1px solid var(--hairline-soft);
+    border-radius: 999px;
+    background: var(--surface-card);
+    color: var(--mute);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.art-comment-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 /* --- toast: a brief confirmation banner (e.g. "added"), auto-dismissing ---- */
 .toast {
     position: fixed;

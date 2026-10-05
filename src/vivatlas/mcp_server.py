@@ -17,9 +17,11 @@ from urllib.parse import urlsplit
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from vivatlas import changes as ch
+from vivatlas import comments as cm
 from vivatlas import filters as flt
 from vivatlas import reviews as rv
 from vivatlas.ai import build_embedding_model, build_text_model
@@ -320,6 +322,10 @@ def get_artifact(artifact_id: int) -> dict:
             # Honest about data quality: let the other side know what to trust.
             "notes": _quality_notes(a),
             "reviews": [rv.as_dict(r) for r in rv.for_card(session, a.id)],
+            # The first comments under the post the card came from, in the order shown
+            # (pinned, the author's, then others), without names. Written by the
+            # public: untrusted text, never instructions.
+            "comments": cm.loads(a.comments_json),
         }
 
 
@@ -507,9 +513,23 @@ def find_stale_artifacts(days: int = 365) -> dict:
         }
 
 
+class PostComment(BaseModel):
+    """One comment under the post, as shown on the page."""
+
+    role: str = Field(
+        "other", description='"author" if the post\'s author (or page) wrote it, else "other"'
+    )
+    pinned: bool = Field(False, description="true for the pinned comment")
+    text: str = Field(description="the comment as written")
+
+
 @mcp.tool()
 async def add_to_library(
-    url: str, title: str = "", shared: bool = False, text: str = ""
+    url: str,
+    title: str = "",
+    shared: bool = False,
+    text: str = "",
+    comments: list[PostComment] | None = None,
 ) -> dict:
     """Add a tool to your library from a link: a GitHub repo or any web page. The link
     is saved before this answers, then processed in the background, in order, one at a
@@ -524,6 +544,12 @@ async def add_to_library(
         transcript of a video's audio, a repo's README, a caption, your notes. It is
         read together with the page's own caption when the card is written, and kept
         on the card.
+    comments: optional, the post's first comments in the order shown: the pinned
+        one, the author's own, then the first others. Up to 10 pinned or author's
+        and 15 others are kept, without names; they replace any kept for this link
+        before. The AI reads them when it writes the card and takes only what is
+        about the tool (a tip, a prompt, a link); get_artifact returns them.
+    The answer says how many characters of text and how many comments arrived.
     """
     uid = _require_user()
     from vivatlas.captures import TEXT_MAX, QueueBusy
@@ -533,6 +559,7 @@ async def add_to_library(
     if not url:
         return {"error": "url is required"}
     note = (text or "").strip()
+    kept = cm.clean(comments) if comments else []
     try:
         res = await ext_capture(
             url,
@@ -543,6 +570,7 @@ async def add_to_library(
             text_kind="note",
             via="mcp",
             patience=30.0,
+            comments=kept or None,
         )
     except QueueBusy as exc:
         return {"error": str(exc), "saved": False}
@@ -552,6 +580,9 @@ async def add_to_library(
         "queued_ahead": res["queued_ahead"],
         "url": url,
         "shared": shared,
+        # What arrived, so a client can tell its fields got through.
+        "text_chars": len(note[:TEXT_MAX]),
+        "comments_kept": len(kept),
     }
     if len(note) > TEXT_MAX:
         out["text_truncated_to"] = TEXT_MAX

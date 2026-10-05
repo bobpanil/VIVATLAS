@@ -125,10 +125,14 @@ async def enqueue(
     text_kind: str = "page",
     via: str = "",
     patience: float = 30.0,
+    comments: list[dict] | None = None,
 ) -> dict:
     """Write a capture down and wake the worker. Returns the job's id and how many
     are ahead of it. Raises QueueBusy if the database stayed locked for `patience`
-    seconds: then nothing was saved, and the caller must say so."""
+    seconds: then nothing was saved, and the caller must say so. `comments` are the
+    post's first comments, already cleaned (comments.clean)."""
+    from vivatlas.comments import dumps
+
     fields = {
         "url": (url or "").strip()[:URL_MAX],
         "title": (title or "").strip()[:TITLE_MAX],
@@ -137,6 +141,7 @@ async def enqueue(
         "user_id": user_id,
         "shared": bool(shared),
         "via": (via or "")[:16],
+        "comments_json": dumps(comments or []),
         "status": "pending",
     }
     try:
@@ -178,6 +183,7 @@ def _as_job(job: CaptureJob) -> dict:
         "title": job.title or "",
         "text": job.text or "",
         "text_kind": job.text_kind or "page",
+        "comments_json": job.comments_json or "",
         "user_id": job.user_id,
         "shared": bool(job.shared),
         "via": job.via or "",

@@ -37,6 +37,11 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # rather than defaulting to an empty string.
         "preview_src": "VARCHAR(1024)",
         "preview_checked_at": "DATETIME",
+        # The first comments under the post a card came from (comments.py).
+        "comments_json": "TEXT DEFAULT ''",
+    },
+    "capture_jobs": {
+        "comments_json": "TEXT DEFAULT ''",
     },
     "repositories": {
         "original_url": "VARCHAR(512) DEFAULT ''",

@@ -18,9 +18,9 @@ Binaries:
   https://github.com/bobpanil/VIVATLAS/releases/download/android-v%v/vivatlas-android-%v.apk
 
 Builds:
-  - versionName: '1.7'
-    versionCode: 8
-    commit: 1bdb959770c8e3e59e1fbdac7dd66cb7f838b378
+  - versionName: 1.7.1
+    versionCode: 9
+    commit: 4148b57c6910a8195700562bbb840eefa81facce
     subdir: android/app
     gradle:
       - yes
@@ -29,5 +29,5 @@ AllowedAPKSigningKeys: 71498fb34b123e7adefb27132a4ae1e9c028a2e274d0192977fff5e98
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^android-v
-CurrentVersion: '1.7'
-CurrentVersionCode: 8
+CurrentVersion: 1.7.1
+CurrentVersionCode: 9

@@ -191,3 +191,20 @@ async def test_reprocess_draft_with_ai_promotes_to_a_page(capture_db, monkeypatc
         assert art.artifact_type == "page"
         assert art.summary_short == "s" and art.summary_error is None
         assert art.is_new is True
+
+
+async def test_a_captured_link_shows_up_in_the_changes_feed(capture_db):
+    """Links and reels used to bypass the changes feed entirely: the web "Changes"
+    page and the MCP list_changes never saw them."""
+    from vivatlas.models import Change
+
+    Local, uid = capture_db
+    await ext_capture("https://example.com/reel", "A reel", "", uid, shared=False)
+    await _drain_captures()
+    with Local() as s:
+        art = s.scalar(select(Artifact).where(Artifact.name == "A reel"))
+        added = s.scalars(
+            select(Change).where(Change.artifact_id == art.id, Change.kind == "added")
+        ).all()
+        assert len(added) == 1
+        assert added[0].details == "https://example.com/reel"

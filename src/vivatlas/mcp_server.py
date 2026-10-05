@@ -34,6 +34,9 @@ from vivatlas.search import search as do_search
 log = logging.getLogger(__name__)
 
 MAX_LIMIT = 20
+# Tools meant for sweeping the whole catalogue page through it, so a page can be
+# larger: an agent that walks every card shouldn't need hundreds of calls.
+PAGE_MAX = 100
 
 _INSTRUCTIONS = (
     "A per-user catalogue of skills, design kits, and tools from Git repositories. "
@@ -313,27 +316,67 @@ def _quality_notes(a: Artifact) -> list[str]:
 
 
 @mcp.tool()
-def list_artifacts(type: str = "", limit: int = 20) -> dict:
-    """List of tools in the catalogue, optionally of a single type.
+def list_artifacts(type: str = "", limit: int = 20, offset: int = 0) -> dict:
+    """List of tools in the catalogue, optionally of a single type, oldest first.
+    To walk the whole catalogue, call again with offset = next_offset until it is null.
 
     type: design-kit, claude-skill, skill, project, unknown — or empty
-    limit: max 20
+    limit: max 100
+    offset: how many cards to skip
     """
-    limit = max(1, min(limit, MAX_LIMIT))
+    limit = max(1, min(limit, PAGE_MAX))
+    offset = max(0, offset)
     with session_scope() as session:
         # Shared cards only: MCP without sign-in is anonymous.
         vis = flt.visible_ids(_caller_user_id())
-        query = select(Artifact).where(Artifact.id.in_(vis)).order_by(Artifact.name)
+        # By id, not by name: a card added mid-sweep then lands at the end instead of
+        # shifting every later page by one.
+        query = select(Artifact).where(Artifact.id.in_(vis)).order_by(Artifact.id)
         count_q = select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
         if type:
             query = query.where(Artifact.artifact_type == type)
             count_q = count_q.where(Artifact.artifact_type == type)
-        rows = session.scalars(query.limit(limit)).all()
+        rows = session.scalars(query.offset(offset).limit(limit)).all()
         total = session.scalar(count_q)
+        end = offset + len(rows)
         return {
             "total": total,
+            "offset": offset,
             "showing": len(rows),
+            "next_offset": end if end < total else None,
             "items": [_brief(session, a) for a in rows],
+        }
+
+
+@mcp.tool()
+def list_changes(after_id: int = 0, limit: int = 50) -> dict:
+    """Every change to the catalogue, oldest first, to keep up without missing any:
+    each card added, updated, renamed or removed appears once with its card id. Call
+    with after_id = next_cursor from the previous answer; 0 starts from the beginning.
+
+    after_id: 0, or the next_cursor you were given
+    limit: max 100
+    """
+    limit = max(1, min(limit, PAGE_MAX))
+    after_id = max(0, after_id)
+    with session_scope() as session:
+        rows = ch.after(session, after_id=after_id, limit=limit + 1, user_id=_caller_user_id())
+        more = len(rows) > limit
+        rows = rows[:limit]
+        return {
+            "items": [
+                {
+                    "change_id": c.id,
+                    "kind": c.kind,
+                    "artifact_id": c.artifact_id,
+                    "name": c.title,
+                    "details": c.details,
+                    "when": c.created_at.isoformat(),
+                }
+                for c in rows
+            ],
+            "next_cursor": rows[-1].id if rows else after_id,
+            "has_more": more,
         }
 
 

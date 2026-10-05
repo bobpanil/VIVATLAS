@@ -2018,6 +2018,16 @@ def _create_draft(session, user_id, source_url: str, name: str, summary: str, he
         )
         session.add(art)
         session.flush()
+        # Links and reels arrive here, not through the scanner, and so never made it
+        # into the changes feed: the web "Changes" page and the MCP both missed them.
+        ch.record(
+            session,
+            "added",
+            repository_id=repo.id,
+            artifact_id=art.id,
+            title=art.name,
+            details=source_url or "",
+        )
     else:
         art.name = (name or art.name)[:256]
         art.summary_short = summary or art.summary_short

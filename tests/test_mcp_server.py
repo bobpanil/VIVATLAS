@@ -74,6 +74,7 @@ async def test_all_tools_are_registered():
         "list_tags",
         "catalog_overview",
         "list_recent_changes",
+        "list_changes",
         "find_stale_artifacts",
         # write (per-user, OAuth)
         "add_to_library",
@@ -127,7 +128,7 @@ async def test_list_artifacts_limit_is_capped(catalog):
     # A model with limited memory reads the response — we can't let it ask for
     # a thousand cards and flood its whole memory.
     d = await call("list_artifacts", {"limit": 9999})
-    assert d["showing"] <= mcp_server.MAX_LIMIT
+    assert d["showing"] <= mcp_server.PAGE_MAX
 
 
 async def test_list_artifacts_filters_by_type(catalog):
@@ -360,3 +361,70 @@ async def test_private_card_link_stays_hidden_from_others(catalog, monkeypatch):
     assert "source_url" not in d and "error" in d
     listed = await call("list_artifacts", {})
     assert all(i["id"] != art.id for i in listed["items"])
+
+
+def _more_cards(session, art, n):
+    """n extra shared cards in the same repository source as the fixture card."""
+    from vivatlas.models import Artifact as A
+    from vivatlas.models import Repository as R
+
+    made = []
+    for i in range(n):
+        repo = R(source_id=art.repository.source_id, external_id=f"x{i}", owner="o",
+                 name=f"r{i}", default_branch="main", html_url=f"https://git.example.com/o/r{i}")
+        session.add(repo)
+        session.flush()
+        a = A(repository_id=repo.id, name=f"r{i}", artifact_type="skill", confidence=0.9,
+              summary_short=f"card {i}", shared=True)
+        session.add(a)
+        session.flush()
+        made.append(a)
+    session.commit()
+    return made
+
+
+async def test_list_artifacts_pages_through_everything_by_id(catalog):
+    session, art = catalog
+    _more_cards(session, art, 4)
+    seen, offset = [], 0
+    while offset is not None:
+        d = await call("list_artifacts", {"limit": 2, "offset": offset})
+        assert d["total"] == 5
+        seen += [i["id"] for i in d["items"]]
+        offset = d["next_offset"]
+    assert seen == sorted(seen) and len(seen) == len(set(seen)) == 5
+
+
+async def test_list_changes_cursor_misses_nothing_and_repeats_nothing(catalog):
+    from vivatlas import changes
+
+    session, art = catalog
+    cards = [art] + _more_cards(session, art, 4)
+    for c in cards:
+        changes.record(session, "added", repository_id=c.repository_id, artifact_id=c.id,
+                       title=c.name)
+    session.commit()
+    got, cursor = [], 0
+    while True:
+        d = await call("list_changes", {"after_id": cursor, "limit": 2})
+        got += [i["artifact_id"] for i in d["items"]]
+        cursor = d["next_cursor"]
+        if not d["has_more"]:
+            break
+    assert got == [c.id for c in cards]
+    again = await call("list_changes", {"after_id": cursor})
+    assert again["items"] == [] and again["next_cursor"] == cursor and again["has_more"] is False
+
+
+async def test_list_changes_hides_someone_elses_private_card(catalog, monkeypatch):
+    from vivatlas import changes
+
+    session, art = catalog
+    art.shared = False
+    art.owner_user_id = 7
+    changes.record(session, "added", repository_id=art.repository_id, artifact_id=art.id,
+                   title=art.name)
+    session.commit()
+    monkeypatch.setattr(mcp_server, "get_access_token", lambda: None)
+    d = await call("list_changes", {})
+    assert all(i["artifact_id"] != art.id for i in d["items"])

@@ -86,6 +86,14 @@ def recent(session: Session, limit: int = 50, kind: str = "", user_id=_UNSET) ->
     return list(session.scalars(query.limit(limit)))
 
 
+def after(session: Session, after_id: int = 0, limit: int = 50, user_id=_UNSET) -> list[Change]:
+    """Changes with an id above after_id, oldest first: a cursor to keep up with the
+    feed without missing or repeating anything, however long between visits."""
+    query = select(Change).where(Change.id > max(0, after_id)).order_by(Change.id)
+    query = _scope_changes(query, user_id)
+    return list(session.scalars(query.limit(limit)))
+
+
 def since(session: Session, days: int = 30, user_id=_UNSET) -> list[Change]:
     edge = datetime.now(UTC) - timedelta(days=days)
     query = select(Change).where(Change.created_at >= edge).order_by(Change.created_at.desc())

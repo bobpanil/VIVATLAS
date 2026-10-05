@@ -306,6 +306,30 @@ def backfill_avatar_presets(conn) -> int:
     return len(rows)
 
 
+def backfill_added_changes(conn) -> int:
+    """Give every card that has no "added" event one, dated when the card was made.
+
+    Cards saved from links and reels never recorded one, so the changes feed (the web
+    "Changes" page and the MCP) didn't know they existed. Idempotent: only cards
+    without any "added" row are touched, so a repeat inserts nothing."""
+    if not (_table_exists(conn, "changes") and _table_exists(conn, "artifacts")):
+        return 0
+    return conn.execute(
+        text(
+            """
+            INSERT INTO changes
+                (kind, repository_id, artifact_id, scan_run_id, title, details, created_at)
+            SELECT 'added', a.repository_id, a.id, NULL, a.name, '', a.created_at
+            FROM artifacts a
+            WHERE a.repository_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM changes c WHERE c.artifact_id = a.id AND c.kind = 'added'
+              )
+            """
+        )
+    ).rowcount
+
+
 def ensure_schema() -> list[str]:
     """Bring the database up to the current schema. Returns a list of what was done."""
     done: list[str] = []
@@ -382,6 +406,11 @@ def ensure_schema() -> list[str]:
         filed = backfill_artifact_categories(conn)
         if filed:
             done.append(f"folder membership migrated for {filed} cards")
+
+        # Cards that never recorded "added" (links, reels) get one, dated at creation.
+        added = backfill_added_changes(conn)
+        if added:
+            done.append(f"changes feed: 'added' recorded for {added} earlier cards")
 
         # Whoever lacks a default avatar — assign a random one from the set.
         seeded = backfill_avatar_presets(conn)

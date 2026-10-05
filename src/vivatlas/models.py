@@ -745,3 +745,47 @@ class Preview(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
     )
+
+
+# The fixed set of verdicts a reviewer may give. Checked on the server, so whatever
+# the reviewer writes, the page only ever shows one of these as the verdict.
+REVIEW_VERDICTS = (
+    "candidate",
+    "park",
+    "skip",
+    "vague",
+    "source_found",
+    "source_not_found",
+)
+
+
+class ArtifactReview(Base):
+    """A reviewer's verdict on a card. A record of its own, never written into the
+    card's name or descriptions: a review is someone's opinion of the card, not part
+    of it, and the reviewer is often an AI agent that has just read untrusted pages.
+
+    Written through the MCP set_review tool, shown on the card page as plain text,
+    removable by the card's owner or an admin. One per reviewer per card: a new
+    verdict replaces the previous one. Author and time are set by the server."""
+
+    __tablename__ = "artifact_reviews"
+    __table_args__ = (UniqueConstraint("artifact_id", "author_user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("artifacts.id", ondelete="CASCADE"), index=True
+    )
+    author_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    verdict: Mapped[str] = mapped_column(String(32))
+    note: Mapped[str] = mapped_column(Text, default="")
+    # A JSON list of short project names the tool is relevant to.
+    projects_json: Mapped[str] = mapped_column(Text, default="[]")
+    # The name the MCP client registered under (e.g. "Claude Code"), so the page can
+    # say which assistant wrote it. Client-supplied, so shown as plain text only.
+    via: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    author: Mapped["User"] = relationship()

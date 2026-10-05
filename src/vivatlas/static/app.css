@@ -3539,6 +3539,83 @@ html.card-dragging .side-folders-head {
     color: var(--ink);
 }
 
+/* --- reviews on a card ---------------------------------------------------
+   Someone's verdict on the card (usually an AI agent's), in a box of its own so
+   it never reads as part of the card's description. The note keeps its line
+   breaks but is otherwise plain text. */
+.art-review {
+    margin-top: var(--s-sm);
+    padding: 12px 14px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--surface-soft);
+}
+
+.art-review-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin: 0;
+}
+
+.review-verdict {
+    padding: 2px 10px;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: var(--surface-card);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.review-candidate,
+.review-source_found {
+    border-color: var(--accent-green);
+    background: var(--accent-green-soft);
+    color: var(--accent-green);
+}
+
+.review-park {
+    border-color: var(--primary);
+}
+
+.review-skip,
+.review-vague,
+.review-source_not_found {
+    color: var(--mute);
+}
+
+.art-review-by {
+    color: var(--mute);
+    font-size: 12px;
+}
+
+.art-review-note {
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.art-review-projects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 0;
+}
+
+.art-review-projects span {
+    padding: 2px 8px;
+    border: 1px solid var(--hairline-soft);
+    border-radius: 999px;
+    background: var(--surface-card);
+    font-size: 12px;
+}
+
+.art-review-del {
+    margin: 10px 0 0;
+}
+
 /* --- toast: a brief confirmation banner (e.g. "added"), auto-dismissing ---- */
 .toast {
     position: fixed;

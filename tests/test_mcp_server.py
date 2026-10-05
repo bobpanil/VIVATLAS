@@ -79,6 +79,7 @@ async def test_all_tools_are_registered():
         # write (per-user, OAuth)
         "add_to_library",
         "edit_card",
+        "set_review",
         "list_folders",
         "file_card",
     }

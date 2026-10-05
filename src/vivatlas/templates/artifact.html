@@ -55,6 +55,31 @@
     {% if tr.summary_technical %}
     <section class="art-sec"><h3>{{ t('artifact.what_inside') }}</h3><p>{{ tr.summary_technical }}</p></section>
     {% endif %}
+
+    {# Reviews: a verdict someone (usually an AI agent) gave the card, kept apart from
+       the card's own text. Everything here is plain text, escaped: the note, the
+       project names and the client's name are written by the reviewer, never trusted
+       as markup or links. The verdict itself comes from a fixed list. #}
+    {% if reviews %}
+    <section class="art-sec art-reviews">
+        <h3>{{ t('review.title') }}</h3>
+        {% for r in reviews %}
+        <div class="art-review">
+            <p class="art-review-head">
+                <span class="review-verdict review-{{ r.verdict }}">{{ t('review.verdict.' ~ r.verdict) }}</span>
+                <span class="art-review-by">{{ t('review.by', name=r.by) }}{% if r.via %} · {{ r.via }}{% endif %} · {{ r.updated }}</span>
+            </p>
+            {% if r.note %}<p class="art-review-note">{{ r.note }}</p>{% endif %}
+            {% if r.projects %}<p class="art-review-projects">{% for p in r.projects %}<span>{{ p }}</span>{% endfor %}</p>{% endif %}
+            {% if r.can_remove %}
+            <form method="post" action="/artifact/{{ a.id }}/review/{{ r.review_id }}/delete" class="art-review-del">
+                <button type="submit" class="btn-secondary cta-sm">{{ t('review.remove') }}</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
 </div>
 
 {% if can_edit %}

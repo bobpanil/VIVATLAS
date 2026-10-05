@@ -21,11 +21,12 @@ from sqlalchemy import func, select
 
 from vivatlas import changes as ch
 from vivatlas import filters as flt
+from vivatlas import reviews as rv
 from vivatlas.ai import build_embedding_model, build_text_model
 from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.mcp_oauth import SCOPE
-from vivatlas.models import Artifact, ArtifactTag, Repository, Tag, User
+from vivatlas.models import Artifact, ArtifactReview, ArtifactTag, Repository, Tag, User
 from vivatlas.recommender import NO_MATCH_THRESHOLD
 from vivatlas.recommender import recommend as do_recommend
 from vivatlas.search import Mode
@@ -161,7 +162,21 @@ def _brief(session, a: Artifact) -> dict:
         "summary": a.summary_short,
         "source_url": _source_url(a),
         "tags": _tags(session, a.id, limit=5),
+        # The caller's own verdict, if they reviewed this card: lets a reviewer
+        # sweeping the catalogue skip what it has already judged.
+        "my_review": _my_verdict(session, a.id),
     }
+
+
+def _my_verdict(session, artifact_id: int) -> str | None:
+    uid = _caller_user_id()
+    if uid is None:
+        return None
+    return session.scalar(
+        select(ArtifactReview.verdict).where(
+            ArtifactReview.artifact_id == artifact_id, ArtifactReview.author_user_id == uid
+        )
+    )
 
 
 @mcp.tool()
@@ -301,6 +316,7 @@ def get_artifact(artifact_id: int) -> dict:
             "commit": (a.source_commit or "")[:8],
             # Honest about data quality: let the other side know what to trust.
             "notes": _quality_notes(a),
+            "reviews": [rv.as_dict(r) for r in rv.for_card(session, a.id)],
         }
 
 
@@ -549,6 +565,38 @@ def edit_card(
             "name": f"{a.repository.owner}/{a.name}",
             "type": a.artifact_type,
         }
+
+
+@mcp.tool()
+def set_review(
+    artifact_id: int, verdict: str, note: str = "", projects: list[str] | None = None
+) -> dict:
+    """Record your verdict on a card. It appears on the card's page in its own "Review"
+    block, separate from the card's name and descriptions, and replaces your previous
+    review of the same card. Who wrote it and when are set by the server. Allowed on a
+    card you own, or (as an admin) on a shared one.
+
+    artifact_id: the card
+    verdict: candidate | park | skip | vague | source_found | source_not_found
+    note: plain text, up to 2000 characters, shown exactly as written (no markdown, no links)
+    projects: up to 10 short names of the projects the tool is relevant to
+    """
+    uid = _require_user()
+    with session_scope() as session:
+        a = session.get(Artifact, artifact_id)
+        mine = a is not None and a.owner_user_id is not None and a.owner_user_id == uid
+        # Someone else's private card is answered as if it didn't exist.
+        if a is None or not (a.shared or mine):
+            return {"error": f"card {artifact_id} not found"}
+        if not (mine or _is_admin(session, uid)):
+            return {"error": "not allowed to review this card"}
+        tok = get_access_token()
+        via = rv.client_label(session, getattr(tok, "client_id", None))
+        try:
+            row = rv.upsert(session, a.id, uid, verdict, note, projects, via)
+        except rv.ReviewError as exc:
+            return {"error": str(exc)}
+        return {"ok": True, "artifact_id": a.id, **rv.as_dict(row)}
 
 
 @mcp.tool()

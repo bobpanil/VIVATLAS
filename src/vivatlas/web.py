@@ -26,6 +26,7 @@ from vivatlas import categories as catperm
 from vivatlas import changes as ch
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
+from vivatlas import reviews as rv
 from vivatlas.ai import build_embedding_model, build_text_model
 from vivatlas.archive import read_archive
 from vivatlas.config import settings
@@ -39,6 +40,7 @@ from vivatlas.indexer import _to_ref, index_repository
 from vivatlas.models import (
     Artifact,
     ArtifactCategory,
+    ArtifactReview,
     ArtifactTag,
     Category,
     Change,
@@ -551,12 +553,25 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
         upstream = session.scalar(
             select(UpstreamLink).where(UpstreamLink.artifact_id == artifact_id)
         )
+        # Reviews: someone's verdict on the card, shown apart from the card's own text.
+        # The card's owner (or an admin, on a shared card) may remove any of them; an
+        # author may always take back their own.
+        moderator = mine or (getattr(request.state, "is_admin", False) and a.shared)
+        reviews = [
+            {
+                **rv.as_dict(r),
+                "updated": r.updated_at.strftime("%Y-%m-%d") if r.updated_at else "",
+                "can_remove": moderator or r.author_user_id == user_id,
+            }
+            for r in rv.for_card(session, a.id)
+        ]
 
         return templates.TemplateResponse(
             request,
             "artifact.html",
             {
                 "a": a,
+                "reviews": reviews,
                 # The card's own words in the reader's language (name included), or
                 # what it was written with where there's no translation.
                 "tr": cardtext.localized(a, lang),
@@ -723,6 +738,7 @@ def _delete_artifact(session, art: Artifact, actor_user_id: int) -> None:
     session.execute(sa_delete(TagSuppression).where(TagSuppression.artifact_id == aid))
     session.execute(sa_delete(UpstreamLink).where(UpstreamLink.artifact_id == aid))
     session.execute(sa_delete(Favorite).where(Favorite.artifact_id == aid))
+    session.execute(sa_delete(ArtifactReview).where(ArtifactReview.artifact_id == aid))
     session.execute(sa_update(Change).where(Change.artifact_id == aid).values(artifact_id=None))
 
     # We mark the repository as removed by the user and bury it: otherwise the next scan
@@ -762,6 +778,29 @@ def delete_artifact(
         return JSONResponse({"ok": True, "deleted": artifact_id})
     dest = next if next.startswith("/") else "/"
     return RedirectResponse(dest, status_code=303)
+
+
+@router.post("/artifact/{artifact_id}/review/{review_id}/delete")
+def delete_review(request: Request, artifact_id: int, review_id: int) -> Response:
+    """Remove a review from a card. The card's owner may, an admin may on a shared card,
+    and a review's author may always take their own back."""
+    user_id = getattr(request.state, "user_id", None)
+    if user_id is None:
+        raise HTTPException(401, i18n.msg(request, "err.login_required"))
+    is_admin = getattr(request.state, "is_admin", False)
+    with session_scope() as session:
+        art = session.get(Artifact, artifact_id)
+        row = session.get(ArtifactReview, review_id)
+        mine = art is not None and art.owner_user_id is not None and art.owner_user_id == user_id
+        if art is None or row is None or row.artifact_id != art.id or not (art.shared or mine):
+            raise HTTPException(404, i18n.msg(request, "err.artifact_not_found"))
+        if not (mine or (is_admin and art.shared) or row.author_user_id == user_id):
+            raise HTTPException(403)
+        session.delete(row)
+
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "deleted": review_id})
+    return RedirectResponse(f"/a/{artifact_id}", status_code=303)
 
 
 def _removed_notices(session, user_id: int | None) -> list[dict]:

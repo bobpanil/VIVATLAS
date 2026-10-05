@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A debug build installs next to the release one. With the same name the two
+         were indistinguishable on the home screen and in the share menu. -->
+    <string name="app_name">VIVATLAS dev</string>
+</resources>

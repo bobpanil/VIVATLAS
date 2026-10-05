@@ -265,7 +265,7 @@
        data-modal; without the script they just open the same modal as a separate page. #}
     <div class="modalhost" id="modalhost" aria-hidden="true">
         <div class="modalhost-scrim" id="modalhost-scrim"></div>
-        <iframe class="modalframe" id="modalframe" title="{{ t('modal.window_title') }}" src="about:blank"></iframe>
+        <iframe class="modalframe" id="modalframe" aria-label="{{ t('modal.window_title') }}" src="about:blank"></iframe>
     </div>
 
     <script>

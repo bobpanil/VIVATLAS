@@ -4696,6 +4696,27 @@ a.art-chip-pur:hover { border-color: currentColor; }
     .field-grid {
         grid-template-columns: 1fr;
     }
+
+    /* The help bubble drops below its heading, at the heading's full width. Beside
+       the ⓘ it ran past the screen edge: cut off when shown, and even hidden it
+       widened the window into a sideways scrollbar above the buttons. The "i" loses
+       its transform here because a transform would trap the bubble inside the icon;
+       the negative margin gives the same small lift. */
+    .sec-head {
+        position: relative;
+    }
+    .sec-info {
+        position: static;
+        transform: none;
+        margin-top: -4px;
+    }
+    .sec-tip {
+        top: calc(100% + 6px);
+        inset-inline-start: 0;
+        inset-inline-end: 0;
+        width: auto;
+        max-width: none;
+    }
 }
 
 /* Profile photo: a preview circle + upload/remove buttons. */
@@ -6441,12 +6462,16 @@ html.modal-open {
         padding: 0;
     }
 
-    /* Size the card to its content (capped at the space under the top bar) so a
-       short card doesn't stretch full-height and leave a big empty void above the
-       footer. Taller cards scroll inside .modal-body as before. */
+    /* On a phone every window (a card, Settings, Admin) fills the whole space under
+       the top bar, like an app screen, with its buttons pinned to the bottom. Sized
+       to its content it floated over a grey strip whenever the content was short.
+       Long content scrolls inside .modal-body. (100dvh here is the frame's height:
+       the frame starts under the top bar.) */
     .modalcard {
         width: 100%;
         max-width: 100%;
+        height: 100vh;
+        height: 100dvh;
         min-height: 0;
         max-height: 100dvh;
         border: 0;
@@ -6471,16 +6496,26 @@ html.modal-open {
         display: contents;
     }
 
-    .modal-foot .btn-secondary,
-    .modal-foot .btn-danger {
+    /* Only buttons that carry an icon become squares. A plain text button (the
+       Settings "Close") squeezed into a square looked broken. */
+    .modal-foot .btn-secondary:has(.mf-ic),
+    .modal-foot .btn-danger:has(.mf-ic) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
-        min-width: 44px;
-        height: 44px;
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
         padding: 0;
         line-height: 0;
+    }
+
+    /* Buttons a little less tall on a phone: 36px still clears a thumb, and the
+       desktop 40px looked chunky stacked on a narrow screen. */
+    .btn-secondary,
+    .cta {
+        padding: 7px 14px;
+        min-height: 36px;
     }
 
     .modal-foot .mf-txt {
@@ -6541,5 +6576,14 @@ html.modal-open {
     }
     [dir="rtl"] .navt:checked ~ .side {
         transform: none;
+    }
+}
+
+/* A browser extension can't be installed on a phone or tablet, so on touch-only
+   devices its Settings tab is just noise. (Inside the Android app a script hides it
+   too, and shows "Share behaviour" in its place.) */
+@media (hover: none) and (pointer: coarse) {
+    .settab[data-tab="extension"] {
+        display: none;
     }
 }

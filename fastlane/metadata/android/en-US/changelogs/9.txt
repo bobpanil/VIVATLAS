@@ -1,0 +1,1 @@
+Inside the app, Settings now has a Share behaviour tab: choose whether links you share from other apps land as private or public. Changing the server is on the sign-in screen. Back simply leaves the app.

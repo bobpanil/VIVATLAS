@@ -19,6 +19,8 @@
 {% if step == 'security' %}
 <nav class="settabs" role="tablist" data-tabkey="settab" aria-label="{{ t('nav.settings') }}">
     <button class="settab on" type="button" data-tab="profile">{{ t('settings.tab_profile') }}</button>
+    {# Only inside the Android app (the script at the bottom reveals it). #}
+    <button class="settab" type="button" data-tab="share" hidden>{{ t('settings.tab_share') }}</button>
     <button class="settab" type="button" data-tab="account">{{ t('settings.tab_account') }}</button>
     <button class="settab" type="button" data-tab="folders">{{ t('settings.tab_folders') }}</button>
     <button class="settab" type="button" data-tab="repos">{{ t('settings.tab_repos') }}</button>
@@ -92,6 +94,26 @@
         {% endif %}
         </div>{# /.avatar-layout #}
     </div>
+</section>
+
+{# Inside the Android app only: where a link shared from another app lands. It is
+   a setting of the phone, kept by the app, so the page reads and writes it through
+   the app's bridge (VivatlasNative) and applies a change at once. A browser never
+   shows this tab. #}
+<section class="setpanel" data-panel="share" hidden>
+<div class="box wide">
+    {{ sechead(t('settings.share_title'), t('settings.share_tip')) }}
+    <label class="zone-opt">
+        <input type="radio" name="share-zone" value="private">
+        <span>{{ t('add.done.zone_private') | safe }}</span>
+    </label>
+    <label class="zone-opt">
+        <input type="radio" name="share-zone" value="shared">
+        <span>{{ t('add.done.zone_shared') | safe }}</span>
+    </label>
+    <p class="legend" id="share-saved" hidden>{{ t('settings.share_saved') }}</p>
+    <p class="legend" id="share-appver"></p>
+</div>
 </section>
 
 <section class="setpanel" data-panel="account" hidden>
@@ -451,6 +473,34 @@
         clock.textContent = '{{ t('settings.phone_expired') }}';
         if (qr) { qr.style.opacity = '.15'; }
     }, 1000);
+})();
+
+// Inside the Android app: show "Share behaviour" (a setting the app keeps, read and
+// written through its bridge) and drop "Browser extension", which a phone can't use.
+(function () {
+    var bridge = window.VivatlasNative;
+    if (!bridge || typeof bridge.getShareShared !== 'function') return;
+    var tab = document.querySelector('.settab[data-tab="share"]');
+    if (tab) tab.hidden = false;
+    var ext = document.querySelector('.settab[data-tab="extension"]');
+    if (ext) {
+        ext.hidden = true;
+        if (ext.classList.contains('on') && tab) tab.click();
+    }
+    var shared = !!bridge.getShareShared();
+    var saved = document.getElementById('share-saved');
+    document.querySelectorAll('input[name="share-zone"]').forEach(function (r) {
+        r.checked = (r.value === 'shared') === shared;
+        r.addEventListener('change', function () {
+            if (!r.checked) return;
+            bridge.setShareShared(r.value === 'shared');
+            if (saved) saved.hidden = false;
+        });
+    });
+    var ver = document.getElementById('share-appver');
+    if (ver && typeof bridge.appVersion === 'function') {
+        ver.textContent = {{ t('settings.share_app_version', v='__V__') | tojson }}.replace('__V__', bridge.appVersion());
+    }
 })();
 
 // Language — via a dropdown: changing it navigates to the server-side /lang/... .

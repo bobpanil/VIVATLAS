@@ -24,7 +24,6 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -59,20 +58,11 @@ class MainActivity : AppCompatActivity() {
     // just-authenticated load and loop back into the login screen.
     private var lastAuthAt = 0L
 
-    // Settings can change the server or sign out, so we re-decide where to go on return
-    // rather than dropping the user back onto a page that no longer applies.
-    private val settingsLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        val url = Prefs.serverUrl(this)
-        if (result.resultCode == SettingsActivity.RESULT_SIGNED_OUT) {
-            launchLogin()
-        } else if (url != null && url != serverUrl) {
-            serverUrl = url
-            firstPaintDone = false
-            enter()
-        }
-    }
+    // Set when we load the start page; once it has finished loading, the WebView's
+    // back history is wiped. Otherwise Back walks through whatever came before (a
+    // redirect to /login, the page we were on before sign-in), and a step back onto
+    // /login reads as "the session ended" and signs the user out.
+    private var clearHistoryAfterLoad = false
 
     private val loginLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -156,8 +146,10 @@ class MainActivity : AppCompatActivity() {
         val pending = intent?.getStringExtra(EXTRA_SHARE_URL)?.takeIf { it.isNotBlank() }
         if (pending != null) {
             intent.removeExtra(EXTRA_SHARE_URL)
+            clearHistoryAfterLoad = true
             webView.loadUrl("$base/add?source=" + Uri.encode(pending))
         } else if (force || webView.url == null) {
+            clearHistoryAfterLoad = true
             webView.loadUrl(base)
         }
     }
@@ -256,6 +248,10 @@ class MainActivity : AppCompatActivity() {
                 if (!isAuthPage(url)) {
                     firstPaintDone = true
                     hideLoading()
+                    if (clearHistoryAfterLoad) {
+                        clearHistoryAfterLoad = false
+                        view.clearHistory()
+                    }
                 }
             }
         }
@@ -349,7 +345,8 @@ class MainActivity : AppCompatActivity() {
      * overlay is open, pull-to-refresh stands down.
      *
      * Only our own origin is ever loaded in this WebView (external links go to
-     * the system browser), and the bridge does nothing but flip this one flag.
+     * the system browser), and the bridge only flips this flag and reads or sets
+     * the share default.
      */
     private inner class NativeBridge {
         @JavascriptInterface
@@ -359,6 +356,20 @@ class MainActivity : AppCompatActivity() {
                 swipe.isEnabled = !open
             }
         }
+
+        /** Where a link shared from another app lands: a setting of this phone, kept
+         *  by the app. The web Settings page shows it as the "Share behaviour" tab,
+         *  which appears only when the page finds these methods, i.e. inside the app. */
+        @JavascriptInterface
+        fun getShareShared(): Boolean = Prefs.shareShared(this@MainActivity)
+
+        @JavascriptInterface
+        fun setShareShared(shared: Boolean) {
+            Prefs.setShareShared(this@MainActivity, shared)
+        }
+
+        @JavascriptInterface
+        fun appVersion(): String = BuildConfig.VERSION_NAME
     }
 
     /**
@@ -413,36 +424,57 @@ class MainActivity : AppCompatActivity() {
         if (webView.url != null) webView.reload() else if (base != null) webView.loadUrl(base)
     }
 
+    /**
+     * Back, in order: close what is open on top (the side menu, a window such as a
+     * card or Settings); else go back to the previous *different* page; else leave
+     * the app, as Back does everywhere else.
+     *
+     * Not plain WebView.goBack(): windows load inside a frame, and every frame load
+     * adds a step to the WebView's history with the same page underneath, so Back
+     * used to step invisibly through windows already closed and seemed to do
+     * nothing. And it never goes back onto /login, which would read as "signed out".
+     */
     private fun wireBackButton() {
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    showLeaveDialog()
+                webView.evaluateJavascript(CLOSE_OVERLAY_JS) { result ->
+                    if (result?.trim('"') == "closed") return@evaluateJavascript
+                    if (!goBackToDifferentPage()) {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
                 }
             }
-        })
+        }
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
-    /** Branded "Leave VIVATLAS?" confirm (the stock AlertDialog looked out of place). */
-    private fun showLeaveDialog() {
-        val view = layoutInflater.inflate(R.layout.dialog_leave, null)
-        val dialog = AlertDialog.Builder(this).setView(view).create()
-        dialog.window?.apply {
-            setBackgroundDrawableResource(android.R.color.transparent)
-            setDimAmount(0.6f)
+    private fun goBackToDifferentPage(): Boolean {
+        val list = webView.copyBackForwardList()
+        val here = list.currentItem?.url ?: return false
+        for (i in list.currentIndex - 1 downTo 0) {
+            val url = list.getItemAtIndex(i)?.url ?: continue
+            if (url != here && !isAuthPage(url)) {
+                webView.goBackOrForward(i - list.currentIndex)
+                return true
+            }
         }
-        view.findViewById<View>(R.id.leave_cancel).setOnClickListener { dialog.dismiss() }
-        view.findViewById<View>(R.id.leave_change).setOnClickListener {
-            dialog.dismiss()
-            settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
+        return false
+    }
+
+    /**
+     * The server can be changed on the sign-in screen, which this activity doesn't
+     * hear about directly. On return, pick up a server that changed meanwhile.
+     */
+    override fun onResume() {
+        super.onResume()
+        val url = Prefs.serverUrl(this)
+        if (url != null && serverUrl != null && url != serverUrl) {
+            serverUrl = url
+            firstPaintDone = false
+            enter()
         }
-        view.findViewById<View>(R.id.leave_exit).setOnClickListener {
-            dialog.dismiss()
-            finish()
-        }
-        dialog.show()
     }
 
     /** First-run and "change server" dialog. On save we re-route through [enter],
@@ -497,6 +529,16 @@ class MainActivity : AppCompatActivity() {
                 "if(n&&!window.__vivOverlayN){window.__vivOverlayN=true;" +
                 "n.addEventListener('change',report);}" +
                 "report();})();"
+
+        // Back closes what is on top first: the side menu, else an open window (card,
+        // Settings). Answers "closed" when it closed something, "" when nothing was open.
+        private const val CLOSE_OVERLAY_JS =
+            "(function(){var n=document.getElementById('navt');" +
+                "if(n&&n.checked){n.checked=false;n.dispatchEvent(new Event('change'));return 'closed';}" +
+                "var h=document.getElementById('modalhost');" +
+                "if(h&&h.classList.contains('open')&&window.closeModalHost){" +
+                "window.closeModalHost();return 'closed';}" +
+                "return '';})();"
 
         // The page's effective opaque background (body, else html), or "" when
         // transparent — so we only recolour the WebView backdrop when there's a

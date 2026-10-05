@@ -84,7 +84,7 @@ def _config_rows(session, lang: str = "en") -> list[dict]:
 def _model_lists() -> dict:
     from vivatlas import modellist
 
-    data = modellist.cached()
+    data = modellist.for_dropdowns(modellist.cached())
     return {"text": data["text"], "embedding": data["embedding"], "ollama": data["ollama"]}
 
 
@@ -220,6 +220,8 @@ async def ai_models(request: Request, refresh: bool = False) -> JSONResponse:
     data = modellist.cached()
     if refresh or modellist.is_stale(data):
         data = await modellist.refresh()
+    # Only models fit for each job: no music, image, video or voice models.
+    data = modellist.for_dropdowns(data)
     errors = data.get("errors") or {}
     return JSONResponse(
         {

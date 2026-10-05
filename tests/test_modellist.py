@@ -102,3 +102,45 @@ def test_cached_survives_garbage(store):
     store.commit()
     data = modellist.cached()
     assert data["text"] == ["x"] and "junk" not in data
+
+
+# What a Google AI Studio key really listed on 2026-10-05 (generateContent models in
+# "text", embedContent ones in "embedding"), and what the dropdowns should keep.
+_GOOGLE_TEXT = [
+    "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-preview-tts",
+    "gemini-2.5-pro-preview-tts", "gemma-4-26b-a4b-it", "gemma-4-31b-it",
+    "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest",
+    "gemini-2.5-flash-lite", "gemini-2.5-flash-image", "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview", "gemini-3.1-pro-preview-customtools",
+    "gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite", "gemini-3-pro-image-preview",
+    "gemini-3-pro-image", "nano-banana-pro-preview", "gemini-3.1-flash-image-preview",
+    "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image", "gemini-3.5-flash",
+    "gemini-3.5-flash-lite", "gemini-omni-flash-preview", "gemini-omni-1.1-flash",
+    "gemini-3.5-transcribe", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash",
+    "lyria-3-clip-preview", "lyria-3-pro-preview", "lyria-3.5",
+    "gemini-3.1-flash-tts-preview", "gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts",
+    "gemini-robotics-er-2-preview", "gemini-2.5-computer-use-preview-10-2025",
+    "antigravity-preview-05-2026", "antigravity-preview-09-2026",
+    "antigravity-preview-latest", "deep-research-max-preview-04-2026",
+    "deep-research-preview-04-2026", "deep-research-pro-preview-12-2025",
+]
+_GOOGLE_EMBED = ["gemini-embedding-001", "gemini-embedding-2-preview", "gemini-embedding-2"]
+
+
+def test_dropdowns_offer_only_models_fit_for_the_job():
+    shown = modellist.for_dropdowns(
+        {"text": _GOOGLE_TEXT, "embedding": _GOOGLE_EMBED,
+         "ollama": ["nomic-embed-text", "gpt-oss:120b", "kimi-k3"]}
+    )
+    assert shown["text"] == [
+        "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest",
+        "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash",
+        "gemini-3.5-flash", "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro",
+    ]
+    assert not any(w in " ".join(shown["text"]) for w in ("lyria", "tts", "image", "veo"))
+    assert shown["embedding"] == ["gemini-embedding-2", "gemini-embedding-2-preview",
+                                  "gemini-embedding-001"]
+    assert shown["ollama"] == ["gpt-oss:120b", "kimi-k3"]

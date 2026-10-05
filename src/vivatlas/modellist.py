@@ -13,6 +13,7 @@ had last time, and its error is kept beside them so the page can say what went w
 
 import json
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -33,6 +34,63 @@ _EMPTY = {
     "checked_at": "",
     "errors": {},
 }
+
+
+# What each dropdown should offer. Google lists every model a key can reach: music
+# (Lyria), images (Nano Banana, Imagen), video (Veo), speech, live voice, robotics,
+# agents. None of those can write a card. A description needs a general Gemini text
+# model (it reads the card's text, pictures, video and audio and answers in JSON);
+# search needs an embedding model; Ollama's list loses its embedding models.
+_TEXT_SKIP = (
+    "image",
+    "tts",
+    "audio",
+    "live",
+    "robotics",
+    "computer-use",
+    "transcribe",
+    "translate",
+    "customtools",
+    "omni",
+    "embedding",
+)
+
+
+def suitable_text(name: str) -> bool:
+    n = name.lower()
+    return n.startswith("gemini-") and not any(word in n for word in _TEXT_SKIP)
+
+
+def suitable_embedding(name: str) -> bool:
+    return "embedding" in name.lower()
+
+
+def suitable_ollama(name: str) -> bool:
+    return "embed" not in name.lower()
+
+
+def _newest_first(names: list[str]) -> list[str]:
+    """The "-latest" aliases first, then by version, newest at the top."""
+
+    def key(name: str):
+        n = name.lower()
+        m = re.search(r"(\d+(?:\.\d+)?)", n)
+        version = float(m.group(1)) if m else -1.0
+        return (0 if n.endswith("-latest") else 1, -version, n)
+
+    return sorted(set(names), key=key)
+
+
+def for_dropdowns(data: dict) -> dict:
+    """The lists as the AI tab shows them: only models fit for each job."""
+    return {
+        **data,
+        "text": _newest_first([n for n in data.get("text", []) if suitable_text(n)]),
+        "embedding": _newest_first(
+            [n for n in data.get("embedding", []) if suitable_embedding(n)]
+        ),
+        "ollama": sorted(n for n in data.get("ollama", []) if suitable_ollama(n)),
+    }
 
 
 def cached() -> dict:

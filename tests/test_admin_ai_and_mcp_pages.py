@@ -30,7 +30,7 @@ def owner_client(tmp_path, monkeypatch):
     Local = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     monkeypatch.setattr(db, "SessionLocal", Local)
     monkeypatch.setattr(settings, "secret_key", "test-secret-key-long-enough-for-the-door")
-    monkeypatch.setattr(settings, "llm_model", "gemini-b")
+    monkeypatch.setattr(settings, "llm_model", "gemini-3.1-flash-lite")
     monkeypatch.setattr(settings, "ollama_model", "gpt-oss:120b")
     with Local() as s:
         owner = User(email="panibor@example.com", display_name="Boris", password_hash="h",
@@ -42,8 +42,9 @@ def owner_client(tmp_path, monkeypatch):
                               client=SimpleNamespace(host="1.2.3.4"))
         token = auth.open_session(s, owner, req, Response())
         runtime_settings.set(s, modellist.KEY, json.dumps({
-            "text": ["gemini-a", "gemini-b", "gemini-c"],
-            "embedding": ["emb-1", "emb-2"],
+            "text": ["gemini-2.5-flash", "gemini-3.1-flash-lite", "lyria-3.5",
+                     "gemini-3.8-flash-tts", "gemini-3.1-flash-image"],
+            "embedding": ["gemini-embedding-001", "gemini-embedding-2"],
             "ollama": ["glm-5.2", "gpt-oss:120b", "kimi-k3"],
             "checked_at": datetime.now(UTC).isoformat(),
             "errors": {},
@@ -63,8 +64,10 @@ def _options(html: str, name: str) -> list[str]:
 def test_ai_tab_lists_every_model_from_the_start(owner_client):
     r = owner_client.get("/admin")
     assert r.status_code == 200, r.status_code
-    assert _options(r.text, "llm_model") == ["gemini-a", "gemini-b", "gemini-c"]
-    assert _options(r.text, "embedding_model")[-2:] == ["emb-1", "emb-2"]
+    # Only text models that can write a card: no music, speech or image models.
+    assert _options(r.text, "llm_model") == ["gemini-3.1-flash-lite", "gemini-2.5-flash"]
+    assert _options(r.text, "embedding_model")[-2:] == ["gemini-embedding-2",
+                                                        "gemini-embedding-001"]
     # Ollama is a dropdown now, not a box to type the name into.
     assert _options(r.text, "ollama_model") == ["glm-5.2", "gpt-oss:120b", "kimi-k3"]
     assert re.search(r'<option value="gpt-oss:120b" selected>', r.text)
@@ -74,6 +77,7 @@ def test_ai_tab_lists_every_model_from_the_start(owner_client):
 def test_model_endpoint_answers_from_the_kept_list(owner_client):
     d = owner_client.get("/admin/ai/models").json()
     assert d["ollama"] == ["glm-5.2", "gpt-oss:120b", "kimi-k3"] and d["errors"] == {}
+    assert "lyria-3.5" not in d["text"] and "gemini-3.1-flash-lite" in d["text"]
 
 
 def test_mcp_tab_is_for_any_assistant_and_names_the_account(owner_client, monkeypatch):

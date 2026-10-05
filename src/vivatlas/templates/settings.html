@@ -25,7 +25,7 @@
     <button class="settab" type="button" data-tab="folders">{{ t('settings.tab_folders') }}</button>
     <button class="settab" type="button" data-tab="repos">{{ t('settings.tab_repos') }}</button>
     <button class="settab" type="button" data-tab="extension">{{ t('settings.tab_extension') }}</button>
-    <button class="settab" type="button" data-tab="chatgpt">{{ t('settings.tab_chatgpt') }}</button>
+    <button class="settab" type="button" data-tab="mcp">{{ t('settings.tab_chatgpt') }}</button>
 </nav>
 
 <section class="setpanel" data-panel="profile">
@@ -322,7 +322,7 @@
 </div>
 </section>
 
-<section class="setpanel" data-panel="chatgpt" hidden>
+<section class="setpanel" data-panel="mcp" hidden>
 <div class="box wide">
     {{ sechead(t('settings.mcp_title'), t('settings.mcp_tip')) }}
     <p class="legend">{{ t('settings.mcp_intro') }}</p>
@@ -338,13 +338,24 @@
                         onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
             </span>
         </li>
+        <li>
+            <span class="ext-step-text">{{ t('settings.mcp_step_add') }}</span>
+            <ul class="mcp-clients">
+                <li><b>ChatGPT</b>: {{ t('settings.mcp_how_chatgpt') }}</li>
+                <li><b>Claude</b>: {{ t('settings.mcp_how_claude') }}</li>
+                <li><b>Claude Code</b>: {{ t('settings.mcp_how_claude_code') }}
+                    <pre class="mcp-snippet">claude mcp add --transport http vivatlas {{ mcp_url }}</pre></li>
+                <li><b>Gemini CLI</b>: {{ t('settings.mcp_how_gemini') }}
+                    <pre class="mcp-snippet">"mcpServers": {"vivatlas": {"httpUrl": "{{ mcp_url }}"}}</pre></li>
+                <li>{{ t('settings.mcp_how_other') }}</li>
+            </ul>
+        </li>
         <li>{{ t('settings.mcp_step_devmode') }}</li>
-        <li>{{ t('settings.mcp_step_add') }}</li>
         <li>{{ t('settings.mcp_step_use') }}</li>
     </ol>
     <p class="note">{{ t('settings.mcp_task_hint') }}</p>
 
-    <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.mcp_authorized') }}</h3></div>
+    <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.mcp_authorized', account=me.email) }}</h3></div>
     {% if mcp_grants %}
     <ul class="src-manage">
         {% for g in mcp_grants %}

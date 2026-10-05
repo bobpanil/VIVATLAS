@@ -81,6 +81,13 @@ def _config_rows(session, lang: str = "en") -> list[dict]:
     return rows
 
 
+def _model_lists() -> dict:
+    from vivatlas import modellist
+
+    data = modellist.cached()
+    return {"text": data["text"], "embedding": data["embedding"], "ollama": data["ollama"]}
+
+
 def _smtp_view(session) -> dict:
     """Email settings for the page. The password is exposed only as the fact that
     it is "set" plus a mask, never in full."""
@@ -123,6 +130,8 @@ def _admin_page(request: Request, session, me: User, **extra) -> HTMLResponse:
     ctx = {
         "users": rows,
         "config": _config_rows(session, lang),
+        # Every model the server knows of, so the dropdowns list them from the start.
+        "model_lists": _model_lists(),
         "smtp": _smtp_view(session),
         "counts": _counts(session, me.id),
         "registration_open": runtime_settings.registration_open(session),
@@ -199,22 +208,30 @@ def user_set_admin(
 
 
 @router.get("/admin/ai/models")
-async def ai_models(request: Request) -> JSONResponse:
-    """The models the saved Google key may use, for the AI settings dropdowns. Reads the
-    SAVED key (save it first). On no key or an error we return empty lists plus a reason;
-    the page then keeps the manually-typed model as-is."""
+async def ai_models(request: Request, refresh: bool = False) -> JSONResponse:
+    """The models Google (with the saved key) and Ollama (at the saved address) offer,
+    for the AI tab's dropdowns. The server keeps this list and refreshes it by itself
+    (see modellist); this answers from it, asking again only when it is out of date,
+    the keys just changed, or the admin pressed "Refresh"."""
     with session_scope() as session:
         _admin_or_403(session, request)
-    key = settings.google_api_key
-    if not key:
-        return JSONResponse({"text": [], "embedding": [], "error": "no-key"})
-    from vivatlas.ai.google import list_available_models
+    from vivatlas import modellist
 
-    try:
-        data = await list_available_models(key, settings.http_timeout_seconds)
-    except Exception as exc:  # noqa: BLE001 — any failure just falls back to manual entry
-        return JSONResponse({"text": [], "embedding": [], "error": str(exc)[:200]})
-    return JSONResponse(data)
+    data = modellist.cached()
+    if refresh or modellist.is_stale(data):
+        data = await modellist.refresh()
+    errors = data.get("errors") or {}
+    return JSONResponse(
+        {
+            "text": data["text"],
+            "embedding": data["embedding"],
+            "ollama": data["ollama"],
+            "checked_at": data["checked_at"],
+            "errors": errors,
+            # Kept for older pages still open in a tab.
+            "error": errors.get("google", ""),
+        }
+    )
 
 
 # A handful of real cards' worth of text to describe. Deliberately varied — English and
@@ -366,6 +383,20 @@ def config_save(
             session, {k: v for k, v in submitted.items() if v is not None}
         )
         session.flush()
+        # New keys or a new Ollama address: the model lists may have changed. Mark them
+        # out of date; the page (or the background loop) asks again straight away.
+        if any(
+            submitted[k] not in (None, "")
+            for k in (
+                runtime_settings.CFG_GOOGLE_KEY,
+                runtime_settings.CFG_OLLAMA_KEY,
+                runtime_settings.CFG_OLLAMA_URL,
+            )
+        ):
+            from vivatlas import modellist
+
+            session.commit()
+            modellist.mark_stale()
         lang = getattr(request.state, "lang", "en")
         return _admin_page(
             request, session, me, config_msg=i18n.translate("admin.config.saved", lang)

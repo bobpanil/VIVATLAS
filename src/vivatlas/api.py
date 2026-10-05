@@ -45,6 +45,10 @@ _PREVIEW_EVERY_SECONDS = 900   # idle: nothing left to do, look again in a while
 _PREVIEW_DRAIN_SECONDS = 5     # busy: a full batch was found, so there is more
 _PREVIEW_WARMUP_SECONDS = 30
 _PREVIEW_BATCH = 20
+# Which models Google and Ollama offer, for the admin's dropdowns. New models appear
+# now and then; a few times a day is plenty, and saving new keys refreshes sooner.
+_MODELS_WARMUP_SECONDS = 20
+_MODELS_CHECK_SECONDS = 600    # look whether the list is due (stale or keys changed)
 
 
 async def _autoscan_pass() -> None:
@@ -161,6 +165,24 @@ async def _preview_loop() -> None:
         await asyncio.sleep(wait)
 
 
+async def _models_loop() -> None:
+    """Keep the list of available AI models fresh by itself, so the admin picks a
+    model from a dropdown instead of typing its name. Refreshes when the list is
+    older than modellist.REFRESH_EVERY, or right after the keys changed."""
+    await asyncio.sleep(_MODELS_WARMUP_SECONDS)
+    while True:
+        try:
+            from vivatlas import modellist
+
+            if modellist.is_stale(modellist.cached()):
+                await modellist.refresh()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("model list: refresh failed")
+        await asyncio.sleep(_MODELS_CHECK_SECONDS)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     # Without the secret key the door won't lock: it backs the signatures (2FA,
@@ -190,6 +212,7 @@ async def _lifespan(app: FastAPI):
         asyncio.create_task(_autoscan_loop()),
         asyncio.create_task(_retry_loop()),
         asyncio.create_task(_preview_loop()),
+        asyncio.create_task(_models_loop()),
     ]
     try:
         async with contextlib.AsyncExitStack() as stack:
@@ -315,8 +338,8 @@ app.include_router(web_router)
 # catalogue: if that package moves under us, the site keeps serving and only the
 # connector goes dark.
 try:
-    from vivatlas.mcp_web import router as mcp_router  # noqa: E402
     from vivatlas.mcp_server import http_app as mcp_http_app  # noqa: E402
+    from vivatlas.mcp_web import router as mcp_router  # noqa: E402
 except Exception:
     mcp_router = None
     mcp_http_app = None

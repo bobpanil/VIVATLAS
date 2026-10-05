@@ -184,13 +184,16 @@
 </label>
 {% endmacro %}
 
-{# A model field as a dropdown. It starts with the saved value as the only option, so
-   it works (and submits) with no scripts; the loader script then fills it from the
-   Google models list (kind = "text" | "embedding"). #}
-{% macro model_select(c, kind) %}
+{# A model field as a dropdown, listing every model the server knows of for this kind
+   ("text" | "embedding" | "ollama"). The server keeps that list and refreshes it by
+   itself (modellist), so the dropdown is full from the moment the page opens. The
+   saved value stays selectable even if it has left the list. #}
+{% macro model_select(c, kind, names) %}
 <label class="fld"><span>{{ c.label }}</span>
     <select name="{{ c.attr }}" data-model-select="{{ kind }}" data-current="{{ c.value }}">
-        <option value="{{ c.value }}" selected>{{ c.value or t('admin.ai.model_pick') }}</option>
+        {% if c.value and c.value not in names %}<option value="{{ c.value }}" selected>{{ c.value }}</option>{% endif %}
+        {% if not c.value %}<option value="" selected>{{ t('admin.ai.model_pick') }}</option>{% endif %}
+        {% for n in names %}<option value="{{ n }}"{% if n == c.value %} selected{% endif %}>{{ n }}</option>{% endfor %}
     </select>
 </label>
 {% endmacro %}
@@ -231,8 +234,8 @@
     <form method="post" action="/admin/config" class="admin-form" id="admin-config-form">
         <div class="field-grid">
             {% for c in config if c.attr == 'google_api_key' %}{{ cfg_field(c) }}{% endfor %}
-            {% for c in config if c.attr == 'llm_model' %}{{ model_select(c, 'text') }}{% endfor %}
-            {% for c in config if c.attr == 'embedding_model' %}{{ model_select(c, 'embedding') }}{% endfor %}
+            {% for c in config if c.attr == 'llm_model' %}{{ model_select(c, 'text', model_lists.text) }}{% endfor %}
+            {% for c in config if c.attr == 'embedding_model' %}{{ model_select(c, 'embedding', model_lists.embedding) }}{% endfor %}
         </div>
 
         {# The second model. Writing and translating can go elsewhere; embedding can't —
@@ -248,7 +251,7 @@
                 </select>
             </label>
             {% endfor %}
-            {% for c in config if c.attr == 'ollama_model' %}{{ cfg_field(c) }}{% endfor %}
+            {% for c in config if c.attr == 'ollama_model' %}{{ model_select(c, 'ollama', model_lists.ollama) }}{% endfor %}
             {% for c in config if c.attr == 'ollama_api_key' %}{{ cfg_field(c) }}{% endfor %}
             {% for c in config if c.attr == 'ollama_url' %}{{ cfg_field(c) }}{% endfor %}
         </div>
@@ -272,6 +275,8 @@
         {# Status of the live model-list fetch (filled by the loader script): how
            many models the key exposed, or why the list couldn't be loaded. #}
         <p class="legend" id="ai-models-msg" role="status" aria-live="polite" hidden></p>
+        <p><button type="button" class="btn-secondary cta-sm" id="ai-models-refresh"
+                   data-busy="{{ t('admin.ai.models_refreshing') }}">{{ t('admin.ai.models_refresh') }}</button></p>
     </form>
 </div>
 </section>
@@ -418,50 +423,61 @@ document.addEventListener('submit', function (e) {
 
 {% block scripts %}
 <script>
-// AI model dropdowns: fill them from the models the saved Google key can use. Until
-// then (and if the key is unset or the request fails) each keeps its saved value as
-// the only option, so the form still works without scripts or without a key.
+// AI model dropdowns. The server already put every model it knows of into them; this
+// asks it again (it only goes to Google and Ollama when the list is out of date or the
+// keys just changed), refreshes the options, and says what it found. The dropdowns
+// keep the saved model selected even if it has left the list.
 (function () {
     var selects = document.querySelectorAll('select[data-model-select]');
     if (!selects.length) return;
     var msg = document.getElementById('ai-models-msg');
-    function say(text, isErr) {
+    var btn = document.getElementById('ai-models-refresh');
+    var T = {{ {
+        'status': t('admin.ai.models_status'),
+        'nokey': t('admin.ai.models_nokey'),
+        'google_err': t('admin.ai.models_google_err'),
+        'ollama_err': t('admin.ai.models_ollama_err'),
+        'unreachable': t('admin.ai.models_unreachable'),
+    } | tojson }};
+    function say(lines, isErr) {
         if (!msg) return;
-        msg.textContent = text;
-        msg.hidden = !text;
+        msg.textContent = lines.filter(Boolean).join(' ');
+        msg.hidden = !msg.textContent;
         msg.classList.toggle('auth-err', !!isErr);
     }
-    fetch('/admin/ai/models', { headers: { 'Accept': 'application/json' } })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            var total = (d.text || []).length + (d.embedding || []).length;
-            selects.forEach(function (sel) {
-                var list = (d[sel.getAttribute('data-model-select')] || []).slice();
-                if (!list.length) return;   // keep the saved value as-is
-                var cur = sel.getAttribute('data-current') || '';
-                if (cur && list.indexOf(cur) === -1) list.unshift(cur);
-                sel.innerHTML = '';
-                list.forEach(function (name) {
-                    var o = document.createElement('option');
-                    o.value = name; o.textContent = name;
-                    if (name === cur) o.selected = true;
-                    sel.appendChild(o);
-                });
+    function fill(d) {
+        selects.forEach(function (sel) {
+            var list = (d[sel.getAttribute('data-model-select')] || []).slice();
+            if (!list.length) return;   // keep what the page already has
+            var cur = sel.value || sel.getAttribute('data-current') || '';
+            if (cur && list.indexOf(cur) === -1) list.unshift(cur);
+            sel.innerHTML = '';
+            list.forEach(function (name) {
+                var o = document.createElement('option');
+                o.value = name; o.textContent = name;
+                if (name === cur) o.selected = true;
+                sel.appendChild(o);
             });
-            // Tell the admin what happened, so an empty list isn't a silent mystery.
-            if (total) {
-                say('Loaded ' + total + ' models from your Google key.', false);
-            } else if (d.error === 'no-key') {
-                say('No Google key saved yet — save the key first, then the models load.', true);
-            } else if (d.error) {
-                say("Couldn't load models from Google: " + d.error + ' (kept the saved model).', true);
-            } else {
-                say('Google returned no usable models for this key (kept the saved model).', true);
-            }
-        })
-        .catch(function (e) {
-            say("Couldn't reach the model list: " + (e && e.message ? e.message : e), true);
         });
+        var e = d.errors || {};
+        var lines = [T.status.replace('{google}', (d.text || []).length).replace('{ollama}', (d.ollama || []).length)];
+        if (e.google === 'no-key') lines.push(T.nokey);
+        else if (e.google) lines.push(T.google_err.replace('{error}', e.google));
+        if (e.ollama) lines.push(T.ollama_err.replace('{error}', e.ollama));
+        say(lines, !!(e.google && e.google !== 'no-key') || !!e.ollama);
+    }
+    function load(force) {
+        if (btn && force) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = btn.dataset.busy; }
+        return fetch('/admin/ai/models' + (force ? '?refresh=1' : ''), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(fill)
+            .catch(function (e) { say([T.unreachable.replace('{error}', e && e.message ? e.message : e)], true); })
+            .then(function () {
+                if (btn && force) { btn.disabled = false; btn.textContent = btn.dataset.label; }
+            });
+    }
+    if (btn) btn.addEventListener('click', function () { load(true); });
+    load(false);
 })();
 </script>
 {% endblock %}

@@ -63,18 +63,23 @@
         btn.setAttribute('aria-owns', list.id);
 
         var opts = [];
-        [].forEach.call(select.options, function (o, i) {
-            var el = document.createElement('div');
-            el.className = 'dd-opt';
-            el.id = uid + '-o' + i;
-            el.setAttribute('role', 'option');
-            el.textContent = o.textContent;
-            el.dataset.value = o.value;
-            var d = o.getAttribute('dir'); if (d) el.dir = d;
-            if (o.disabled) el.setAttribute('aria-disabled', 'true');
-            list.appendChild(el);
-            opts.push(el);
-        });
+        function buildOptions() {
+            opts.length = 0;
+            list.textContent = '';
+            [].forEach.call(select.options, function (o, i) {
+                var el = document.createElement('div');
+                el.className = 'dd-opt';
+                el.id = uid + '-o' + i;
+                el.setAttribute('role', 'option');
+                el.textContent = o.textContent;
+                el.dataset.value = o.value;
+                var d = o.getAttribute('dir'); if (d) el.dir = d;
+                if (o.disabled) el.setAttribute('aria-disabled', 'true');
+                list.appendChild(el);
+                opts.push(el);
+            });
+        }
+        buildOptions();
         document.body.appendChild(list);
 
         var active = -1;
@@ -220,6 +225,17 @@
             var el = e.target.closest ? e.target.closest('.dd-opt') : null;
             if (el && enabled(opts.indexOf(el))) setActive(opts.indexOf(el));
         });
+
+        // When the page swaps the select's options later (e.g. a list of models that
+        // arrives after the page), rebuild the menu. Without this it kept the options
+        // it was born with: the native select had 47 models, the menu showed one.
+        if (window.MutationObserver) {
+            new MutationObserver(function () {
+                buildOptions();
+                active = -1;
+                syncLabel();
+            }).observe(select, { childList: true, subtree: true, characterData: true });
+        }
 
         syncLabel();
     }

@@ -98,8 +98,11 @@ def _build_mcp() -> FastMCP:
         auth=AuthSettings(
             issuer_url=f"{base}/mcp-server",  # type: ignore[arg-type]
             resource_server_url=f"{base}/mcp-server/mcp",  # type: ignore[arg-type]
+            # valid_scopes=None: don't refuse a client over the scopes it asks for at
+            # registration (some send "openid profile offline_access"). Scopes grant
+            # nothing here; a token acts as its user. register_client adds ours.
             client_registration_options=ClientRegistrationOptions(
-                enabled=True, valid_scopes=[SCOPE], default_scopes=[SCOPE]
+                enabled=True, valid_scopes=None, default_scopes=[SCOPE]
             ),
             revocation_options=RevocationOptions(enabled=True),
         ),

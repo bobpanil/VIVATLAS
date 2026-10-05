@@ -53,6 +53,9 @@ def protected_resource_metadata() -> dict:
     return {
         "resource": f"{base}/mcp-server/mcp",
         "authorization_servers": [f"{base}/mcp-server"],
+        # What to ask for: clients that pick scopes from here (per the MCP spec) then
+        # request exactly the one we grant.
+        "scopes_supported": [SCOPE],
         "bearer_methods_supported": ["header"],
     }
 
@@ -71,8 +74,19 @@ def authorization_server_metadata() -> dict:
         "scopes_supported": [SCOPE],
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
-        "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
-        "revocation_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+        # "none" too: public clients with PKCE (Claude Code, Gemini CLI, desktop apps)
+        # register without a secret, which the SDK supports; say so, or a strict
+        # client would think it can't connect.
+        "token_endpoint_auth_methods_supported": [
+            "client_secret_post",
+            "client_secret_basic",
+            "none",
+        ],
+        "revocation_endpoint_auth_methods_supported": [
+            "client_secret_post",
+            "client_secret_basic",
+            "none",
+        ],
         "code_challenge_methods_supported": ["S256"],
     }
 

@@ -29,7 +29,8 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
 from vivatlas import security
 from vivatlas.db import session_scope
-from vivatlas.models import OAuthClient, OAuthToken as OAuthTokenRow
+from vivatlas.models import OAuthClient
+from vivatlas.models import OAuthToken as OAuthTokenRow
 
 SCOPE = "vivatlas"  # a single scope — full access as the signed-in user
 ACCESS_TTL = 3600  # 1 hour
@@ -58,6 +59,18 @@ def _sweep() -> None:
             _CODES.pop(code, None)
 
 
+def _epoch(dt: datetime | None) -> int | None:
+    """Seconds since the epoch for a stored expiry. SQLite hands datetimes back without
+    a zone, and a naive datetime's .timestamp() is read as the machine's LOCAL time:
+    on a server east of UTC every one-hour token looked expired the moment it was
+    issued (and west of UTC lived hours too long). They are stored in UTC, so say so."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return int(dt.timestamp())
+
+
 def _active_token(session, raw: str, kind: str) -> OAuthTokenRow | None:
     row = (
         session.query(OAuthTokenRow)
@@ -84,6 +97,14 @@ class VivatlasOAuthProvider(OAuthAuthorizationServerProvider):
             return OAuthClientInformationFull.model_validate_json(row.info_json) if row else None
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
+        # Every client may ask for our one scope, whatever it registered with. Clients
+        # differ: Gemini CLI registers with an empty scope and may ask for "vivatlas"
+        # later; OIDC-minded ones register "openid profile offline_access". The SDK
+        # checks each authorization request against the registered scope, so without
+        # this some of them were refused at sign-in. Scopes grant nothing beyond this
+        # one anyway: a token is the user, full stop.
+        requested = set((client_info.scope or "").split())
+        client_info.scope = " ".join(sorted(requested | {SCOPE}))
         info = client_info.model_dump_json()
         with session_scope() as s:
             existing = s.get(OAuthClient, client_info.client_id)
@@ -132,7 +153,7 @@ class VivatlasOAuthProvider(OAuthAuthorizationServerProvider):
                 token=refresh_token,
                 client_id=row.client_id,
                 scopes=row.scopes.split() if row.scopes else [],
-                expires_at=int(row.expires_at.timestamp()) if row.expires_at else None,
+                expires_at=_epoch(row.expires_at),
                 subject=str(row.user_id),
             )
 
@@ -159,7 +180,7 @@ class VivatlasOAuthProvider(OAuthAuthorizationServerProvider):
                 token=token,
                 client_id=row.client_id,
                 scopes=row.scopes.split() if row.scopes else [],
-                expires_at=int(row.expires_at.timestamp()) if row.expires_at else None,
+                expires_at=_epoch(row.expires_at),
                 subject=str(row.user_id),
             )
 

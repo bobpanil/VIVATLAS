@@ -4694,6 +4694,26 @@ a.art-chip-pur:hover { border-color: currentColor; }
     grid-column: 1 / -1;
 }
 
+/* MCP tab: how to add the connector in each assistant. */
+.mcp-clients {
+    margin: 8px 0 0;
+    padding-inline-start: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mcp-snippet {
+    margin: 6px 0 0;
+    padding: 8px 10px;
+    overflow-x: auto;
+    border: 1px solid var(--hairline-soft);
+    border-radius: var(--r-sm);
+    background: var(--surface-soft);
+    font-size: 12px;
+    white-space: pre;
+}
+
 /* Browser-extension tab: numbered install steps with copy chips and a download CTA. */
 .ext-steps {
     margin: 10px 0 0;

@@ -27,14 +27,17 @@ Read (both connection types):
 | `list_artifacts` | A list, optionally of a single type |
 | `list_tags` | All tags with the number of tools |
 | `list_recent_changes` | What appeared / changed / disappeared recently |
+| `list_changes` | The changes feed, page by page from an id, for an agent that keeps up |
 | `find_stale_artifacts` | What hasn't been touched in a long time |
 
 Write (only when signed in over OAuth — never anonymously):
 
 | Tool | What it does |
 |---|---|
-| `add_to_library` | Add a tool from a link (GitHub repo or any page); processed in the background |
+| `add_to_library` | Add a tool from a link (GitHub repo or any page), optionally with text such as a video's transcript. Saved at once, then processed in the background, in order |
+| `list_captures` | The links you added and how far each got: waiting, done (with the card), or failed (with the reason) |
 | `edit_card` | Edit one of your cards (name, type, the three descriptions) |
+| `set_review` | Leave your verdict on a card, with a note and the projects it fits |
 | `list_folders` | Your folders (id + name), for filing |
 | `file_card` | Put a card into (or take it out of) one of your folders |
 

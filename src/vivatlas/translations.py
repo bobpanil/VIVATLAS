@@ -409,6 +409,11 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Дайте ссылку, скриншот или хотя бы название.",
         "he": "תנו קישור, צילום מסך או לפחות שם.",
     },
+    "add.err.busy": {
+        "en": "The library is busy right now, so the link was not saved. Try again in a minute.",
+        "ru": "Библиотека сейчас занята, ссылка не сохранилась. Попробуйте через минуту.",
+        "he": "הספרייה עסוקה כרגע, ולכן הקישור לא נשמר. נסו שוב בעוד דקה.",
+    },
     "add.err.parse_failed": {
         "en": "Couldn't parse it: {err}",
         "ru": "Не получилось разобрать: {err}",

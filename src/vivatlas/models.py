@@ -789,3 +789,47 @@ class ArtifactReview(Base):
     )
 
     author: Mapped["User"] = relationship()
+
+
+CAPTURE_STATUSES = ("pending", "running", "done", "failed")
+
+
+class CaptureJob(Base):
+    """A link someone asked to add, written down before the answer goes back.
+
+    Saves from the browser extension, the phone's share sheet and the MCP
+    add_to_library tool used to go straight into a background task. When the
+    database was busy, or the server restarted, the save was gone after the caller
+    had already been told "processing". Now the link, its title and its text are a
+    row here first, and one worker (captures.py) turns the rows into cards in
+    order, one at a time. A row that fails is tried again later, and one that keeps
+    failing is marked failed with the reason: its link and text stay here."""
+
+    __tablename__ = "capture_jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    url: Mapped[str] = mapped_column(Text, default="")
+    title: Mapped[str] = mapped_column(Text, default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    # "page": the text IS the page, grabbed by the extension or handed over by the
+    # share sheet. "note": the text was sent along with the link (an assistant's
+    # transcript of a video, say), so it goes next to the page's own caption.
+    text_kind: Mapped[str] = mapped_column(String(8), default="page")
+    shared: Mapped[bool] = mapped_column(default=False)
+    via: Mapped[str] = mapped_column(String(16), default="")  # extension | mcp
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_try_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The card it became. A plain number, not a foreign key: deleting the card later
+    # must not touch the record that it was added.
+    artifact_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )

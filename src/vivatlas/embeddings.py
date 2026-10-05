@@ -65,22 +65,54 @@ async def embed_artifact(
         return "unchanged"
 
     vector = await model.embed(text)
+    return store_embedding(
+        session,
+        artifact.id,
+        {
+            "model": getattr(model, "model", "unknown"),
+            "dim": model.dim,
+            "digest": digest,
+            "vector": vector,
+        },
+    )
 
+
+async def compute_embedding(model: EmbeddingModel, artifact) -> dict:
+    """A card's vector, worked out without touching the database. `artifact` only
+    needs the fields embedding_text reads. store_embedding writes the result."""
+    text = embedding_text(artifact)
+    vector = await model.embed(text)
+    return {
+        "model": getattr(model, "model", "unknown"),
+        "dim": model.dim,
+        "digest": text_hash(text),
+        "vector": vector,
+    }
+
+
+def store_embedding(session: Session, artifact_id: int, emb: dict) -> str:
+    """Write a vector from compute_embedding (or embed_artifact) for a card."""
+    existing = session.scalar(
+        select(Embedding).where(
+            Embedding.artifact_id == artifact_id,
+            Embedding.model == emb["model"],
+        )
+    )
     if existing is None:
         session.add(
             Embedding(
-                artifact_id=artifact.id,
-                model=getattr(model, "model", "unknown"),
-                dim=model.dim,
-                vector=to_blob(vector),
-                source_hash=digest,
+                artifact_id=artifact_id,
+                model=emb["model"],
+                dim=emb["dim"],
+                vector=to_blob(emb["vector"]),
+                source_hash=emb["digest"],
             )
         )
         return "created"
 
-    existing.vector = to_blob(vector)
-    existing.dim = model.dim
-    existing.source_hash = digest
+    existing.vector = to_blob(emb["vector"])
+    existing.dim = emb["dim"]
+    existing.source_hash = emb["digest"]
     return "updated"
 
 

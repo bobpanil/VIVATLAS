@@ -17,6 +17,7 @@ from fastapi import APIRouter, Body, Request, Response
 from fastapi.responses import JSONResponse
 
 from vivatlas import auth, i18n, qrlogin, twofactor
+from vivatlas.captures import QueueBusy
 from vivatlas.db import session_scope
 from vivatlas.models import User
 from vivatlas.web import ext_capture
@@ -156,8 +157,10 @@ def ext_logout(request: Request) -> JSONResponse:
 @router.post("/add")
 async def ext_add(request: Request, payload: Annotated[dict, Body()]) -> JSONResponse:
     """Capture a tool. `url` (current tab or pasted), optional `title` and `text` (the
-    grabbed page), and `shared` (public vs private). A GitHub repo imports in the
-    background; anything else is kept as a draft. Returns fast so browsing continues."""
+    grabbed page), and `shared` (public vs private). The link is written into the
+    capture queue before the answer goes back, and becomes a card in the background:
+    a GitHub repo is imported, anything else is described by the AI. Returns fast so
+    browsing continues. 503 when the save could not be written."""
     lang = getattr(request.state, "lang", "en")
     user_id = getattr(request.state, "user_id", None)
     url = str(payload.get("url", "")).strip()
@@ -168,5 +171,12 @@ async def ext_add(request: Request, payload: Annotated[dict, Body()]) -> JSONRes
         return JSONResponse(
             {"ok": False, "error": i18n.translate("add.err.need_input", lang)}, status_code=400
         )
-    result = await ext_capture(url, title, text, user_id, shared)
+    try:
+        result = await ext_capture(url, title, text, user_id, shared)
+    except QueueBusy:
+        # Not saved, and the caller hears it: the extension shows the message, the
+        # phone says the share failed. Better than "added" for a link that never was.
+        return JSONResponse(
+            {"ok": False, "error": i18n.translate("add.err.busy", lang)}, status_code=503
+        )
     return JSONResponse({"ok": True, **result})

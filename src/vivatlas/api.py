@@ -208,11 +208,16 @@ async def _lifespan(app: FastAPI):
 
         with session_scope() as s:
             runtime_settings.apply_config_overrides(s)
+    from vivatlas import captures
+
     tasks = [
         asyncio.create_task(_autoscan_loop()),
         asyncio.create_task(_retry_loop()),
         asyncio.create_task(_preview_loop()),
         asyncio.create_task(_models_loop()),
+        # Links people add wait in a table until this one worker turns them into
+        # cards, so a busy database or a restart can't lose them (captures.py).
+        asyncio.create_task(captures.worker_loop()),
     ]
     try:
         async with contextlib.AsyncExitStack() as stack:

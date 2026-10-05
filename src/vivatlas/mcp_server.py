@@ -508,19 +508,74 @@ def find_stale_artifacts(days: int = 365) -> dict:
 
 
 @mcp.tool()
-async def add_to_library(url: str, title: str = "", shared: bool = False) -> dict:
-    """Add a tool to your library from a link — a GitHub repo or any web page. It's
-    processed in the background (summarised, tagged, filed), so this returns at once.
+async def add_to_library(
+    url: str, title: str = "", shared: bool = False, text: str = ""
+) -> dict:
+    """Add a tool to your library from a link: a GitHub repo or any web page. The link
+    is saved before this answers, then processed in the background, in order, one at a
+    time (described, tagged, filed). Safe to call many times in a row. list_captures
+    shows how far each link got.
 
     url: the link to add
     title: optional title (otherwise taken from the page/repo)
     shared: true to put it in the shared catalogue; default false = your private zone
+    text: optional text that goes with the link, up to 20,000 characters: a
+        transcript of a video's audio, a caption, your notes. For a web page or a
+        video it is read together with the page's own caption when the card is
+        written, and kept on the card. A GitHub repo's card is written from the repo.
     """
     uid = _require_user()
+    from vivatlas.captures import TEXT_MAX, QueueBusy
     from vivatlas.web import ext_capture
 
-    res = await ext_capture(url.strip(), title.strip(), "", uid, shared)
-    return {"status": "processing", "url": url.strip(), "shared": shared, **res}
+    url = (url or "").strip()
+    if not url:
+        return {"error": "url is required"}
+    note = (text or "").strip()
+    try:
+        res = await ext_capture(
+            url,
+            (title or "").strip(),
+            note[:TEXT_MAX],
+            uid,
+            shared,
+            text_kind="note",
+            via="mcp",
+            patience=30.0,
+        )
+    except QueueBusy as exc:
+        return {"error": str(exc), "saved": False}
+    out = {
+        "status": "queued",
+        "job_id": res["job_id"],
+        "queued_ahead": res["queued_ahead"],
+        "url": url,
+        "shared": shared,
+    }
+    if len(note) > TEXT_MAX:
+        out["text_truncated_to"] = TEXT_MAX
+    return out
+
+
+@mcp.tool()
+def list_captures(status: str = "", limit: int = 50) -> dict:
+    """The links you added (with add_to_library, the browser extension or the phone's
+    share sheet), newest first, with how far each got. "done" ones carry the card's
+    id; "failed" ones carry the reason, and their link and text are kept.
+
+    status: "" for all, or one of pending, running, done, failed
+    limit: how many to return, up to 200
+    """
+    uid = _require_user()
+    from vivatlas.captures import summary_for
+    from vivatlas.models import CAPTURE_STATUSES
+
+    status = (status or "").strip().lower()
+    if status and status not in CAPTURE_STATUSES:
+        return {"error": "status must be empty or one of: " + ", ".join(CAPTURE_STATUSES)}
+    limit = max(1, min(int(limit or 50), 200))
+    with session_scope() as session:
+        return summary_for(session, uid, status=status, limit=limit)
 
 
 @mcp.tool()

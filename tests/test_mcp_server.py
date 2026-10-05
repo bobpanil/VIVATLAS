@@ -78,6 +78,7 @@ async def test_all_tools_are_registered():
         "find_stale_artifacts",
         # write (per-user, OAuth)
         "add_to_library",
+        "list_captures",
         "edit_card",
         "set_review",
         "list_folders",

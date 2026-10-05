@@ -32,7 +32,13 @@ from vivatlas.archive import read_archive
 from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.detector import detect
-from vivatlas.embeddings import embed_artifact, text_hash, to_blob
+from vivatlas.embeddings import (
+    compute_embedding,
+    embed_artifact,
+    store_embedding,
+    text_hash,
+    to_blob,
+)
 from vivatlas.finder import MAX_MEDIA_BYTES, Finder, fetch_page_meta, looks_like_link
 from vivatlas.import_run import execute, record_upstream
 from vivatlas.importer import GitHubFetcher, ImportError_, plan_import
@@ -59,7 +65,13 @@ from vivatlas.scanner import get_or_create_source, scan_source
 from vivatlas.search import Mode, index_artifact_for_words
 from vivatlas.search import search as do_search
 from vivatlas.summarizer import summarize
-from vivatlas.tagger import ai_tags, apply_tags, derive_tags, tag_artifact
+from vivatlas.tagger import (
+    ai_tags,
+    apply_tag_candidates,
+    apply_tags,
+    derive_tags,
+    tag_artifact,
+)
 from vivatlas.upstream_sync import discover_for_artifact
 
 BASE = Path(__file__).parent
@@ -1424,34 +1436,44 @@ async def retry_failed_summaries(limit: int = 25) -> int:
                     .limit(limit)
                 )
             )
+        from vivatlas.captures import run_db
+
         for aid in ids:
             try:
+                # Read what the AI needs, then let go of the database while it works:
+                # a write held open across the AI calls locked out every save that
+                # arrived meanwhile (see _describe_with_ai).
                 with session_scope() as session:
                     art = session.get(Artifact, aid)
                     if art is None or art.summary_short or art.repository is None:
                         continue
-                    summaries = await summarize(
-                        text_model,
-                        full_name=art.repository.full_name,
-                        artifact_type=art.artifact_type,
-                        doc_text=art.doc_text or "",
-                        file_count=art.file_count or 0,
-                    )
-                    art.summary_short = summaries["summary_short"]
-                    art.summary_normal = summaries["summary_normal"]
-                    art.summary_technical = summaries["summary_technical"]
-                    art.summary_model = getattr(text_model, "model", None)
-                    art.summary_error = None
-                    await cardtext.fill_translations(text_model, art)
-                    if embed_model is not None:
-                        await embed_artifact(session, embed_model, art)
-                    await tag_artifact(session, art, text_model)
-                    index_artifact_for_words(session, art)
-                    session.commit()
+                    card = {
+                        "name": art.name,
+                        "full_name": art.repository.full_name,
+                        "artifact_type": art.artifact_type,
+                        "doc": art.doc_text or "",
+                        "file_count": art.file_count or 0,
+                    }
+                ai = await _describe_with_ai(text_model, embed_model, **card)
+                if not ai["summaries"]:
+                    # Still failing (quota again?): leave it for the next pass.
+                    log.warning("retry: card %s still without a summary", aid)
+                    continue
+
+                def save(aid=aid, ai=ai) -> bool:
+                    with session_scope() as session:
+                        art = session.get(Artifact, aid)
+                        if art is None or art.summary_short:
+                            return False
+                        _apply_summaries(art, ai)
+                        _apply_extras(session, art, ai)
+                        index_artifact_for_words(session, art)
+                        return True
+
+                if await run_db(save, patience=60):
                     fixed += 1
             except Exception:
-                # Still failing (quota again?) — leave it for the next pass.
-                log.warning("retry: card %s still without a summary", aid)
+                log.warning("retry: card %s still without a summary", aid, exc_info=True)
     finally:
         await text_model.aclose()
         if embed_model is not None:
@@ -2203,59 +2225,274 @@ def _doc_from_meta(url: str, og: dict, text: str) -> str:
     return "\n\n".join(parts)
 
 
-async def ext_capture(url: str, title: str, text: str, user_id: int, shared: bool) -> dict:
-    """The browser extension's "add tool". Everything is processed in the background so the
-    user keeps browsing, and lands as a real card in the library — a GitHub repo is imported
-    into a full card; any other page/link is summarised by the AI from the captured text.
-    Nothing is left empty: even if the AI or the GitHub import fails, the card keeps the
-    name, link and page text the extension already grabbed (see _process_web_capture)."""
-    url = (url or "").strip()
+async def ext_capture(
+    url: str,
+    title: str,
+    text: str,
+    user_id: int | None,
+    shared: bool,
+    *,
+    text_kind: str = "page",
+    via: str = "extension",
+    patience: float = 8.0,
+) -> dict:
+    """"Add this" from the browser extension, the phone's share sheet or the MCP. The
+    link is written into the capture queue (captures.py) before this returns, and the
+    queue's one worker turns it into a real card: a GitHub repo is imported into a
+    full card, anything else is described by the AI from the text that came with it
+    (see run_capture). Nothing is left empty: even if the AI or the GitHub import
+    fails, the card keeps the name, link and text it arrived with.
+
+    Raises captures.QueueBusy when the save could not be written. `patience` is how
+    long to wait for a busy database first: the phone gives up on its request after
+    15 seconds, an assistant can wait longer."""
+    from vivatlas import captures
+
+    queued = await captures.enqueue(
+        url=url,
+        title=title,
+        text=text,
+        user_id=user_id,
+        shared=shared,
+        text_kind=text_kind,
+        via=via,
+        patience=patience,
+    )
+    return {"kind": "processing", **queued}
+
+
+async def run_capture(job: dict) -> int | None:
+    """What the capture queue's worker does with one job. Returns the card's id."""
+    url = (job.get("url") or "").strip()
+    args = (
+        url,
+        job.get("title") or "",
+        job.get("text") or "",
+        job.get("user_id"),
+        bool(job.get("shared")),
+    )
+    kind = job.get("text_kind") or "page"
     if _is_github_repo_url(url) and settings.gitea_token:
-        task = asyncio.create_task(_import_github_capture(url, title, text, user_id, shared))
-    else:
-        task = asyncio.create_task(_process_web_capture(url, title, text, user_id, shared))
-    _SCAN_TASKS.add(task)
-    task.add_done_callback(_SCAN_TASKS.discard)
-    return {"kind": "processing"}
+        return await _import_github_capture(*args, text_kind=kind)
+    return await _process_web_capture(*args, text_kind=kind)
+
+
+# Text an assistant sent along with a link (a transcript of the video, its notes)
+# goes under the page's own caption, marked, so the AI can tell the two apart.
+_NOTE_LABEL = "Sent with the link:"
+
+
+def _doc_with_note(url: str, og: dict, note: str) -> str:
+    base = _doc_from_meta(url, og, "") if og else (f"Link: {url}" if url else "")
+    note = (note or "").strip()
+    if not note:
+        return base
+    return f"{base}\n\n{_NOTE_LABEL}\n{note}" if base else note
+
+
+def _merged_doc(old: str, new: str, note: str = "") -> str:
+    """The text a card keeps when its link is added again. A bare link gives way to
+    anything fuller, and a note that wasn't there yet is added under what was. What
+    the card already had is otherwise kept."""
+    old_s, new_s = (old or "").strip(), (new or "").strip()
+    if len(old_s) < _THIN_CAPTURE_CHARS:
+        return new if len(new_s) > len(old_s) else old
+    note = (note or "").strip()
+    if note and note not in old:
+        return f"{old.rstrip()}\n\n{_NOTE_LABEL}\n{note}"
+    return old
+
+
+async def _describe_with_ai(
+    text_model,
+    embed_model,
+    *,
+    name: str,
+    artifact_type: str,
+    doc: str,
+    full_name: str | None = None,
+    file_count: int = 0,
+    current: dict | None = None,
+) -> dict:
+    """Everything the AI adds to a card, asked for while no database transaction is open.
+
+    SQLite lets one writer in at a time, and a session that has written anything keeps
+    the database locked until it commits. The AI pass used to run inside such a
+    session, so a save that arrived during an AI call waited, ran out of patience and
+    failed with "database is locked". Here the AI works from plain values, and
+    _apply_summaries and _apply_extras write its answers in one short step afterwards.
+
+    `current` holds the card's present descriptions: if the AI can't write new ones,
+    the vector and the tags are worked out from those."""
+    ai: dict = {
+        "summaries": None,
+        "summary_model": None,
+        "summary_error": None,
+        "translations_json": None,
+        "embedding": None,
+        "ai_tags": None,
+        "tag_origin": getattr(text_model, "model", "model"),
+    }
+    now = current or {}
+    card = SimpleNamespace(
+        name=name,
+        artifact_type=artifact_type,
+        summary_short=now.get("summary_short") or "",
+        summary_normal=now.get("summary_normal") or "",
+        summary_technical=now.get("summary_technical") or "",
+        translations_json=None,
+    )
+    if text_model is not None:
+        try:
+            summaries = await summarize(
+                text_model,
+                full_name=full_name or name,
+                artifact_type=artifact_type,
+                doc_text=doc,
+                file_count=file_count,
+            )
+            ai["summaries"] = {
+                key: summaries[key]
+                for key in ("summary_short", "summary_normal", "summary_technical")
+            }
+            ai["summary_model"] = getattr(text_model, "model", None)
+            for key, value in ai["summaries"].items():
+                setattr(card, key, value)
+        except Exception as exc:  # noqa: BLE001 - keep the card, note why
+            ai["summary_error"] = str(exc)[:500]
+            log.warning("AI description failed for %s: %s", name, exc)
+        if ai["summaries"]:
+            try:
+                await cardtext.fill_translations(text_model, card)
+                ai["translations_json"] = card.translations_json
+            except Exception as exc:  # noqa: BLE001 - a card without translations is still a card
+                log.warning("translation failed for %s: %s", name, exc)
+    # Extras, and they share the AI's rate limit: a failure here must not cost the
+    # card its description.
+    if embed_model is not None:
+        try:
+            ai["embedding"] = await compute_embedding(embed_model, card)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("embedding failed for %s: %s", name, exc)
+    if text_model is not None:
+        try:
+            ai["ai_tags"] = await ai_tags(text_model, card)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("tagging failed for %s: %s", name, exc)
+    return ai
+
+
+def _apply_summaries(art: Artifact, ai: dict) -> bool:
+    """The AI's descriptions onto the card. True if there were any."""
+    if ai["summaries"]:
+        art.summary_short = ai["summaries"]["summary_short"]
+        art.summary_normal = ai["summaries"]["summary_normal"]
+        art.summary_technical = ai["summaries"]["summary_technical"]
+        art.summary_model = ai["summary_model"]
+        art.summary_error = None
+        if ai["translations_json"]:
+            art.translations_json = ai["translations_json"]
+    if ai["summary_error"]:
+        art.summary_error = ai["summary_error"]
+    return bool(ai["summaries"])
+
+
+def _apply_extras(session, art: Artifact, ai: dict) -> None:
+    """The vector and the tags (the derived ones always, the AI's when it answered)."""
+    if ai["embedding"]:
+        store_embedding(session, art.id, ai["embedding"])
+    apply_tag_candidates(session, art, ai["ai_tags"], origin=ai["tag_origin"])
+
+
+def _file_capture(session, art: Artifact, user_id: int | None) -> None:
+    """Put a private capture into one of its owner's folders, once. A card that is
+    already in one of their folders stays where it is: a link added again must not
+    be filed a second time, and the database refuses the same folder twice."""
+    if user_id is None:
+        return
+    filed = session.scalar(
+        select(ArtifactCategory.id)
+        .join(Category, Category.id == ArtifactCategory.category_id)
+        .where(ArtifactCategory.artifact_id == art.id, Category.owner_user_id == user_id)
+        .limit(1)
+    )
+    if filed is not None:
+        return
+    auto_cid = _auto_category(session, art, user_id)
+    if auto_cid is not None:
+        session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
 
 
 async def _process_web_capture(
-    url: str, title: str, text: str, user_id: int, shared: bool
-) -> None:
-    """Background: turn a captured page/link into a real card — summarise the grabbed text
-    with the AI, embed and tag it, and add it to the library (not a draft). If processing
-    fails, the row is left as a draft so the capture is never lost."""
-    # Nothing but the link in hand (a phone share) — open the page and read its caption,
+    url: str,
+    title: str,
+    text: str,
+    user_id: int | None,
+    shared: bool,
+    text_kind: str = "page",
+) -> int | None:
+    """Turn a captured page or link into a real card: described by the AI, embedded,
+    tagged, and in the library rather than the drafts. Returns the card's id.
+
+    The card is saved first, with the name, link and text in hand, so a failing AI
+    leaves a plain card, never nothing. No database lock is held while the page is
+    fetched or the AI answers: the card is written in one short step, the AI is asked
+    with plain values, and its answers are written in a second short step."""
+    from vivatlas.captures import run_db
+
+    note = text_kind == "note"
+    text = text or ""
+    # Nothing but the link in hand (a phone share): open the page and read its caption,
     # or the card ends up described as "a link to a Facebook post": accurate and no use.
+    # Text an assistant sent WITH a link (a transcript, say) doesn't replace the page's
+    # own caption, so then the page is always opened.
     og: dict = {}
-    if len((text or "").strip()) < _THIN_CAPTURE_CHARS:
+    if note or len(text.strip()) < _THIN_CAPTURE_CHARS:
         og = await fetch_page_meta(url, timeout=settings.http_timeout_seconds)
 
-    with session_scope() as session:
-        # A name even without a title or the AI: the page's own caption, else 'owner/repo'
-        # or the last path segment of the link. Never the literal "draft".
-        display_name = (
-            title.strip()
-            or _short_name(_strip_counter_prefix(og.get("title", "")))
-            or _short_name(og.get("description", ""))
-            or _name_from_url(url)
-            or url
-        )
-        doc_text = _doc_from_meta(url, og, text or "") if og else (text or "")
-        aid = _create_draft(session, user_id, url, display_name, "", doc_text)
-        # Promote it from a draft to a real page card straight away, so even if the AI is
-        # slow or unavailable it's already in the catalogue (not the drafts pile).
-        art = session.get(Artifact, aid)
-        if art is None:
-            return
-        art.artifact_type = "page"
-        art.owner_user_id = user_id
-        art.shared = shared
-        art.is_new = True
-        art.hidden = False
-        name = art.name or display_name or url
-        doc = art.doc_text or ""
-        session.commit()
+    # A name even without a title or the AI: the page's own caption, else 'owner/repo'
+    # or the last path segment of the link. Never the literal "draft".
+    display_name = (
+        title.strip()
+        or _short_name(_strip_counter_prefix(og.get("title", "")))
+        or _short_name(og.get("description", ""))
+        or _name_from_url(url)
+        or url
+    )
+    if note:
+        doc_text = _doc_with_note(url, og, text)
+    else:
+        doc_text = _doc_from_meta(url, og, text) if og else text
+
+    def save_card():
+        with session_scope() as session:
+            aid = _create_draft(session, user_id, url, display_name, "", doc_text)
+            art = session.get(Artifact, aid)
+            if art is None:
+                return None
+            # Promoted from a draft to a real page card straight away, so even if the
+            # AI is slow or unavailable it's already in the catalogue.
+            art.artifact_type = "page"
+            art.owner_user_id = user_id
+            art.shared = shared
+            art.is_new = True
+            art.hidden = False
+            merged = _merged_doc(art.doc_text or "", doc_text, text if note else "")
+            if merged != (art.doc_text or ""):
+                art.doc_text = merged
+                index_artifact_for_words(session, art)
+            current = {
+                "summary_short": art.summary_short,
+                "summary_normal": art.summary_normal,
+                "summary_technical": art.summary_technical,
+            }
+            return aid, (art.name or display_name or url), (art.doc_text or ""), current
+
+    saved = await run_db(save_card, patience=120)
+    if saved is None:
+        return None
+    aid, name, doc, current = saved
+
     try:
         text_model = build_text_model()
     except Exception:
@@ -2265,59 +2502,42 @@ async def _process_web_capture(
     except Exception:
         embed_model = None
     try:
-        with session_scope() as session:
-            art = session.scalar(select(Artifact).where(Artifact.id == aid))
-            if art is None:
-                return
-            if text_model is not None:
-                try:
-                    summaries = await summarize(
-                        text_model,
-                        full_name=name,
-                        artifact_type="page",
-                        doc_text=doc,
-                        file_count=0,
-                    )
-                    art.summary_short = summaries["summary_short"]
-                    art.summary_normal = summaries["summary_normal"]
-                    art.summary_technical = summaries["summary_technical"]
-                    art.summary_model = getattr(text_model, "model", None)
-                    art.summary_error = None
-                    await cardtext.fill_translations(text_model, art)
-                except Exception as exc:  # noqa: BLE001 — keep the card, note why
-                    art.summary_error = str(exc)[:500]
-                    log.warning("ext capture: summary failed for %s: %s", url, exc)
-            # Extras, and they share the AI's rate limit — a failure here must not roll
-            # back the captured card along with them.
-            if embed_model is not None:
-                try:
-                    await embed_artifact(session, embed_model, art)
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("ext capture: embedding failed for %s: %s", url, exc)
-            try:
-                await tag_artifact(session, art, text_model)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("ext capture: tagging failed for %s: %s", url, exc)
-            index_artifact_for_words(session, art)
-            if not shared:
-                auto_cid = _auto_category(session, art, user_id)
-                if auto_cid is not None:
-                    session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
-            session.commit()
+        ai = await _describe_with_ai(
+            text_model, embed_model, name=name, artifact_type="page", doc=doc, current=current
+        )
+
+        def save_ai() -> None:
+            with session_scope() as session:
+                art = session.get(Artifact, aid)
+                if art is None:
+                    return
+                _apply_summaries(art, ai)
+                _apply_extras(session, art, ai)
+                index_artifact_for_words(session, art)
+                if not shared:
+                    _file_capture(session, art, user_id)
+
+        await run_db(save_ai, patience=120)
     finally:
         if text_model is not None:
             await text_model.aclose()
         if embed_model is not None:
             await embed_model.aclose()
+    return aid
 
 
 async def _import_github_capture(
-    url: str, title: str, text: str, user_id: int, shared: bool
-) -> None:
-    """Background: import a GitHub repo captured from the extension into a full card, in
-    the chosen zone. If the import fails, fall back to the plain web-capture path so the
-    card still keeps the name, link and page text the extension grabbed — never an empty
-    draft."""
+    url: str,
+    title: str,
+    text: str,
+    user_id: int | None,
+    shared: bool,
+    text_kind: str = "page",
+) -> int | None:
+    """Import a GitHub repo captured from the extension into a full card, in the chosen
+    zone. Returns the card's id. If the import fails, fall back to the plain
+    web-capture path so the card still keeps the name, link and text it arrived
+    with, never an empty draft."""
     try:
         fetcher = GitHubFetcher(token=settings.github_token)
         try:
@@ -2344,15 +2564,17 @@ async def _import_github_capture(
                 art.shared = shared
                 session.commit()
                 record_upstream(session, art.id, plan)
+                # Committed before the next AI call, so the database isn't held
+                # locked while it answers.
+                session.commit()
                 if embed_model is not None:
                     await embed_artifact(session, embed_model, art)
                 await tag_artifact(session, art, text_model)
                 index_artifact_for_words(session, art)
                 if not shared:
-                    auto_cid = _auto_category(session, art, user_id)
-                    if auto_cid is not None:
-                        session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
+                    _file_capture(session, art, user_id)
                 session.commit()
+                return art.id
         finally:
             await provider.aclose()
             if text_model is not None:
@@ -2363,7 +2585,7 @@ async def _import_github_capture(
         log.exception(
             "ext capture: GitHub import failed for %s — saving the grabbed page instead", url
         )
-        await _process_web_capture(url, title, text, user_id, shared)
+        return await _process_web_capture(url, title, text, user_id, shared, text_kind)
 
 
 @router.post("/add/save")

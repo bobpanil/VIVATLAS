@@ -318,7 +318,35 @@ def add_manual_tag(session: Session, artifact_id: int, slug: str, category: str 
 async def tag_artifact(
     session: Session, artifact: Artifact, model: TextModel | None = None
 ) -> dict:
-    """A full pass over a single card."""
+    """A full pass over a single card.
+
+    The model is asked before anything is written. A session that has written keeps
+    SQLite locked until it commits, and asking the AI after the derived tags were
+    added held every other writer off for as long as the AI took to answer. If the
+    AI fails, the derived tags are still applied before the error goes up."""
+    candidates = None
+    error: Exception | None = None
+    if model is not None:
+        try:
+            candidates = await ai_tags(model, artifact)
+        except Exception as exc:  # noqa: BLE001 - raised again below, after STEP 1
+            error = exc
+    stats = apply_tag_candidates(
+        session, artifact, candidates, origin=getattr(model, "model", "model")
+    )
+    if error is not None:
+        raise error
+    return stats
+
+
+def apply_tag_candidates(
+    session: Session,
+    artifact: Artifact,
+    ai_candidates: list[tuple[str, str, float]] | None,
+    origin: str = "model",
+) -> dict:
+    """Write a card's tags: the derived ones, then the AI's (None when there was no
+    model to ask). No AI call here, so it fits in a short transaction."""
     stats = {"derived": 0, "ai": 0, "rejected": 0, "weak": 0}
 
     # STEP 1
@@ -330,14 +358,9 @@ async def tag_artifact(
     stats["weak"] += weak
 
     # STEP 2
-    if model is not None:
-        candidates = await ai_tags(model, artifact)
+    if ai_candidates is not None:
         applied, rejected, weak = apply_tags(
-            session,
-            artifact,
-            candidates,
-            source="ai",
-            origin=getattr(model, "model", "model"),
+            session, artifact, ai_candidates, source="ai", origin=origin
         )
         stats["ai"] = applied
         stats["rejected"] += rejected

@@ -93,14 +93,11 @@ def capture_db(tmp_path, monkeypatch):
 
 
 async def _drain_captures():
-    """ext_capture fires the processing off as a background task; let it finish."""
-    import asyncio
+    """ext_capture writes the capture into the queue; process it the way the worker
+    would, one at a time, until nothing is left."""
+    from vivatlas import captures
 
-    from vivatlas import web
-
-    pending = [t for t in list(web._SCAN_TASKS) if not t.done()]
-    if pending:
-        await asyncio.gather(*pending)
+    await captures.drain()
 
 
 async def test_capture_processes_a_page_into_the_library(capture_db):

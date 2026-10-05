@@ -12,6 +12,7 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -136,19 +137,23 @@ def _ext_config_js(server_url: str) -> str:
 
 
 def _ext_manifest(path: Path, server_url: str, firefox: bool) -> str:
-    """The manifest with this server granted at install (host_permissions), and the
-    Firefox add-on id added for the Firefox build."""
+    """The manifest with this server granted at install (host_permissions). The
+    Firefox build keeps the source's gecko block (the add-on id shared with the
+    addons.mozilla.org listing, and its data-collection declaration); the Chrome build
+    drops it, since Chrome warns about keys it doesn't know."""
     data = json.loads(path.read_text(encoding="utf-8"))
-    host = server_url.rstrip("/") + "/*"
+    # No port in the pattern: Firefox ignores one that has it, and without it both
+    # browsers match the host on any port.
+    u = urlsplit(server_url)
+    hostname = u.hostname or ""
+    if ":" in hostname:  # an IPv6 literal keeps its brackets in a pattern
+        hostname = f"[{hostname}]"
+    host = f"{u.scheme}://{hostname}/*"
     hosts = list(data.get("host_permissions", []))
     if host not in hosts:
         hosts.append(host)
     data["host_permissions"] = hosts
-    if firefox:
-        data["browser_specific_settings"] = {
-            "gecko": {"id": "vivatlas-clipper@vivatlas.app", "strict_min_version": "115.0"}
-        }
-    else:
+    if not firefox:
         data.pop("browser_specific_settings", None)
     return json.dumps(data, indent=2)
 
@@ -156,7 +161,7 @@ def _ext_manifest(path: Path, server_url: str, firefox: bool) -> str:
 @router.get("/settings/extension.zip")
 def extension_zip(request: Request, browser: str = "chrome") -> Response:
     """Download the browser clipper, pre-wired to this server. `browser=firefox`
-    adds the Firefox add-on id; otherwise a Chrome/Edge build. Loaded unpacked, it
+    keeps the Firefox add-on id; otherwise a Chrome/Edge build. Loaded unpacked, it
     signs in from your browser's own VIVATLAS session — no separate extension login."""
     with session_scope() as session:
         if _me(session, request) is None:

@@ -1,0 +1,20 @@
+VIVATLAS Clipper privacy policy
+
+The clipper talks to one place only: the VIVATLAS server whose address you enter. It is a server you run yourself or one you have an account on. The clipper has no analytics, no tracking and no third-party services, and its author receives nothing from it.
+
+What it sends to your server, and when:
+- When you press Send: the address and title of the current page (or the link you typed), the readable text of that page, and whether the card should be private or public.
+- When you sign in: your email, your password and, if your account uses one, a two-step code. The password is not stored.
+- On every request: your session token, so the server knows it is you.
+
+What it keeps in your browser:
+- The server address, your session token, your email and display name, and your default for new cards (private or public), in the extension's local storage. Signing out removes the token.
+- It reads, and when you sign in through the clipper sets, the session cookie of your VIVATLAS server, so the website and the clipper stay signed in as the same person.
+
+What it does not do:
+- It does not read pages in the background. It reads the current tab only when you open the clipper on it, and sends it only when you press Send.
+- It cannot see any site other than your server and the tab you clip.
+
+What happens to the data on the server is up to whoever runs that server. VIVATLAS stores a clip as a card in the space you chose: private (only you) or public (everyone on that server).
+
+Questions: https://github.com/bobpanil/VIVATLAS/issues

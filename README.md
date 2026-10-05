@@ -108,7 +108,7 @@ Everything optional lives in `.env` (or the container's environment); [.env.exam
 
 **It writes nothing to Git and does not scan private repositories.** That's a rule, not a setting: there's no toggle for it anywhere.
 
-**Licence:** the server — everything under `src/` — is [Business Source License 1.1](LICENSE): free to use, deploy and modify, including commercially; you may not sell or resell VIVATLAS itself as a product or a hosted service. It converts to Apache-2.0 on 2030-07-21. The **Android app** (`android/`) is [Apache-2.0](android/LICENSE), so it can be built and carried by F-Droid.
+**Licence:** the server — everything under `src/` — is [Business Source License 1.1](LICENSE): free to use, deploy and modify, including commercially; you may not sell or resell VIVATLAS itself as a product or a hosted service. It converts to Apache-2.0 on 2030-07-21. The **Android app** (`android/`) is [Apache-2.0](android/LICENSE), so it can be built and carried by F-Droid. The **browser extension** (`extension/`) is [Apache-2.0](extension/LICENSE) too.
 
 ## Tests
 

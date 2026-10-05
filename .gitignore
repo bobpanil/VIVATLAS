@@ -16,3 +16,4 @@ logs/
 *.keystore
 keystore.base64
 vivatlas-android-signing/
+dist/

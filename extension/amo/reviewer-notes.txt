@@ -1,0 +1,19 @@
+VIVATLAS Clipper sends the page you are on to a VIVATLAS server, a self-hosted catalogue (source: https://github.com/bobpanil/VIVATLAS). It needs a server and an account, so here is a demo server set up for this review, with a test account.
+
+Server: {server}
+Email: {email}
+Password: {password}
+(No two-step code on this account.)
+
+How to test:
+1. Click the toolbar button. Enter the server address above and press Continue.
+2. Firefox asks to allow access to that address. Allow it. Firefox may close the popup while it asks; open it again and it carries on.
+3. Sign in with the email and password above. (If you sign in on the website first, the clipper picks up that session and skips this step.)
+4. Open any web page, click the toolbar button, and press Send. The page shows up in the account's private space on the website shortly after.
+
+Notes for the review:
+- Plain JavaScript, HTML and CSS. No build step, bundler, minifier or remote code.
+- Host access is optional and asked for only for the one server the user types in (optional_host_permissions). It is needed to call the server's API and to read that server's own session cookie, so a user already signed in on the website is signed in here too.
+- activeTab and scripting read the readable text of the current tab, only when the user opens the clipper on it. The text, address and title go to the user's server only when they press Send.
+- The email and password are sent only to that server's sign-in endpoint and are not stored. The extension keeps the session token in storage.local.
+- No analytics, no third-party services.

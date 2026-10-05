@@ -3,6 +3,7 @@
   "name": "VIVATLAS Clipper",
   "version": "1.0.0",
   "description": "Send the current page or a link to your VIVATLAS catalogue, public or private, and keep browsing.",
+  "homepage_url": "https://github.com/bobpanil/VIVATLAS",
   "action": {
     "default_popup": "popup.html",
     "default_title": "VIVATLAS Clipper",
@@ -17,6 +18,15 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage", "activeTab", "scripting", "tabs", "cookies"],
-  "optional_host_permissions": ["https://*/*", "http://*/*"]
+  "permissions": ["storage", "activeTab", "scripting", "cookies"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vivatlas-clipper@vivatlas.app",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent", "browsingActivity", "authenticationInfo"]
+      }
+    }
+  }
 }

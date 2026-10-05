@@ -47,6 +47,17 @@ are. Each block is written to be posted as-is; change the voice if it isn't your
 - **F-Droid** — `android/fdroid/com.vivatlas.app.yml` is the ready, linted submission;
   `android/fdroid/README.md` has the four steps. Weeks. Expect the *NonFreeNet* badge.
 
+## Browser extension
+
+- **Firefox Add-ons (AMO)**: listed as `vivatlas-clipper` (add-on id
+  `vivatlas-clipper@vivatlas.app`). `scripts/firefox-addon.sh build` lints and packs
+  `dist/firefox/`; `scripts/firefox-addon.sh sign` submits it as a listed version. The
+  listing text is `extension/amo/metadata.json`, the privacy policy
+  `extension/amo/privacy-policy.txt`, the notes for Mozilla's reviewers
+  `extension/amo/reviewer-notes.txt`; the reviewers' test server and account are filled
+  in at submission from `AMO_REVIEWER_*`. Bump `version` in `extension/manifest.json` and
+  the release notes in `metadata.json` for each upload.
+
 ## Show HN
 
 **Title:** `Show HN: VIVATLAS – a self-hosted catalogue for your AI skills, agents and MCP servers`

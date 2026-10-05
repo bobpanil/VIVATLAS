@@ -68,6 +68,32 @@ function normalizeServer(v) {
   return v;
 }
 
+// --- host permission -----------------------------------------------------
+
+// The extension may only talk to (and read the session cookie of) a server the user
+// allowed. The download from Settings grants it at install; the store build asks when
+// the address is entered. The pattern leaves the port out: Firefox ignores a pattern
+// with a port (so a server on :8710 stayed blocked by CORS), and without one both
+// browsers match every port of that host.
+function serverOrigins(server) {
+  try {
+    const u = new URL(server);
+    return [u.protocol + '//' + u.hostname + '/*'];
+  } catch (e) { return []; }
+}
+async function hasServerAccess() {
+  const origins = serverOrigins(state.server);
+  if (!origins.length) return false;
+  try { return await ext.permissions.contains({ origins }); } catch (e) { return true; }
+}
+// Back to the address step, pre-filled, when access to the saved server is missing
+// (declined, revoked, or the popup closed while Firefox was asking).
+function askServerAccess() {
+  show('step-server');
+  $('server').value = state.server;
+  banner('Allow access to ' + state.server + ' to continue.', '');
+}
+
 // --- api -----------------------------------------------------------------
 
 async function api(path, method, body) {
@@ -231,6 +257,7 @@ async function trySession() {
 
 async function decideStart() {
   if (!state.server) return show('step-server');
+  if (!(await hasServerAccess())) return askServerAccess();
   // Auto-login: adopt the browser's VIVATLAS session if there is one, so there's
   // no separate extension sign-in.
   if (!state.token) {
@@ -255,15 +282,26 @@ async function decideStart() {
 async function onServerGo() {
   const server = normalizeServer($('server').value);
   if (!server) return banner('Enter a server address.', 'err');
-  let origin;
-  try { origin = new URL(server).origin; } catch (e) { return banner('That address looks off.', 'err'); }
+  const origins = serverOrigins(server);
+  if (!origins.length) return banner('That address looks off.', 'err');
+  // Remember the address before asking: Firefox closes the popup while its permission
+  // prompt is up, so nothing after request() may run. The next open finds the saved
+  // server and carries on. Neither call is awaited first, because request() must run
+  // inside the click (an await in between loses the user gesture).
+  if (server !== state.server) {
+    // A different server: never send it the old one's token.
+    state.token = '';
+    state.email = '';
+    state.name = '';
+  }
+  state.server = server;
+  const saved = save();
   let granted = true;
   try {
-    granted = await ext.permissions.request({ origins: [origin + '/*'] });
+    granted = await ext.permissions.request({ origins });
   } catch (e) { granted = false; }
+  await saved;
   if (!granted) return banner('Permission for that server was declined.', 'err');
-  state.server = server;
-  await save();
   $('login-server').textContent = server;
   $('server').value = '';
   // Adopt the browser session for the new server if there is one.

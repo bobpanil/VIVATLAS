@@ -16,6 +16,7 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 from vivatlas import security
+from vivatlas.config import settings
 from vivatlas.models import Setting
 
 # Keys in the settings table. Gathered here so string literals aren't scattered
@@ -130,6 +131,9 @@ def public_base_url(session: Session, request: Request) -> str | None:
 
 
 def registration_open(session: Session) -> bool:
+    # The public demo hands out its own throwaway accounts (demo.py), never real ones.
+    if settings.demo_mode:
+        return False
     return get_bool(session, REGISTRATION_OPEN, default=True)
 
 

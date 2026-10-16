@@ -254,6 +254,12 @@
        so there's no longer a separate avatar in the corner. #}
 
     <main class="main" id="main">
+        {% if demo and demo.restricted %}
+        <p class="demo-banner" role="note">
+            {% if demo.visitor %}{{ t('demo.banner.visitor', hours=demo.hours_left) }}{% else %}{{ t('demo.banner.kept', hours=demo.hours_left) }}{% endif %}
+            <a href="{{ demo.get_url }}" rel="noopener">{{ t('demo.banner.get') }}</a>
+        </p>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 

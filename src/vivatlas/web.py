@@ -22,7 +22,7 @@ from sqlalchemy import case, func, or_, select, text
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import update as sa_update
 
-from vivatlas import cardtext, caticons, catnames, i18n, security
+from vivatlas import cardtext, caticons, catnames, demo, i18n, security
 from vivatlas import categories as catperm
 from vivatlas import changes as ch
 from vivatlas import comments as cm
@@ -2073,7 +2073,8 @@ def add_note(
             session, user_id, "", (name or source).strip(), summary.strip(), heard.strip()
         )
         art = session.get(Artifact, aid)
-        art.shared = zone == "shared"
+        # In the public demo only the owner and admins may share (demo.py).
+        art.shared = zone == "shared" and demo.may_share(session, user_id)
         if not art.shared:
             _file_capture(session, art, user_id)
     resp = RedirectResponse("/?added=1", status_code=303)

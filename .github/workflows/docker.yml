@@ -57,6 +57,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            # The newest release, moved only by a v* tag: what the public demo runs
+            # (docker/demo). "latest" follows every push to main.
+            type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=ref,event=branch
             type=sha,format=short
             type=semver,pattern={{version}}

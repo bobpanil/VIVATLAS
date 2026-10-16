@@ -87,6 +87,56 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     "auth.setup.name": {"en": "Your name", "ru": "Как вас звать", "he": "השם שלך"},
     "auth.setup.submit": {"en": "Create owner", "ru": "Завести хозяина", "he": "יצירת בעלים"},
+    # --- demo mode (demo.py) ---------------------------------------------------
+    "demo.try.lede": {
+        "en": "Try VIVATLAS without installing it. You get a private account for {hours} hours, with room for {count} saves. Then it is deleted with everything in it.",
+        "ru": "Попробуйте VIVATLAS без установки. Вы получите личный аккаунт на {hours} ч, в нём поместится {count} сохранений. Потом он удаляется вместе со всем содержимым.",
+        "he": "נסו את VIVATLAS בלי להתקין. תקבלו חשבון פרטי ל-{hours} שעות, עם מקום ל-{count} שמירות. אחר כך הוא נמחק עם כל מה שבו.",
+    },
+    "demo.try.button": {"en": "Try it", "ru": "Попробовать", "he": "לנסות"},
+    "demo.try.own": {
+        "en": "To keep your catalogue, run your own with Docker:",
+        "ru": "Чтобы каталог остался с вами, запустите свой в Docker:",
+        "he": "כדי לשמור את הקטלוג, הריצו עותק משלכם ב-Docker:",
+    },
+    "demo.refused.title": {"en": "Not in the demo", "ru": "В демо недоступно", "he": "לא זמין בהדגמה"},
+    "demo.refused.back": {"en": "Back to the catalogue", "ru": "Вернуться в каталог", "he": "חזרה לקטלוג"},
+    "demo.err.no_share": {
+        "en": "In the demo your saves stay private. Sharing is for your own VIVATLAS.",
+        "ru": "В демо ваши сохранения остаются личными. Делиться можно в своём VIVATLAS.",
+        "he": "בהדגמה השמירות שלכם נשארות פרטיות. שיתוף זמין ב-VIVATLAS משלכם.",
+    },
+    "demo.err.closed": {
+        "en": "This setting is closed in the demo.",
+        "ru": "Эта настройка в демо закрыта.",
+        "he": "ההגדרה הזו סגורה בהדגמה.",
+    },
+    "demo.err.full": {
+        "en": "This demo account holds up to {count} cards. Delete one to save another.",
+        "ru": "В демо-аккаунте помещается до {count} карточек. Удалите одну, чтобы сохранить новую.",
+        "he": "חשבון ההדגמה מכיל עד {count} כרטיסים. מחקו אחד כדי לשמור חדש.",
+    },
+    "demo.err.busy": {
+        "en": "The demo is full right now. Try again in a little while.",
+        "ru": "Демо сейчас заполнено. Попробуйте чуть позже.",
+        "he": "ההדגמה מלאה כרגע. נסו שוב בעוד זמן קצר.",
+    },
+    "demo.err.rate": {
+        "en": "Too many demo accounts from this address. Try again in an hour.",
+        "ru": "С этого адреса создано слишком много демо-аккаунтов. Попробуйте через час.",
+        "he": "נוצרו יותר מדי חשבונות הדגמה מהכתובת הזו. נסו שוב בעוד שעה.",
+    },
+    "demo.banner.visitor": {
+        "en": "This is a demo account. It is deleted in about {hours} h, and your saves stay private.",
+        "ru": "Это демо-аккаунт. Он удалится примерно через {hours} ч, ваши сохранения остаются личными.",
+        "he": "זה חשבון הדגמה. הוא יימחק בעוד כ-{hours} שעות, והשמירות שלכם נשארות פרטיות.",
+    },
+    "demo.banner.kept": {
+        "en": "This is a demo account. Cards are cleared {hours} h after they are added.",
+        "ru": "Это демо-аккаунт. Карточки удаляются через {hours} ч после добавления.",
+        "he": "זה חשבון הדגמה. כרטיסים נמחקים {hours} שעות אחרי שנוספו.",
+    },
+    "demo.banner.get": {"en": "Get your own VIVATLAS", "ru": "Свой VIVATLAS", "he": "VIVATLAS משלכם"},
     "auth.login.title": {"en": "Sign in", "ru": "Вход", "he": "כניסה"},
     "auth.login.submit": {"en": "Sign in", "ru": "Войти", "he": "היכנס"},
     "auth.forgot_link": {"en": "Forgot your password?", "ru": "Забыли пароль?", "he": "שכחת סיסמה?"},

@@ -104,6 +104,11 @@ async def run_db(fn, *args, patience: float = 30.0):
 
 def _insert(fields: dict) -> tuple[int, int]:
     with session_scope() as session:
+        if fields["shared"]:
+            from vivatlas import demo
+
+            # In the public demo only the owner and admins may share (demo.py).
+            fields = {**fields, "shared": demo.may_share(session, fields["user_id"])}
         job = CaptureJob(**fields)
         session.add(job)
         session.flush()

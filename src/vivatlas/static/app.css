@@ -5461,6 +5461,33 @@ textarea.drop-in {
     margin: var(--s-md) 0 0;
 }
 
+/* Demo mode (demo.py): "Try it" above the sign-in form, and a soft bar on
+   every page of a demo account saying when its cards go. */
+.demo-try {
+    border-bottom: 1px solid var(--hairline-soft);
+    padding-bottom: var(--s-lg);
+    margin-bottom: var(--s-lg);
+}
+
+.demo-try .auth-lede {
+    margin-bottom: var(--s-sm);
+}
+
+.demo-banner {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--accent-blue-soft);
+    border-radius: var(--r-md);
+    padding: 10px 14px;
+    margin: 0 0 var(--s-lg);
+}
+
+.demo-banner a {
+    color: var(--link-teal);
+    font-weight: 600;
+}
+
 .auth-alt {
     margin: var(--s-md) 0 0;
     text-align: center;

@@ -110,4 +110,11 @@ def template_context(request: Request) -> dict:
         "status_name": lambda slug: label("status", slug, lang),
         "kind_name": lambda slug: label("kind", slug, lang),
         "purpose_name": lambda slug: label("purpose", slug, lang),
+        "demo": _demo_info(request),
     }
+
+
+def _demo_info(request: Request) -> dict | None:
+    from vivatlas import demo
+
+    return demo.template_info(request)

@@ -1,0 +1,11 @@
+# HTTPS for the demo, with a Let's Encrypt certificate Caddy gets by itself.
+# DEMO_HOST comes from .env: a name that points at this VM, such as
+# 34.1.2.3.sslip.io or demo1.example.com.
+#
+# Caddy ignores any X-Forwarded-For a visitor sends and writes the real address
+# itself, so the per-address "Try it" limit can't be dodged with a header.
+
+{$DEMO_HOST} {
+	encode zstd gzip
+	reverse_proxy vivatlas:8710
+}

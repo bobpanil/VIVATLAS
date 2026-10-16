@@ -1,0 +1,44 @@
+# The public demo (src/vivatlas/demo.py) as it runs on the demo VM. See README.md
+# next to this file. update.sh keeps it on the newest release by itself.
+name: vivatlas-demo
+
+services:
+  vivatlas:
+    # update.sh sets IMAGE only to roll back; normally this is the newest release.
+    image: ${IMAGE:-ghcr.io/bobpanil/vivatlas:stable}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "sqlite:////data/vivatlas.db"
+      DEMO_MODE: "true"
+      # The fixed account in the Mozilla reviewer notes.
+      DEMO_REVIEWER_EMAIL: "demo"
+      DEMO_REVIEWER_PASSWORD: "demo"
+      # Only Caddy reaches this container (no port is published), so its
+      # X-Forwarded-* headers can be believed.
+      TRUSTED_PROXIES: "*"
+      # No AI keys and no PUBLIC_URL on purpose: AI is off, MCP stays closed.
+    volumes:
+      - data:/data
+      - ./links.txt:/seed/links.txt:ro
+    # An e2-micro has 1 GB. Leave room for Caddy and the system.
+    mem_limit: 640m
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DEMO_HOST: "${DEMO_HOST:?set DEMO_HOST in .env next to this file}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - vivatlas
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

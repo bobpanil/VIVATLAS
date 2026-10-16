@@ -1,0 +1,9 @@
+[Unit]
+Description=Keep the VIVATLAS demo on the newest release
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vivatlas-demo/update.sh

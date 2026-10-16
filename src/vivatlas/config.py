@@ -14,6 +14,7 @@ _SECRET_FIELDS = frozenset(
         "google_api_key",
         "ollama_api_key",
         "secret_key",
+        "demo_reviewer_password",
     }
 )
 
@@ -144,6 +145,27 @@ class Settings(BaseSettings):
     # tokens: there'll be nothing left to decrypt them with. Not because it's poorly
     # made, but because the key is the very thing holding them together.
     secret_key: str = ""
+
+    # A public sandbox (demo.py). Off on every real install. On, the server lets
+    # anyone press "Try it" for a private account that is deleted after
+    # DEMO_VISITOR_HOURS, nobody but the owner can share, and the account settings
+    # that could lock others out (password, email, two-step, sources) are closed.
+    demo_mode: bool = False
+    # The owner of the starter catalogue. Made at startup with a random password
+    # nobody is told, so /setup is never offered to the first passer-by.
+    demo_owner_email: str = "owner@demo.invalid"
+    # A fixed account for store reviewers (Mozilla), made at startup when both are
+    # set. Its cards are cleared after DEMO_VISITOR_HOURS too; the account stays.
+    demo_reviewer_email: str = ""
+    demo_reviewer_password: str = ""
+    demo_visitor_hours: int = 24
+    # Cards a visitor may own, counting saves still in the queue.
+    demo_max_saves: int = 20
+    # Visitor accounts alive at once, and how many one address may start an hour.
+    demo_max_visitors: int = 200
+    demo_starts_per_hour: int = 5
+    # Where the banner sends people who want their own.
+    demo_get_url: str = "https://github.com/bobpanil/VIVATLAS"
 
 
 settings = Settings()

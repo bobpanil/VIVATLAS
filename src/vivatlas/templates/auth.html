@@ -53,10 +53,20 @@
         <div class="auth-card">
             <h1>{{ t('auth.login.title') }}</h1>
             {% if error %}<p class="auth-err" role="alert">{{ error }}</p>{% endif %}
+            {% if demo %}
+            <div class="demo-try">
+                <p class="auth-lede">{{ t('demo.try.lede', hours=demo.hours_left, count=demo.max_saves) }}</p>
+                <form method="post" action="/demo/start">
+                    <button class="cta cta-wide" type="submit">{{ t('demo.try.button') }}</button>
+                </form>
+                <p class="auth-note">{{ t('demo.try.own') }} <a class="auth-link" href="{{ demo.get_url }}" rel="noopener">{{ demo.get_url }}</a></p>
+            </div>
+            {% endif %}
             <form method="post" action="/login">
                 <input type="hidden" name="next" value="{{ next or '/' }}">
                 <label class="fld"><span>{{ t('auth.email') }}</span>
-                    <input type="email" name="email" value="{{ email or '' }}" required autofocus
+                    {# The demo's reviewers' account is a plain "demo", not an address. #}
+                    <input type="{{ 'text' if demo else 'email' }}" name="email" value="{{ email or '' }}" required autofocus
                            autocomplete="username"></label>
                 <label class="fld"><span>{{ t('auth.password') }}</span>
                     <input type="password" name="password" required
@@ -90,6 +100,14 @@
                 <p class="auth-note">{{ t('auth.password_note') }}</p>
             </form>
             <p class="auth-alt"><a class="auth-link" href="/login">{{ t('auth.back_to_login') }}</a></p>
+        </div>
+        {% endif %}
+
+        {% if step == 'demo_refused' %}
+        <div class="auth-card">
+            <h1>{{ t('demo.refused.title') }}</h1>
+            <p class="auth-lede" role="alert">{{ message }}</p>
+            <p class="auth-alt"><a class="auth-link" href="/">{{ t('demo.refused.back') }}</a></p>
         </div>
         {% endif %}
 

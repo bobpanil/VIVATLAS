@@ -10,11 +10,12 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, update
 
-from vivatlas import auth, i18n, security
+from vivatlas import auth, demo, i18n, security
 from vivatlas import filters as flt
 from vivatlas.admin_web import router as admin_router
 from vivatlas.ai import build_embedding_model
 from vivatlas.auth_web import router as auth_router
+from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.models import Artifact, ArtifactTag, Repository, ScanRun, Source, Tag, TagSuppression
 from vivatlas.search import Mode
@@ -208,8 +209,11 @@ async def _lifespan(app: FastAPI):
 
         with session_scope() as s:
             runtime_settings.apply_config_overrides(s)
-    from vivatlas import captures
+    from vivatlas import captures, demo
 
+    if settings.demo_mode:
+        # Before the first request: the owner must exist so /setup is never offered.
+        demo.startup()
     tasks = [
         asyncio.create_task(_autoscan_loop()),
         asyncio.create_task(_retry_loop()),
@@ -219,6 +223,8 @@ async def _lifespan(app: FastAPI):
         # cards, so a busy database or a restart can't lose them (captures.py).
         asyncio.create_task(captures.worker_loop()),
     ]
+    if settings.demo_mode:
+        tasks.append(asyncio.create_task(demo.purge_loop()))
     try:
         async with contextlib.AsyncExitStack() as stack:
             # The mounted MCP application has a lifespan of its own, and that lifespan is
@@ -248,6 +254,8 @@ app = FastAPI(title="VIVATLAS", version="0.1.0", lifespan=_lifespan)
 _OPEN_PREFIXES = (
     "/static/", "/login", "/setup", "/logout", "/forgot", "/reset", "/register", "/join",
     "/lang/", "/mcp-server",
+    # "Try it" in demo mode (demo.py); answers only when DEMO_MODE is on.
+    "/demo/",
     # The OAuth consent page does its own sign-in check (so it can keep the ?req= id
     # across the login round-trip); require_login must not intercept it first.
     "/mcp/consent",
@@ -302,6 +310,10 @@ async def require_login(request: Request, call_next):
             request.state.user_initials = (
                 "".join(p[0] for p in parts[:2]).upper() or name[0].upper()
             )
+            # The sandbox rules, in demo mode only (a no-op otherwise).
+            refusal = demo.guard(session, request, user)
+            if refusal is not None:
+                return refusal
 
     if user is not None:
         return await call_next(request)
@@ -333,6 +345,7 @@ class _RevalidatingStatic(StaticFiles):
 
 app.mount("/static", _RevalidatingStatic(directory=str(BASE / "static")), name="static")
 app.include_router(auth_router)
+app.include_router(demo.router)
 app.include_router(settings_router)
 app.include_router(admin_router)
 app.include_router(web_router)

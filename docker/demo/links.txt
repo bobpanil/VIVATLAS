@@ -1,0 +1,35 @@
+# The starter catalogue of the public demo: shared cards a visitor finds on
+# arrival. Public open-source projects only, never anything from a real
+# catalogue. One link per line; update.sh queues new ones after each release,
+# or run by hand: docker compose exec vivatlas python -m vivatlas.demo seed /seed/links.txt
+
+# AI
+https://github.com/anthropics/skills
+https://github.com/modelcontextprotocol/servers
+https://github.com/ollama/ollama
+https://github.com/open-webui/open-webui
+https://github.com/ggml-org/llama.cpp
+https://github.com/comfyanonymous/ComfyUI
+https://github.com/microsoft/markitdown
+https://github.com/n8n-io/n8n
+
+# Design and graphics
+https://github.com/excalidraw/excalidraw
+https://github.com/penpot/penpot
+https://github.com/tldraw/tldraw
+https://github.com/shadcn-ui/ui
+https://github.com/lucide-icons/lucide
+https://github.com/tailwindlabs/tailwindcss
+https://github.com/blender/blender
+https://github.com/godotengine/godot
+https://github.com/ImageMagick/ImageMagick
+
+# Everyday tools
+https://github.com/astral-sh/uv
+https://github.com/astral-sh/ruff
+https://github.com/BurntSushi/ripgrep
+https://github.com/junegunn/fzf
+https://github.com/jgm/pandoc
+https://github.com/yt-dlp/yt-dlp
+https://github.com/microsoft/playwright
+https://github.com/logseq/logseq

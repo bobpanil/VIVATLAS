@@ -44,8 +44,9 @@ PAGE_MAX = 100
 _INSTRUCTIONS = (
     "A per-user catalogue of skills, design kits, and tools from Git repositories. "
     "Signed in over OAuth you see your own private cards plus shared ones and can add "
-    "tools and edit or file cards; connected anonymously you see only shared cards, "
-    "read-only. When unsure what exists, list_folders / catalog_overview first."
+    "tools and edit or file cards. The local connection (stdio, on the server itself) "
+    "sees only shared cards, read-only. When unsure what exists, list_folders / "
+    "catalog_overview first."
 )
 
 
@@ -76,8 +77,9 @@ def _transport_security() -> TransportSecuritySettings:
 
 
 def _build_mcp() -> FastMCP:
-    """OAuth-enabled when a public URL is configured (so ChatGPT can connect as a
-    specific user); otherwise the original anonymous, shared-only, read-only server."""
+    """OAuth-enabled when a public URL is configured (so an assistant connects as a
+    specific user). Otherwise a server for the local stdio connection only, shared
+    cards, read-only: http_app() doesn't serve it over the network."""
     if not settings.public_url:
         return FastMCP(
             "vivatlas", instructions=_INSTRUCTIONS, transport_security=_transport_security()
@@ -115,8 +117,8 @@ mcp = _build_mcp()
 
 
 def _caller_user_id() -> int | None:
-    """The signed-in user for this tool call (the OAuth token's subject), or None when
-    the connection is anonymous."""
+    """The signed-in user for this tool call (the OAuth token's subject), or None on
+    the local stdio connection, which has no sign-in."""
     tok = get_access_token()
     if tok is None or not tok.subject:
         return None
@@ -197,8 +199,8 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
     model = build_embedding_model()
     try:
         with session_scope() as session:
-            # MCP connects without sign-in, so it's anonymous — we return only
-            # shared cards. Otherwise other people's private stuff would leak through it.
+            # Without a signed-in user (the local stdio connection) only shared
+            # cards. Otherwise other people's private stuff would leak through it.
             # Handed to the search rather than applied to what it returns: see search().
             visible = set(session.scalars(flt.visible_ids(_caller_user_id())))
             hits = await do_search(
@@ -748,6 +750,27 @@ def run_stdio() -> None:
     mcp.run(transport="stdio")
 
 
+_CLOSED_MESSAGE = (
+    "This VIVATLAS has no sign-in for assistants (PUBLIC_URL is not set), so its MCP "
+    "endpoint is closed. Knowing the address is never enough to read the catalogue."
+)
+
+
 def http_app():
-    """For a remote MCP client — mounted into the main application."""
+    """For remote MCP clients, mounted into the main application at /mcp-server.
+
+    Only with sign-in. Without PUBLIC_URL there is no OAuth, and the endpoint used to
+    serve shared cards to anyone who knew the address. Now it answers every request
+    with 404 and says why; the local connection (stdio, `vivatlas mcp`, run on the
+    server itself) is the only one left without a sign-in."""
+    if not settings.public_url:
+        from starlette.applications import Starlette
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
+
+        async def closed(request):
+            return JSONResponse({"error": _CLOSED_MESSAGE}, status_code=404)
+
+        methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+        return Starlette(routes=[Route("/{path:path}", closed, methods=methods)])
     return mcp.streamable_http_app()

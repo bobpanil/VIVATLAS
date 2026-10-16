@@ -236,9 +236,6 @@
         {% if upstream.baseline_at %}<dt>{{ t('artifact.baseline') }}</dt><dd>{{ upstream.baseline_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
         {% if upstream.last_checked_at %}<dt>{{ t('artifact.checked') }}</dt><dd>{{ upstream.last_checked_at.strftime("%d.%m.%Y") }}</dd>{% endif %}
     </dl>
-    {% if upstream.status == 'update-available' %}
-    <p class="legend">{{ t('artifact.install_new') }}<br><code>vivatlas update {{ a.name }}</code></p>
-    {% endif %}
     {% if upstream.check_error %}<p class="warn">{{ upstream.check_error }}</p>{% endif %}
 </section>
 {% endif %}
@@ -291,14 +288,14 @@
     {% if mine or (request.state.is_admin and a.shared) %}
     <form method="post" action="/artifact/{{ a.id }}/rescan" class="art-rescan" id="rescan-form">
         <button class="btn-secondary" type="submit" id="rescan-btn"
-                title="{{ t('artifact.rescan_ai') if is_draft else t('artifact.rescan') }}"
-                data-busy="{{ t('artifact.rescanning') }}">{{ mf_rescan }}<span class="mf-txt">{{ t('artifact.rescan_ai') if is_draft else t('artifact.rescan') }}</span></button>
+                title="{{ t('artifact.rescan_ai') if is_link_card else t('artifact.rescan') }}"
+                data-busy="{{ t('artifact.rescanning') }}">{{ mf_rescan }}<span class="mf-txt">{{ t('artifact.rescan_ai') if is_link_card else t('artifact.rescan') }}</span></button>
     </form>
     {% endif %}
     {% if can_edit %}
     <button type="button" class="btn-secondary art-edit-open" title="{{ t('artifact.edit') }}">{{ mf_edit }}<span class="mf-txt">{{ t('artifact.edit') }}</span></button>
     {% endif %}
-    {% set has_repo_copy = a.repository.html_url and not is_draft %}
+    {% set has_repo_copy = a.repository.html_url and not is_link_card %}
     {# Individual copy buttons: desktop always; on a phone only when there's just
        one source (with two, they collapse into the pick-menu below). #}
     {% if gh %}

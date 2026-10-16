@@ -159,7 +159,7 @@ async def ext_add(request: Request, payload: Annotated[dict, Body()]) -> JSONRes
     """Capture a tool. `url` (current tab or pasted), optional `title` and `text` (the
     grabbed page), and `shared` (public vs private). The link is written into the
     capture queue before the answer goes back, and becomes a card in the background:
-    a GitHub repo is imported, anything else is described by the AI. Returns fast so
+    every link, a GitHub repository included, is a card described by the AI. Returns fast so
     browsing continues. 503 when the save could not be written."""
     lang = getattr(request.state, "lang", "en")
     user_id = getattr(request.state, "user_id", None)

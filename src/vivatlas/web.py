@@ -1,6 +1,7 @@
 """Pages for humans. The API for programs lives in api.py."""
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -41,8 +42,6 @@ from vivatlas.embeddings import (
     to_blob,
 )
 from vivatlas.finder import MAX_MEDIA_BYTES, Finder, fetch_page_meta, looks_like_link
-from vivatlas.import_run import execute, record_upstream
-from vivatlas.importer import GitHubFetcher, ImportError_, plan_import
 from vivatlas.indexer import _to_ref, index_repository
 from vivatlas.models import (
     Artifact,
@@ -60,7 +59,6 @@ from vivatlas.models import (
     TagSuppression,
     UpstreamLink,
 )
-from vivatlas.providers import build_provider
 from vivatlas.providers.gitea import GiteaProvider
 from vivatlas.scanner import get_or_create_source, scan_source
 from vivatlas.search import Mode, index_artifact_for_words
@@ -137,13 +135,11 @@ def preview_url(artifact: Artifact) -> str | None:
 
 
 def _counts(session, user_id: int | None = None) -> dict:
-    # Count only what's visible to this user: shared plus their own private. Drafts
-    # are a separate section, not included in the total count or the types.
+    # Count only what's visible to this user: shared plus their own private.
     vis = flt.visible_ids(user_id)
-    not_draft = Artifact.artifact_type != "draft"
     by_type = session.execute(
         select(Artifact.artifact_type, func.count())
-        .where(Artifact.id.in_(vis), not_draft)
+        .where(Artifact.id.in_(vis))
         .group_by(Artifact.artifact_type)
         .order_by(func.count().desc())
     ).all()
@@ -153,12 +149,12 @@ def _counts(session, user_id: int | None = None) -> dict:
             session.scalar(
                 select(func.count())
                 .select_from(Artifact)
-                .where(Artifact.owner_user_id == user_id, not_draft)
+                .where(Artifact.owner_user_id == user_id)
             )
             or 0
         )
     # Favourites — for the badge in the panel: as many as the /?fav=1 view shows
-    # (visible, not a draft, for this user). An anonymous user has nothing in favourites.
+    # (visible to this user). An anonymous user has nothing in favourites.
     favorites = 0
     if user_id is not None:
         favorites = (
@@ -166,18 +162,17 @@ def _counts(session, user_id: int | None = None) -> dict:
                 select(func.count())
                 .select_from(Favorite)
                 .join(Artifact, Artifact.id == Favorite.artifact_id)
-                .where(Favorite.user_id == user_id, Favorite.artifact_id.in_(vis), not_draft)
+                .where(Favorite.user_id == user_id, Favorite.artifact_id.in_(vis))
             )
             or 0
         )
     return {
         "artifacts": session.scalar(
-            select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis), not_draft)
+            select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
         )
         or 0,
         "mine": mine,
         "favorites": favorites,
-        "drafts": flt.draft_count(session, user_id),
         "tags": session.scalar(select(func.count(func.distinct(ArtifactTag.tag_id)))) or 0,
         "by_type": by_type,
     }
@@ -214,31 +209,42 @@ async def index(
     fav: str = "",
     cat: str = "",
     purpose: str = "",
-    draft: str = "",
     zone: str = "",
     sort: str = "",
     dir: str = "",
 ) -> HTMLResponse:
+    # A link pasted into search — searching for it among names is pointless: such
+    # text isn't and can't be in the cards. Previously this silently returned
+    # nothing. Now we offer what the user actually wanted — to save it.
+    link = looks_like_link(q)
+    searching = bool(q) and not link
+
     # Default the catalogue to newest-added, and remember an explicit sort choice in a
     # cookie so it holds across navigations, tabs and windows — no re-picking on return.
-    chosen_sort = sort or request.cookies.get("vivatlas_sort") or "added"
+    # A search starts in "best match" order; picking another order there sorts the
+    # hits by it, for that search only (the remembered order is the catalogue's).
+    if sort not in flt.SORTS:
+        sort = ""
+    if searching:
+        chosen_sort = sort or "relevance"
+    else:
+        if sort == "relevance":
+            sort = ""
+        chosen_sort = sort or request.cookies.get("vivatlas_sort") or "added"
+        if chosen_sort not in flt.SORTS or chosen_sort == "relevance":
+            chosen_sort = "added"
     # The direction is remembered per order, not globally: reversing names says nothing
     # about which way you want dates, and one shared setting would have picking a
     # different order silently turn it upside down.
     chosen_dir = dir or request.cookies.get(f"vivatlas_dir_{chosen_sort}") or ""
-    if chosen_dir not in ("asc", "desc"):
+    if chosen_dir not in ("asc", "desc") or chosen_sort == "relevance":
         chosen_dir = ""
     f = flt.Filters(
         type=type, tag=tag, days=days, status=status, owner=owner, fav=fav, cat=cat,
-        purpose=purpose, draft=draft, zone=zone, sort=chosen_sort, dir=chosen_dir,
+        purpose=purpose, zone=zone, sort=chosen_sort, dir=chosen_dir,
     )
 
-    # A link pasted into search — searching for it among names is pointless: such
-    # text isn't and can't be in the cards. Previously this silently returned
-    # nothing. Now we offer what the user actually wanted — to parse it.
-    link = looks_like_link(q)
-
-    model = build_embedding_model() if q and not link else None
+    model = build_embedding_model() if searching else None
     try:
         with session_scope() as session:
             user_id = getattr(request.state, "user_id", None)
@@ -272,11 +278,24 @@ async def index(
                         flt.apply(select(Artifact.id), f, fav_ids, user_id, session=session)
                     )
                 }
-                items = [
-                    _card(session, h.artifact, h.reasons, fav_ids, lang, user_id)
-                    for h in hits
-                    if h.artifact.id in allowed
-                ][:60]
+                hits = [h for h in hits if h.artifact.id in allowed][:60]
+                if f.sort != "relevance":
+                    # The best 60 matches, put in the order picked for them.
+                    reasons = {h.artifact.id: h.reasons for h in hits}
+                    ordered = session.scalars(
+                        select(Artifact)
+                        .where(Artifact.id.in_(reasons))
+                        .order_by(*flt.sort_order(f.sort, f.dir))
+                    )
+                    items = [
+                        _card(session, a, reasons[a.id], fav_ids, lang, user_id)
+                        for a in ordered
+                    ]
+                else:
+                    items = [
+                        _card(session, h.artifact, h.reasons, fav_ids, lang, user_id)
+                        for h in hits
+                    ]
             else:
                 query = flt.apply(
                     select(Artifact), f, fav_ids, user_id, session=session
@@ -305,17 +324,16 @@ async def index(
                     "link": link,
                     "nav": "all",
                     "active_cat": f.cat,
-                    "active_draft": bool(f.draft),
                     "scan": scan_progress(user_id),
                     "zone_counts": flt.zone_counts(session, user_id),
                     "removed_notices": _removed_notices(session, user_id),
                 },
             )
-            if sort:  # an explicit sort choice — remember it for next time
+            if sort and not searching:  # an explicit sort choice — remember it
                 resp.set_cookie(
                     "vivatlas_sort", sort, max_age=180 * 24 * 3600, samesite="lax", path="/"
                 )
-            if dir:  # …and which way round, kept per order (see above)
+            if dir and not searching:  # …and which way round, kept per order (see above)
                 resp.set_cookie(
                     f"vivatlas_dir_{chosen_sort}", dir,
                     max_age=180 * 24 * 3600, samesite="lax", path="/",
@@ -392,7 +410,6 @@ def scan_cards(request: Request, after: int = 0) -> JSONResponse:
             .where(
                 Artifact.id.in_(flt.visible_ids(user_id)),
                 Artifact.id > after,
-                Artifact.artifact_type != "draft",
             )
             .order_by(Artifact.id)
         ).all()
@@ -600,7 +617,7 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 "all_purposes": pur.all_purposes(),
                 "preview_url": preview_url(a),
                 "zone": _zone(a),
-                "is_draft": a.artifact_type == "draft",
+                "is_link_card": _is_link_card(a),
                 "counts": _counts(session, user_id),
                 "categories": flt.category_options(session, user_id, lang),
                 # Folders the card currently sits in (visible to this user) —
@@ -613,7 +630,6 @@ def artifact_page(request: Request, artifact_id: int) -> HTMLResponse:
                 # always your own.
                 "can_file_shared": a.shared and getattr(request.state, "is_admin", False),
                 "active_cat": "",
-                "active_draft": False,
             },
         )
 
@@ -1432,10 +1448,7 @@ async def retry_failed_summaries(limit: int = 25) -> int:
             ids = list(
                 session.scalars(
                     select(Artifact.id)
-                    .where(
-                        Artifact.artifact_type != "draft",
-                        (Artifact.summary_short == "") | (Artifact.summary_short.is_(None)),
-                    )
+                    .where((Artifact.summary_short == "") | (Artifact.summary_short.is_(None)))
                     .limit(limit)
                 )
             )
@@ -1531,12 +1544,20 @@ async def rescan_artifact(artifact_id: int) -> bool:
     return True
 
 
-async def reprocess_draft(artifact_id: int) -> bool:
-    """"Rescan with AI" for a DRAFT. A draft has no downloadable source, so instead of
-    index_repository we re-run the AI over the page text captured for it: summarise,
-    embed and tag the stored doc_text. On a successful summary the draft graduates to a
-    real 'page' card (leaves the drafts pile); if the AI is unavailable or fails it stays
-    a draft with the reason recorded, so it can be tried again. Returns False if gone."""
+def _is_link_card(art: Artifact) -> bool:
+    """A card saved from a link or a picture, with no repository behind it to
+    download again: "Rescan with AI" re-reads its page and text instead."""
+    repo = art.repository
+    source_kind = repo.source.kind if (repo is not None and repo.source is not None) else ""
+    return repo is None or source_kind == "draft" or not repo.html_url
+
+
+async def reprocess_link_card(artifact_id: int) -> bool:
+    """"Rescan with AI" for a card saved from a link. It has no downloadable source,
+    so instead of index_repository we re-run the AI over the page text captured for
+    it: summarise, embed and tag the stored doc_text. If the AI is unavailable or
+    fails, the reason is recorded on the card so it can be tried again. Returns False
+    if the card is gone."""
     with session_scope() as session:
         art = session.get(Artifact, artifact_id)
         if art is None:
@@ -1581,7 +1602,6 @@ async def reprocess_draft(artifact_id: int) -> bool:
             # Name the site the link came from, not our storage bin ("draft/…").
             if art.repository is not None and art.repository.owner == "draft":
                 art.repository.owner = _host_label(source_url) or art.repository.owner
-            summarised = False
             if text_model is not None:
                 try:
                     summaries = await summarize(
@@ -1597,18 +1617,11 @@ async def reprocess_draft(artifact_id: int) -> bool:
                     art.summary_model = getattr(text_model, "model", None)
                     art.summary_error = None
                     await cardtext.fill_translations(text_model, art)
-                    summarised = True
-                except Exception as exc:  # noqa: BLE001 — keep the draft, note why
+                except Exception as exc:  # noqa: BLE001 - keep the card, note why
                     art.summary_error = str(exc)[:500]
-                    log.warning("draft rescan: summary failed for %s: %s", artifact_id, exc)
+                    log.warning("link rescan: summary failed for %s: %s", artifact_id, exc)
             else:
                 art.summary_error = "No AI model configured — set a Google key in admin."
-            # Graduate to a real card only once the AI has actually described it; a failed
-            # pass leaves it a draft so "Rescan with AI" can be tried again later.
-            if summarised:
-                art.artifact_type = "page"
-                art.hidden = False
-                art.is_new = True
             # Embedding and tagging are extras, and they talk to the same AI that just
             # rate-limited us half the time. Letting one of them throw here rolled the
             # whole transaction back — the page text we fetched and the description we
@@ -1617,11 +1630,11 @@ async def reprocess_draft(artifact_id: int) -> bool:
                 try:
                     await embed_artifact(session, embed_model, art)
                 except Exception as exc:  # noqa: BLE001
-                    log.warning("draft rescan: embedding failed for %s: %s", artifact_id, exc)
+                    log.warning("link rescan: embedding failed for %s: %s", artifact_id, exc)
             try:
                 await tag_artifact(session, art, text_model)
             except Exception as exc:  # noqa: BLE001
-                log.warning("draft rescan: tagging failed for %s: %s", artifact_id, exc)
+                log.warning("link rescan: tagging failed for %s: %s", artifact_id, exc)
             index_artifact_for_words(session, art)
             session.commit()
     finally:
@@ -1745,8 +1758,9 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
     """Force a fresh pass over one card. Allowed to the card's owner, or to an admin for
     a shared card. Awaits the rebuild, then returns to the (now refreshed) card.
 
-    A draft has no downloadable source, so "Rescan with AI" re-runs the AI over its
-    captured text (reprocess_draft); everything else re-downloads from its source."""
+    A card saved from a link has no downloadable source, so "Rescan with AI" re-runs
+    the AI over its captured text (reprocess_link_card); everything else re-downloads
+    from its source."""
     user_id = getattr(request.state, "user_id", None)
     is_admin = getattr(request.state, "is_admin", False)
     with session_scope() as session:
@@ -1756,15 +1770,10 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
         mine = art.owner_user_id is not None and art.owner_user_id == user_id
         if not (mine or (is_admin and art.shared)):
             raise HTTPException(403)
-        # What decides the route is whether there is anything to re-download — not the
-        # card's type. A captured link is promoted to a 'page' the moment it's saved, but
-        # it still lives in the synthetic "Drafts" source with no repository behind it:
-        # sending it to the source-rescan re-downloaded nothing and left the card exactly
-        # as it was, which is why re-scanning a shared link never improved it.
-        repo = art.repository
-        source_kind = repo.source.kind if (repo is not None and repo.source is not None) else ""
-        no_source = repo is None or source_kind == "draft" or not repo.html_url
-        is_draft = art.artifact_type == "draft" or no_source
+        # What decides the route is whether there is anything to re-download. A saved
+        # link has no repository behind it: sending it to the source-rescan re-downloaded
+        # nothing and left the card exactly as it was.
+        link_card = _is_link_card(art)
 
     # Run the rebuild in the background and return at once. A rescan can take tens
     # of seconds (source download + AI, which retries hard on 429), and awaiting it
@@ -1772,8 +1781,8 @@ async def rescan_endpoint(request: Request, artifact_id: int) -> Response:
     # (a proxy/browser timeout), forcing an F5. The card refreshes on the next view.
     async def _run() -> None:
         try:
-            if is_draft:
-                await reprocess_draft(artifact_id)
+            if link_card:
+                await reprocess_link_card(artifact_id)
             else:
                 await rescan_artifact(artifact_id)
         except Exception:  # noqa: BLE001 — a failed rescan must not crash the task
@@ -1826,7 +1835,7 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
         user_id = getattr(request.state, "user_id", None)
         stale_mode = bool(stale)
         # Scope every change/stale query to what THIS user may see: a person must never
-        # find another user's private cards (or drafts) through the changes feed.
+        # find another user's private cards through the changes feed.
         stale_items = ch.stale(session, user_id=user_id) if stale_mode else []
         oldest, newest = ch.oldest_and_newest(session)
 
@@ -1862,25 +1871,87 @@ def changes_page(request: Request, kind: str = "", stale: str = "") -> HTMLRespo
 
 # --- adding -------------------------------------------------------------
 #
-# Three steps, and the order here is not decoration:
+# One screen: paste something, say who sees it, Save. A link, on its own or inside a
+# note, goes into the capture queue the extension, the phone and the MCP use, and the
+# person is back in the catalogue at once; the card turns up there once it is read.
 #
-#   1. what was given -> search, show candidates. We write nothing.
-#   2. picked         -> show the plan: what will be created, how many files. We don't write.
-#   3. clicked        -> we write.
-#
-# We never pull in automatically. A name by ear and from a picture is recognized
-# imprecisely, the model sometimes invents an address — on a real reel it produced
-# skills/last-30-day, which doesn't exist. The user decides, with their eyes.
+# Only what has no link in it (an image, a video, a name typed from memory) needs a
+# second look: the finder suggests repositories and the person picks one. A name by
+# ear and from a picture is recognized imprecisely, and the model sometimes invents
+# an address (on a real reel it produced skills/last-30-day, which doesn't exist), so
+# we never pick for them.
+
+# The zone picked last time, so someone who files everything as shared doesn't have
+# to say so on every save. Private until they pick otherwise.
+ADD_ZONE_COOKIE = "vivatlas_add_zone"
+
+# The first link in what was pasted; the rest of the text is a note kept with it.
+_LINK_IN_TEXT = re.compile(r"(?:https?://|(?<![\w.])(?:www\.|github\.com/))[^\s<>\"']+", re.I)
+
+
+def _zone(value: str) -> str:
+    # Anything but an explicit "shared" is private: a missing or odd value must
+    # never publish a card to everyone.
+    return "shared" if value == "shared" else "private"
 
 
 def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
+    zone = _zone(extra.pop("zone", "") or request.cookies.get(ADD_ZONE_COOKIE, ""))
     with session_scope() as session:
         user_id = getattr(request.state, "user_id", None)
         return templates.TemplateResponse(
             request,
             "add.html",
-            {"step": step, "counts": _counts(session, user_id), "nav": "add", **extra},
+            {
+                "step": step,
+                "zone": zone,
+                "counts": _counts(session, user_id),
+                "nav": "add",
+                **extra,
+            },
         )
+
+
+def _split_link(text: str) -> tuple[str, str]:
+    """The first link in `text` and what is left around it. A link copied without
+    its scheme ("github.com/o/r", "www.site.com/x") counts; trailing punctuation from
+    the sentence it sat in doesn't."""
+    s = (text or "").strip()
+    m = _LINK_IN_TEXT.search(s)
+    if m is None:
+        return "", s
+    raw = m.group(0).rstrip(".,;:!?)]}»\"'")
+    rest = re.sub(r"[ \t]{2,}", " ", s[: m.start()] + " " + s[m.start() + len(raw):]).strip()
+    url = raw if raw.lower().startswith(("http://", "https://")) else "https://" + raw
+    return url, rest
+
+
+async def _queue_save(
+    request: Request, url: str, title: str, note: str, zone: str
+) -> RedirectResponse | HTMLResponse:
+    """Write the save into the capture queue and go back to the catalogue, which
+    watches the job and shows the card when it is ready."""
+    from vivatlas import captures
+
+    user_id = getattr(request.state, "user_id", None)
+    try:
+        queued = await captures.enqueue(
+            url=url,
+            title=title,
+            text=note,
+            user_id=user_id,
+            shared=zone == "shared",
+            text_kind="note" if note else "page",
+            via="web",
+            patience=30,
+        )
+    except captures.QueueBusy:
+        return _add_page(
+            request, "start", error=i18n.msg(request, "add.err.busy"), source=url, zone=zone
+        )
+    resp = RedirectResponse(f"/?saving={queued['job_id']}", status_code=303)
+    resp.set_cookie(ADD_ZONE_COOKIE, zone, max_age=365 * 24 * 3600, samesite="lax", path="/")
+    return resp
 
 
 @router.get("/add", response_class=HTMLResponse)
@@ -1894,13 +1965,27 @@ def add_start(request: Request, source: str = "") -> HTMLResponse:
 async def add_find(
     request: Request,
     source: Annotated[str, Form()] = "",
+    zone: Annotated[str, Form()] = "",
     file: Annotated[UploadFile | None, File()] = None,
-) -> HTMLResponse:
-    """Step 1: we parse whatever was given. We write nothing."""
-    tmp: Path | None = None
+):
+    """Save what was given. A link (with or without a note around it) is queued
+    and the person goes straight back to the catalogue; anything else is read by the
+    finder, which suggests what it might be."""
+    zone = _zone(zone or request.cookies.get(ADD_ZONE_COOKIE, ""))
     src = source.strip()
+    has_file = file is not None and bool(file.filename)
 
-    if file is not None and file.filename:
+    if not has_file:
+        if not src:
+            return _add_page(
+                request, "start", error=i18n.msg(request, "add.err.need_input"), zone=zone
+            )
+        url, note = _split_link(src)
+        if url:
+            return await _queue_save(request, url, "", note, zone)
+
+    tmp: Path | None = None
+    if has_file:
         # We keep the extension: by it the finder tells a picture from a video.
         suffix = Path(file.filename).suffix or ".bin"
         data = await file.read()
@@ -1910,26 +1995,32 @@ async def add_find(
                 "start",
                 error=i18n.msg(request, "add.err.file_too_big", mb=MAX_MEDIA_BYTES // 1_000_000),
                 source=src,
+                zone=zone,
             )
         fd, name = tempfile.mkstemp(suffix=suffix)
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
         tmp = Path(name)
-        src = str(tmp)
-
-    if not src:
-        return _add_page(request, "start", error=i18n.msg(request, "add.err.need_input"))
+        lookup = str(tmp)
+    else:
+        # Typed words are only words: the finder would open a path to a file on the
+        # server as if it were an upload, so a typed one is read as a name.
+        lookup = src
+        with contextlib.suppress(OSError, ValueError):
+            if Path(src).exists():
+                lookup = f"{src} "
 
     finder = Finder(github_token=settings.github_token)
     model = build_text_model() if settings.google_api_key else None
     try:
-        result = await finder.find(src, model)
+        result = await finder.find(lookup, model)
     except Exception as exc:
         return _add_page(
             request,
             "start",
             error=i18n.msg(request, "add.err.parse_failed", err=exc),
             source=source,
+            zone=zone,
         )
     finally:
         await finder.aclose()
@@ -1942,114 +2033,76 @@ async def add_find(
         request,
         "found",
         result=result,
-        given=file.filename if (file and file.filename) else source,
+        given=file.filename if has_file else source,
+        zone=zone,
     )
 
 
-@router.post("/add/plan", response_class=HTMLResponse)
-async def add_plan(
+@router.post("/add/link")
+async def add_link(
     request: Request,
     url: Annotated[str, Form()],
-    to: Annotated[str, Form()] = "",
     name: Annotated[str, Form()] = "",
-) -> HTMLResponse:
-    """Step 2: what exactly will be created. Still nothing is written."""
-    fetcher = GitHubFetcher(token=settings.github_token)
-    try:
-        plan = await plan_import(fetcher, url, target_owner=to, target_name=name)
-    except ImportError_ as exc:
-        # A refusal can be useful: "this is a whole project, but here are the folders inside
-        # that look like tools" — with links you can continue from.
-        return _add_page(request, "refused", message=str(exc), url=url, to=to)
-    except Exception as exc:
-        return _add_page(
-            request, "refused", message=i18n.msg(request, "add.err.failed", err=exc), url=url, to=to
-        )
-    finally:
-        await fetcher.aclose()
-
-    return _add_page(request, "plan", plan=plan, url=url, to=to)
-
-
-@router.post("/add/run")
-async def add_run(
-    request: Request,
-    url: Annotated[str, Form()],
-    to: Annotated[str, Form()] = "",
-    name: Annotated[str, Form()] = "",
+    summary: Annotated[str, Form()] = "",
+    zone: Annotated[str, Form()] = "",
 ):
-    """Step 3: we write. Only here and only on a click.
+    """A repository the finder suggested, picked: it is saved like any link, a card
+    described by the AI from the repository's page.
 
-    We rebuild the plan from scratch rather than keeping it between steps. An
-    extra archive download, but
-    no stale plan: between "shown" and "clicked" the user could have gone off
-    for tea, and meanwhile everything at the source changed.
-    """
-    if not settings.gitea_token:
-        return _add_page(
-            request, "refused", message=i18n.msg(request, "add.err.no_gitea_token"), url=url
-        )
+    Nothing is written to Git. VIVATLAS reads repositories and never creates or
+    changes one; copying a repository somewhere is a different job for a different
+    tool."""
+    return await _queue_save(request, url.strip(), name.strip(), summary.strip(), _zone(zone))
 
-    fetcher = GitHubFetcher(token=settings.github_token)
-    try:
-        plan = await plan_import(fetcher, url, target_owner=to, target_name=name)
-    except Exception as exc:
-        await fetcher.aclose()
-        return _add_page(request, "refused", message=str(exc), url=url, to=to)
-    await fetcher.aclose()
 
+@router.post("/add/note")
+def add_note(
+    request: Request,
+    source: Annotated[str, Form()] = "",
+    name: Annotated[str, Form()] = "",
+    summary: Annotated[str, Form()] = "",
+    heard: Annotated[str, Form()] = "",
+    zone: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    """Nothing the finder suggested fits: save what it read (the words, the picture's
+    text, the reel's speech) as a card of its own."""
     user_id = getattr(request.state, "user_id", None)
-    provider = build_provider("gitea")
-    text_model = build_text_model()
-    embed_model = build_embedding_model()
-    try:
-        with session_scope() as session:
-            result = await execute(session, provider, plan, settings.gitea_url)
-            session.commit()
-
-            repo = session.get(Repository, result.repository_id)
-            await index_repository(session, provider, text_model, repo, force=True)
-
-            # Private to the creator — BEFORE the first commit with this card: the import
-            # goes into the shared Gitea, and index_repository would have marked it shared. Between
-            # that commit and the AI description (seconds) it would hang visible to everyone.
-            art = session.scalar(select(Artifact).where(Artifact.repository_id == repo.id))
-            art.owner_user_id = user_id
-            art.shared = False
-            session.commit()
-
-            record_upstream(session, art.id, plan)
-            await embed_artifact(session, embed_model, art)
-            await tag_artifact(session, art, text_model)
-            index_artifact_for_words(session, art)
-            # Automatically pick a private folder by meaning — the user is left to adjust it.
-            auto_cid = _auto_category(session, art, user_id)
-            if auto_cid is not None:
-                session.add(ArtifactCategory(artifact_id=art.id, category_id=auto_cid))
-            session.commit()
-            card = {
-                "id": art.id,
-                "name": art.name,
-                "owner": art.repository.owner_label,
-                "summary_short": art.summary_short,
-                "preview_url": preview_url(art),
-            }
-    except Exception as exc:
-        return _add_page(
-            request, "refused", message=i18n.msg(request, "add.err.failed", err=exc), url=url, to=to
+    zone = _zone(zone)
+    with session_scope() as session:
+        aid = _link_card(
+            session, user_id, "", (name or source).strip(), summary.strip(), heard.strip()
         )
-    finally:
-        await provider.aclose()
-        await text_model.aclose()
-        await embed_model.aclose()
+        art = session.get(Artifact, aid)
+        art.shared = zone == "shared"
+        if not art.shared:
+            _file_capture(session, art, user_id)
+    resp = RedirectResponse("/?added=1", status_code=303)
+    resp.set_cookie(ADD_ZONE_COOKIE, zone, max_age=365 * 24 * 3600, samesite="lax", path="/")
+    return resp
 
-    return _add_page(request, "done", card=card)
+
+@router.get("/add/status")
+def add_status(request: Request, job: str = "") -> JSONResponse:
+    """How far a save from the Add form got, for the catalogue that waits for it.
+    Only the person who saved it can ask. A mangled id is "gone" too, so the page
+    stops waiting instead of polling a 422."""
+    from vivatlas.models import CaptureJob
+
+    if not job.isdigit():
+        return JSONResponse({"status": "gone"}, status_code=404)
+    user_id = getattr(request.state, "user_id", None)
+    with session_scope() as session:
+        row = session.get(CaptureJob, int(job))
+        if row is None or row.user_id != user_id:
+            return JSONResponse({"status": "gone"}, status_code=404)
+        return JSONResponse({"status": row.status, "artifact_id": row.artifact_id})
 
 
-def _create_draft(session, user_id, source_url: str, name: str, summary: str, heard: str) -> int:
-    """A draft: a card without an import from GitHub. When a link or a video
-    couldn't be reduced to a repository, we save what was recognized — to process
-    later. Lives in a separate "Drafts" source, private to the creator."""
+def _link_card(session, user_id, source_url: str, name: str, summary: str, heard: str) -> int:
+    """A card for something saved by hand: a link, or what the finder read from a
+    picture or a reel. It has no repository to scan, so it lives in its own source
+    (kind "draft", a name kept from when such cards waited in a Drafts pile; they go
+    straight into the catalogue now). Private to the person who saved it."""
     src = get_or_create_source(session, "draft", "", "Drafts")
     key = source_url or name or heard or "draft"
     ext = "draft-" + hashlib.md5(key.encode("utf-8")).hexdigest()[:16]  # noqa: S324
@@ -2075,7 +2128,8 @@ def _create_draft(session, user_id, source_url: str, name: str, summary: str, he
         art = Artifact(
             repository_id=repo.id,
             name=(name or "draft")[:256],
-            artifact_type="draft",
+            artifact_type="page",
+            is_new=True,
             summary_short=summary or "",
             doc_text=heard or "",
             owner_user_id=user_id,
@@ -2102,38 +2156,6 @@ def _create_draft(session, user_id, source_url: str, name: str, summary: str, he
     return art.id
 
 
-@router.post("/add/draft")
-def add_draft(
-    request: Request,
-    source: Annotated[str, Form()] = "",
-    name: Annotated[str, Form()] = "",
-    summary: Annotated[str, Form()] = "",
-    heard: Annotated[str, Form()] = "",
-) -> HTMLResponse:
-    """Didn't reduce to a Git repo — still add it as a real card (not a dead draft) and
-    lead to the same zone choice."""
-    user_id = getattr(request.state, "user_id", None)
-    with session_scope() as session:
-        aid = _create_draft(
-            session, user_id, source.strip(), name.strip(), summary.strip(), heard.strip()
-        )
-        art = session.get(Artifact, aid)
-        # A resource that isn't a Git repo (a Claude plugin, a docs page, a tool seen in
-        # a video) becomes a proper card and shows in the catalogue like anything else.
-        # The name/summary already read from it stand in until the AI deepens them.
-        art.artifact_type = "page"
-        art.is_new = True
-        art.hidden = False
-        card = {
-            "id": art.id,
-            "name": art.name,
-            "owner": art.repository.owner_label,
-            "summary_short": art.summary_short,
-            "preview_url": preview_url(art),
-        }
-    return _add_page(request, "done", card=card)
-
-
 _GH_RESERVED = {
     "settings", "marketplace", "notifications", "explore", "topics", "trending",
     "sponsors", "features", "about", "pricing", "login", "join", "orgs", "apps",
@@ -2142,7 +2164,7 @@ _GH_RESERVED = {
 
 def _is_github_repo_url(url: str) -> bool:
     """A github.com URL that points at a repository (owner/repo), not a profile or a
-    site page. plan_import validates for real later; this is only the routing hint."""
+    site page."""
     try:
         parts = urlsplit(url.strip())
     except ValueError:
@@ -2270,11 +2292,9 @@ async def ext_capture(
 async def run_capture(job: dict) -> int | None:
     """What the capture queue's worker does with one job. Returns the card's id.
 
-    A GitHub repo link becomes a card the same way any page does. It is never
-    imported into Gitea from here: an import creates a public repository and writes
-    files into it, and that happens only from the web Add form, after its plan step
-    and the click that confirms it. Saves come from a phone, an extension or an
-    assistant, sometimes hundreds in a row, with nobody looking at a plan."""
+    A GitHub repo link becomes a card the same way any page does. VIVATLAS never
+    writes to Git: copying a repository somewhere is a different job for a
+    different tool."""
     return await _process_web_capture(
         (job.get("url") or "").strip(),
         job.get("title") or "",
@@ -2442,7 +2462,7 @@ async def _process_web_capture(
     comments_json: str = "",
 ) -> int | None:
     """Turn a captured page or link into a real card: described by the AI, embedded,
-    tagged, and in the library rather than the drafts. Returns the card's id.
+    tagged, and in the catalogue. Returns the card's id.
 
     The card is saved first, with the name, link and text in hand, so a failing AI
     leaves a plain card, never nothing. No database lock is held while the page is
@@ -2476,12 +2496,12 @@ async def _process_web_capture(
 
     def save_card():
         with session_scope() as session:
-            aid = _create_draft(session, user_id, url, display_name, "", doc_text)
+            aid = _link_card(session, user_id, url, display_name, "", doc_text)
             art = session.get(Artifact, aid)
             if art is None:
                 return None
-            # Promoted from a draft to a real page card straight away, so even if the
-            # AI is slow or unavailable it's already in the catalogue.
+            # In the catalogue straight away, so even if the AI is slow or unavailable
+            # the card is there.
             art.artifact_type = "page"
             art.owner_user_id = user_id
             art.shared = shared
@@ -2540,23 +2560,3 @@ async def _process_web_capture(
         if embed_model is not None:
             await embed_model.aclose()
     return aid
-
-
-@router.post("/add/save")
-def add_save(
-    request: Request,
-    artifact_id: Annotated[int, Form()],
-    zone: Annotated[str, Form()] = "private",
-) -> RedirectResponse:
-    """The final step of creation: the card is marked private or shared and saved.
-    Until then it's the creator's private draft. Defaults to private — a missing or
-    unexpected zone must never publish the card to everyone."""
-    user_id = getattr(request.state, "user_id", None)
-    with session_scope() as session:
-        art = session.get(Artifact, artifact_id)
-        # The zone is set by the draft's owner (or an ownerless one — then they become it).
-        if art is not None and art.owner_user_id in (user_id, None):
-            art.owner_user_id = user_id
-            art.shared = zone != "private"
-    # ?added=1 → the catalogue shows a brief "added" toast.
-    return RedirectResponse("/?added=1", status_code=303)

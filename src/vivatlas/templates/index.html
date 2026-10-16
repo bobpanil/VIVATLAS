@@ -47,61 +47,10 @@
                    screen readers). #}
                 <button class="search-go" type="submit" aria-label="{{ t('index.find_btn') }}">{{ icons.ic('search') }}</button>
             </div>
-            {% for k, v in f.as_query().items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+            {% for k, v in f.as_query(sort='', dir='').items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
         </form>
 
         <div class="toolbar-right">
-            {# Sorting, out where it can be seen. It used to live inside the Filters
-               panel, which meant you had to already know it was there to find it —
-               and the order the catalogue is in is not a filter, it's what you're
-               looking at. On search, relevance sets the order, so it steps aside. #}
-            {% if not link and not q %}
-            {# Which way it runs now, and which way the toggle would put it. Dates read
-               newest-first naturally, a name A→Z; "dir" only says so when it differs. #}
-            {% set down = (f.dir == 'desc') if f.dir else (f.sort in ('updated', 'added')) %}
-            {% set flip = 'asc' if down else 'desc' %}
-            {# The button names the order that is actually in force — "Recently added"
-               over a list starting with the oldest would simply be untrue. #}
-            {% set natural = (f.sort in ('updated', 'added')) == down %}
-            {% if natural %}
-            {% set sort_label = {'updated': t('index.sort_updated'), 'added': t('index.sort_added')}.get(f.sort, t('index.sort_name')) %}
-            {% else %}
-            {% set sort_label = {'updated': t('index.sort_updated_rev'), 'added': t('index.sort_added_rev')}.get(f.sort, t('index.sort_name_rev')) %}
-            {% endif %}
-            <div class="sortctl" id="sortctl">
-                <button class="filters-btn sort-btn" type="button" id="sort-btn"
-                        aria-expanded="false" aria-controls="sort-menu"
-                        aria-label="{{ sort_label }}" title="{{ sort_label }}">
-                    {{ icons.ic('sort') }}
-                    <span class="sort-dir" aria-hidden="true">{{ '↓' if down else '↑' }}</span>
-                </button>
-                {# Picking an order leaves its direction out (dir=''), so each one comes
-                   back the way you last had IT — carrying the current direction across
-                   would silently stand a different order on its head. #}
-                <div class="sort-menu" id="sort-menu" role="menu" hidden>
-                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='name', dir='') | urlencode }}"
-                       {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
-                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='updated', dir='') | urlencode }}"
-                       {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
-                    <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='added', dir='') | urlencode }}"
-                       {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
-                    {# Which way round — a row of its own rather than six orders to
-                       choose between, worded in the terms of the order you're in:
-                       names run A–Z, dates run oldest/newest. #}
-                    {% set dated = f.sort in ('updated', 'added') %}
-                    {% if dated %}
-                    {% set flip_label = t('index.sort_flip_oldest') if down else t('index.sort_flip_newest') %}
-                    {% else %}
-                    {% set flip_label = t('index.sort_flip_az') if down else t('index.sort_flip_za') %}
-                    {% endif %}
-                    <a class="sort-opt sort-flip" role="menuitem" id="sort-flip"
-                       href="/?{{ f.as_query(dir=flip) | urlencode }}">
-                        <span aria-hidden="true">{{ '↑' if down else '↓' }}</span>
-                        {{ flip_label }}
-                    </a>
-                </div>
-            </div>
-            {% endif %}
             {% if not link %}
             <button class="filters-btn{% if sheet_active %} on{% endif %}" type="button"
                     id="filters-btn" aria-expanded="false" aria-controls="sheet"
@@ -135,43 +84,6 @@
                     <button class="sheet-x" type="button" id="sheet-x" aria-label="{{ t('index.close') }}">×</button>
                 </div>
                 <div class="sheet-body">
-                    {# Sorting, on the phone only. On a wide screen it stays out in the
-                       toolbar, where the order the catalogue is in can be read without
-                       opening anything — that is why it moved out of here in the first
-                       place, and it has not moved back. But the phone's top bar has room
-                       for two icons beside the centred wordmark, not three, and the third
-                       was landing on the logo. So on a phone the order joins the filters:
-                       same chips, same panel, one button. (.sheet-sort is display:none
-                       above 768px.) #}
-                    {% if not q %}
-                    {% set m_down = (f.dir == 'desc') if f.dir else (f.sort in ('updated', 'added')) %}
-                    {% set m_flip = 'asc' if m_down else 'desc' %}
-                    {% if f.sort in ('updated', 'added') %}
-                    {% set m_flip_label = t('index.sort_flip_oldest') if m_down else t('index.sort_flip_newest') %}
-                    {% else %}
-                    {% set m_flip_label = t('index.sort_flip_az') if m_down else t('index.sort_flip_za') %}
-                    {% endif %}
-                    <div class="sheet-sort">
-                        <p class="fgroup">{{ icons.ic('sort') }}{{ t('index.sort_group') }}</p>
-                        <nav class="filters" aria-label="{{ t('index.sort_group') }}">
-                            {# Picking an order leaves its direction out (dir=''), so each
-                               comes back the way you last had IT — carrying the current
-                               direction across would stand a different order on its head. #}
-                            <a class="filter" href="/?{{ f.as_query(sort='name', dir='') | urlencode }}"
-                               {% if not f.sort or f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
-                            <a class="filter" href="/?{{ f.as_query(sort='updated', dir='') | urlencode }}"
-                               {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
-                            <a class="filter" href="/?{{ f.as_query(sort='added', dir='') | urlencode }}"
-                               {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
-                            {# Which way round — a chip of its own, set apart, because it
-                               changes a different thing from the three beside it. #}
-                            <a class="filter filter-flip" href="/?{{ f.as_query(dir=m_flip) | urlencode }}">
-                                <span aria-hidden="true">{{ '↑' if m_down else '↓' }}</span> {{ m_flip_label }}
-                            </a>
-                        </nav>
-                    </div>
-                    {% endif %}
-
                     {# Type/zone/favourites — now here, not as a separate row at the top. #}
                     <p class="fgroup">{{ t('index.view_group') }}</p>
                     <nav class="filters" aria-label="{{ t('index.view_group') }}">
@@ -256,8 +168,62 @@
 
     {% if link %}
     <p class="hint">{{ t('index.hint_link') }}</p>
-    {% elif q %}
-    <p class="hint">{{ t('index.found_count', count=items|length) }}</p>
+    {% elif items %}
+    {# How many cards and in what order, in one line over the grid. One place, at
+       every width, in search too: the order used to sit in the toolbar on a wide
+       screen, inside Filters on a phone, and step aside during a search, so whether
+       it could be seen depended on where you were looking from. #}
+    {% set dated = f.sort in ('updated', 'added') %}
+    {% set down = (f.dir == 'desc') if f.dir else dated %}
+    {% set flip = 'asc' if down else 'desc' %}
+    {# The button names the order that is actually in force: "Recently added" over a
+       list starting with the oldest would simply be untrue. #}
+    {% if f.sort == 'relevance' %}
+    {% set sort_label = t('index.sort_relevance') %}
+    {% elif dated == down %}
+    {% set sort_label = {'updated': t('index.sort_updated'), 'added': t('index.sort_added')}.get(f.sort, t('index.sort_name')) %}
+    {% else %}
+    {% set sort_label = {'updated': t('index.sort_updated_rev'), 'added': t('index.sort_added_rev')}.get(f.sort, t('index.sort_name_rev')) %}
+    {% endif %}
+    <div class="resultsline">
+        <p class="hint">{% if q %}{{ t('index.found_count', count=items|length) }}{% else %}{{ t('index.cards_count', count=items|length) }}{% endif %}</p>
+        <div class="sortctl" id="sortctl">
+            <button class="sort-btn" type="button" id="sort-btn"
+                    aria-expanded="false" aria-controls="sort-menu"
+                    aria-label="{{ t('index.sort_group') }}: {{ sort_label }}">
+                {{ icons.ic('sort') }}<span>{{ sort_label }}</span>
+            </button>
+            {# Picking an order leaves its direction out (dir=''), so each one comes back
+               the way you last had IT: carrying the current direction across would
+               silently stand a different order on its head. #}
+            <div class="sort-menu" id="sort-menu" role="menu" hidden>
+                {% if q %}
+                <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='relevance', dir='') | combine(q=q) | urlencode }}"
+                   {% if f.sort == 'relevance' %}aria-current="true"{% endif %}>{{ t('index.sort_relevance') }}</a>
+                {% endif %}
+                <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='added', dir='') | combine(q=q) | urlencode }}"
+                   {% if f.sort == 'added' %}aria-current="true"{% endif %}>{{ t('index.sort_added') }}</a>
+                <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='updated', dir='') | combine(q=q) | urlencode }}"
+                   {% if f.sort == 'updated' %}aria-current="true"{% endif %}>{{ t('index.sort_updated') }}</a>
+                <a class="sort-opt" role="menuitem" href="/?{{ f.as_query(sort='name', dir='') | combine(q=q) | urlencode }}"
+                   {% if f.sort == 'name' %}aria-current="true"{% endif %}>{{ t('index.sort_name') }}</a>
+                {# Which way round: a row of its own rather than six orders to choose
+                   between, worded in the terms of the order you're in. #}
+                {% if f.sort != 'relevance' %}
+                {% if dated %}
+                {% set flip_label = t('index.sort_flip_oldest') if down else t('index.sort_flip_newest') %}
+                {% else %}
+                {% set flip_label = t('index.sort_flip_az') if down else t('index.sort_flip_za') %}
+                {% endif %}
+                <a class="sort-opt sort-flip" role="menuitem" id="sort-flip"
+                   href="/?{{ f.as_query(dir=flip) | combine(q=q) | urlencode }}">
+                    <span aria-hidden="true">{{ '↑' if down else '↓' }}</span>
+                    {{ flip_label }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     {# We no longer pull active filters out into a separate row at the top — their count is shown
@@ -328,10 +294,6 @@ function dismissRemoved() {
 </div>
 {% elif not link %}
 <div class="empty">
-    {% if active_draft %}
-    <b>{{ t('index.no_drafts') }}</b>
-    {{ t('index.drafts_hint') }}
-    {% else %}
     <b>{{ t('index.nothing_found') }}</b>
     {% if q and f.active() %}
     {{ t('index.empty_q_filters', q=q|e, link='<a href="/?q=' ~ q|urlencode ~ '">' ~ t('index.remove_filters_link') ~ '</a>') | safe }}
@@ -341,7 +303,6 @@ function dismissRemoved() {
     {{ t('index.empty_filters', link='<a href="/">' ~ t('index.clear_all_link') ~ '</a>') | safe }}
     {% else %}
     {{ t('index.empty_catalog', link='<a href="/settings" data-modal>' ~ t('side.settings_word') ~ '</a>') | safe }}
-    {% endif %}
     {% endif %}
 </div>
 {% endif %}
@@ -379,15 +340,13 @@ function dismissRemoved() {
     slider.addEventListener('input', function () { apply(slider.value, true); });
 })();
 
-// Sort menu. Three links, so it needs no state of its own — the page reloads in the
+// Sort menu. A few links, so it needs no state of its own — the page reloads in the
 // chosen order and the button then shows it. Closes on a click elsewhere or Esc, the
 // same way the account menu does.
 (function () {
     var menu = document.getElementById('sort-menu');
     if (!menu) return;
-    var buttons = ['sort-btn', 'sort-btn-top']
-        .map(function (id) { return document.getElementById(id); })
-        .filter(Boolean);
+    var buttons = [document.getElementById('sort-btn')].filter(Boolean);
     if (!buttons.length) return;
 
     function open(yes) {
@@ -506,6 +465,57 @@ function dismissRemoved() {
     }, 2600);
     params.delete('added');
     history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params.toString() : ''));
+})();
+
+// A save from the Add form lands here with ?saving=<job>: the link is in the queue
+// and is being read. The toast stays while it is, and the page reloads with the card
+// once it is in. Leaving the page loses nothing: the save goes on without it.
+(function () {
+    var params = new URLSearchParams(location.search);
+    var job = params.get('saving');
+    if (!job) return;
+    params.delete('saving');
+    var rest = params.toString();
+    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''));
+
+    var t = document.createElement('div');
+    t.className = 'toast toast-wait';
+    t.setAttribute('role', 'status');
+    t.textContent = {{ t('index.saving_toast') | tojson }};
+    document.body.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add('show'); });
+
+    function finish(text) {
+        t.classList.remove('toast-wait');
+        t.textContent = text;
+        setTimeout(function () {
+            t.classList.remove('show');
+            setTimeout(function () { t.remove(); }, 250);
+        }, 4000);
+    }
+
+    var tries = 0;
+    function poll() {
+        tries++;
+        fetch('/add/status?job=' + encodeURIComponent(job), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.status === 'done') {
+                    params.set('added', '1');
+                    location.replace(location.pathname + '?' + params.toString());
+                } else if (d.status === 'failed' || d.status === 'gone') {
+                    finish({{ t('index.saving_failed') | tojson }});
+                } else if (tries < 60) {
+                    setTimeout(poll, 3000);
+                } else {
+                    finish({{ t('index.saving_later') | tojson }});
+                }
+            })
+            .catch(function () {
+                if (tries < 60) setTimeout(poll, 3000);
+            });
+    }
+    setTimeout(poll, 1500);
 })();
 
 document.addEventListener('paste', function (e) {

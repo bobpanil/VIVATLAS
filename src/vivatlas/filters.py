@@ -44,7 +44,6 @@ class Filters:
     fav: str = ""
     cat: str = ""
     purpose: str = ""  # the derived "what it's for" (design, security, testing, …)
-    draft: str = ""
     zone: str = ""  # "private" | "common" — filter by card zone
     sort: str = ""  # "" | "name" | "updated" | "added" — order in the catalogue
     # "" keeps each order's natural direction (A→Z by name, newest first by date);
@@ -71,7 +70,6 @@ class Filters:
             "fav": self.fav,
             "cat": self.cat,
             "purpose": self.purpose,
-            "draft": self.draft,
             "zone": self.zone,
             "sort": self.sort,
             "dir": self.dir,
@@ -127,12 +125,6 @@ def apply(
 ) -> Select:
     # Zone always applies: even with no filters a user sees only their own and shared.
     query = query.where(Artifact.id.in_(visible_ids(user_id)))
-    # Drafts get their own section: we don't show them in the main catalogue, and
-    # draft=1 shows only them. That keeps unfinished work out of the finished.
-    if f.draft:
-        query = query.where(Artifact.artifact_type == "draft")
-    else:
-        query = query.where(Artifact.artifact_type != "draft")
     if f.fav:
         # Favourites are personal: with no known user there's nothing to show.
         query = query.where(Artifact.id.in_(fav_ids if fav_ids is not None else set()))
@@ -182,6 +174,11 @@ def apply(
 
 def count_matching(session: Session, f: Filters) -> int:
     return session.scalar(apply(select(func.count(Artifact.id)), f, session=session)) or 0
+
+
+# The orders the catalogue can be put in. "relevance" exists only in search, where
+# it is the order the search itself returned.
+SORTS = ("added", "updated", "name", "relevance")
 
 
 def descending_by_default(sort: str) -> bool:
@@ -293,10 +290,9 @@ def category_options(
 
 
 def type_options(session: Session, user_id: int | None = None) -> list[Option]:
-    # Drafts are a separate section; we don't show them among the types.
     rows = session.execute(
         select(Artifact.artifact_type, func.count())
-        .where(Artifact.id.in_(visible_ids(user_id)), Artifact.artifact_type != "draft")
+        .where(Artifact.id.in_(visible_ids(user_id)))
         .group_by(Artifact.artifact_type)
         .order_by(func.count().desc())
     ).all()
@@ -304,25 +300,13 @@ def type_options(session: Session, user_id: int | None = None) -> list[Option]:
 
 
 def zone_counts(session: Session, user_id: int | None = None) -> dict:
-    """How many visible cards are in each zone — for the "private"/"shared" pills.
-    Drafts don't count (they have their own section)."""
+    """How many visible cards are in each zone — for the "private"/"shared" pills."""
     vis = visible_ids(user_id)
-    base = select(func.count()).select_from(Artifact).where(
-        Artifact.id.in_(vis), Artifact.artifact_type != "draft"
-    )
+    base = select(func.count()).select_from(Artifact).where(Artifact.id.in_(vis))
     return {
         "private": session.scalar(base.where(Artifact.shared.is_(False))) or 0,
         "common": session.scalar(base.where(Artifact.shared.is_(True))) or 0,
     }
-
-
-def draft_count(session: Session, user_id: int | None = None) -> int:
-    """How many drafts this user has — for the permanent "Drafts" section."""
-    return session.scalar(
-        select(func.count())
-        .select_from(Artifact)
-        .where(Artifact.id.in_(visible_ids(user_id)), Artifact.artifact_type == "draft")
-    ) or 0
 
 
 def owner_options(session: Session, user_id: int | None = None) -> list[Option]:
@@ -358,15 +342,14 @@ def status_options(
 
 
 def _purpose_map(session: Session, user_id: int | None = None) -> dict[int, str]:
-    """The derived purpose key for every visible, non-draft card, computed from its
-    tags + name exactly as the card chip does. One pass over two batched queries, so
-    the filter and the chip can never disagree. Drafts are excluded — they have their
-    own section and no purpose to speak of."""
+    """The derived purpose key for every visible card, computed from its tags + name
+    exactly as the card chip does. One pass over two batched queries, so the filter
+    and the chip can never disagree."""
     vis = visible_ids(user_id)
     rows = session.execute(
         select(
             Artifact.id, Artifact.name, Artifact.purpose_override, Artifact.artifact_type
-        ).where(Artifact.id.in_(vis), Artifact.artifact_type != "draft")
+        ).where(Artifact.id.in_(vis))
     ).all()
     tags: dict[int, list[str]] = {}
     for aid, slug in session.execute(

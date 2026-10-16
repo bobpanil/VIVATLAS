@@ -17,7 +17,6 @@ CATALOG: dict[str, dict[str, str]] = {
     "nav.add_tool": {"en": "Add tool", "ru": "Добавить инструмент", "he": "הוספת כלי"},
     "nav.catalog": {"en": "Catalogue", "ru": "Каталог", "he": "קטלוג"},
     "nav.favorites": {"en": "Favourites", "ru": "Избранное", "he": "מועדפים"},
-    "nav.drafts": {"en": "Drafts", "ru": "Черновики", "he": "טיוטות"},
     "nav.changes": {"en": "Changes", "ru": "Изменения", "he": "שינויים"},
     "nav.help": {"en": "Help", "ru": "Помощь", "he": "עזרה"},
     "nav.settings": {"en": "Settings", "ru": "Настройки", "he": "הגדרות"},
@@ -409,6 +408,56 @@ CATALOG: dict[str, dict[str, str]] = {
         "ru": "Дайте ссылку, скриншот или хотя бы название.",
         "he": "תנו קישור, צילום מסך או לפחות שם.",
     },
+    "add.found.add_card": {
+        "en": "Save this one",
+        "ru": "Сохранить этот",
+        "he": "לשמור את זה",
+    },
+    "add.note.save": {
+        "en": "Save as a note",
+        "ru": "Сохранить заметкой",
+        "he": "לשמור כהערה",
+    },
+    "add.zone.aria": {
+        "en": "Who sees it",
+        "ru": "Кто увидит",
+        "he": "מי יראה",
+    },
+    "add.zone.private": {
+        "en": "Private",
+        "ru": "Личная",
+        "he": "אישי",
+    },
+    "add.zone.shared": {
+        "en": "Shared",
+        "ru": "Общая",
+        "he": "משותף",
+    },
+    "index.cards_count": {
+        "en": "Cards: {count}",
+        "ru": "Карточек: {count}",
+        "he": "כרטיסים: {count}",
+    },
+    "index.sort_relevance": {
+        "en": "Best match",
+        "ru": "Лучшее совпадение",
+        "he": "ההתאמה הטובה ביותר",
+    },
+    "index.saving_toast": {
+        "en": "Saving: reading the link…",
+        "ru": "Сохраняю: читаю ссылку…",
+        "he": "שומר: קורא את הקישור…",
+    },
+    "index.saving_failed": {
+        "en": "That link couldn't be saved. Try it again from Add.",
+        "ru": "Эту ссылку не удалось сохранить. Попробуйте ещё раз через «Добавить».",
+        "he": "לא הצלחנו לשמור את הקישור. נסו שוב דרך הוספה.",
+    },
+    "index.saving_later": {
+        "en": "Still reading. The card turns up in the catalogue when it's done.",
+        "ru": "Ещё читаю. Карточка появится в каталоге, когда всё будет готово.",
+        "he": "עדיין קורא. הכרטיס יופיע בקטלוג כשזה יסתיים.",
+    },
     "add.err.busy": {
         "en": "The library is busy right now, so the link was not saved. Try again in a minute.",
         "ru": "Библиотека сейчас занята, ссылка не сохранилась. Попробуйте через минуту.",
@@ -418,16 +467,6 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Couldn't parse it: {err}",
         "ru": "Не получилось разобрать: {err}",
         "he": "לא הצלחנו לפענח: {err}",
-    },
-    "add.err.failed": {
-        "en": "Couldn't: {err}",
-        "ru": "Не получилось: {err}",
-        "he": "לא הצליח: {err}",
-    },
-    "add.err.no_gitea_token": {
-        "en": "No GITEA_TOKEN — nothing to write with.",
-        "ru": "Нет GITEA_TOKEN — писать нечем.",
-        "he": "אין GITEA_TOKEN — אין במה לכתוב.",
     },
     # --- settings: token status and 2FA ---------------------------------------
     "settings.token_unreadable": {

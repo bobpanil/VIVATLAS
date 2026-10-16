@@ -335,6 +335,19 @@ def backfill_added_changes(conn) -> int:
     ).rowcount
 
 
+def promote_drafts(conn) -> int:
+    """Cards still marked "draft" become ordinary page cards.
+
+    Saved links used to wait in a Drafts pile until the AI had described them. They
+    have gone straight into the catalogue for a while now, and the pile is gone, so
+    whatever was left in it would be out of sight for good. Idempotent."""
+    if not _table_exists(conn, "artifacts"):
+        return 0
+    return conn.execute(
+        text("UPDATE artifacts SET artifact_type = 'page' WHERE artifact_type = 'draft'")
+    ).rowcount
+
+
 def ensure_schema() -> list[str]:
     """Bring the database up to the current schema. Returns a list of what was done."""
     done: list[str] = []
@@ -416,6 +429,10 @@ def ensure_schema() -> list[str]:
         added = backfill_added_changes(conn)
         if added:
             done.append(f"changes feed: 'added' recorded for {added} earlier cards")
+
+        promoted = promote_drafts(conn)
+        if promoted:
+            done.append(f"{promoted} draft cards moved into the catalogue")
 
         # Whoever lacks a default avatar — assign a random one from the set.
         seeded = backfill_avatar_presets(conn)

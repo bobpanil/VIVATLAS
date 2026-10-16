@@ -430,3 +430,31 @@ async def test_list_changes_hides_someone_elses_private_card(catalog, monkeypatc
     monkeypatch.setattr(mcp_server, "get_access_token", lambda: None)
     d = await call("list_changes", {})
     assert all(i["artifact_id"] != art.id for i in d["items"])
+
+
+def test_without_a_sign_in_the_remote_endpoint_is_closed(monkeypatch):
+    """Knowing the address is never enough to read the catalogue. Without PUBLIC_URL
+    there's no OAuth, so the remote endpoint refuses everything, a tool call included,
+    and says why."""
+    from starlette.testclient import TestClient
+
+    from vivatlas.config import settings
+
+    monkeypatch.setattr(settings, "public_url", "")
+    call = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "list_artifacts", "arguments": {}},
+    }
+    with TestClient(mcp_server.http_app()) as client:
+        for method, path in (("POST", "/mcp"), ("GET", "/mcp"), ("POST", "/mcp/"), ("GET", "/")):
+            r = client.request(
+                method,
+                path,
+                json=call if method == "POST" else None,
+                headers={"Accept": "application/json, text/event-stream"},
+            )
+            assert r.status_code == 404, (method, path, r.status_code)
+            assert "never enough" in r.json()["error"]
+            assert "list_artifacts" not in r.text and "items" not in r.text

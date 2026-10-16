@@ -30,7 +30,7 @@ Read (both connection types):
 | `list_changes` | The changes feed, page by page from an id, for an agent that keeps up |
 | `find_stale_artifacts` | What hasn't been touched in a long time |
 
-Write (only when signed in over OAuth — never anonymously):
+Write (needs a signed-in user, so not over the local connection):
 
 | Tool | What it does |
 |---|---|
@@ -41,8 +41,11 @@ Write (only when signed in over OAuth — never anonymously):
 | `list_folders` | Your folders (id + name), for filing |
 | `file_card` | Put a card into (or take it out of) one of your folders |
 
-Anonymously (no sign-in) the remote server exposes **only the read tools, over shared
-cards** — someone else's private cards never leak through it.
+The remote server answers only signed-in assistants: every request needs an OAuth
+sign-in, and an assistant sees its user's private cards plus the shared ones. Knowing
+the address is never enough. Without `PUBLIC_URL` there is no sign-in, so the remote
+endpoint is closed (404). Only the local connection below, run on the server itself,
+works without a sign-in, and it sees shared cards only, read-only.
 
 ## Local (stdio)
 
@@ -66,8 +69,8 @@ Point your MCP client's config at the CLI:
 
 Set **`PUBLIC_URL`** in your server config (`.env`) to your public HTTPS address, no
 trailing slash — e.g. `PUBLIC_URL=https://vivatlas.example.com`. This becomes the OAuth
-issuer, which must be a stable absolute HTTPS URL. Without it the remote MCP stays
-anonymous (read-only, shared cards) exactly as before.
+issuer, which must be a stable absolute HTTPS URL. Without it there is no remote MCP
+at all: the endpoint answers 404.
 
 Your connector address is then:
 

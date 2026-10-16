@@ -46,7 +46,7 @@ Two indexes work together: full-text for words, vectors for meaning. Type in Rus
 
 - **Browser extension** (Chrome and friends): the page you're on, or a pasted link, into your catalogue in one click, public or private. → [extension/README.md](extension/README.md)
 - **Android app**: Share → VIVATLAS from any app. A small sheet shows what you're saving and lets you choose *private* or *public* before it goes. Signs in by scanning a QR from a browser that's already signed in, so a long password never meets a phone keyboard. → [android/README.md](android/README.md)
-- **The web form**: a link, a site, a screenshot or a reel → candidates with stars → pick → import.
+- **The web form**: a link, a site, a screenshot or a reel → candidates with stars → pick → a card in your catalogue.
 
 **Installing the Android app:** grab `vivatlas-android-<version>.apk` from the [latest release](https://github.com/bobpanil/VIVATLAS/releases) — or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) and it updates itself. Releases are signed with one key for the life of the app, so each installs over the last.
 

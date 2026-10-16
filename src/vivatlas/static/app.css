@@ -3479,24 +3479,65 @@ html.card-dragging .side-folders-head {
     margin: 0 0 var(--s-sm);
 }
 
-/* The final creation step: a card preview and the zone choice. */
-.done-card {
-    display: flex;
-    gap: var(--s-md);
-    align-items: center;
-}
-
-.done-thumb {
-    width: 72px;
-    height: 46px;
-    object-fit: cover;
-    border-radius: var(--r-sm);
+/* Who sees what is saved: two halves of one control under the Add field, the
+   picked one filled. Private is the default; the last pick is remembered. */
+.zone-seg {
+    display: inline-flex;
+    margin: var(--s-md) 0 0;
+    padding: 3px;
     border: 1px solid var(--hairline);
-    flex: none;
+    border-radius: var(--r-md);
+    background: var(--surface-sunk);
 }
 
-.done-card-body {
-    min-width: 0;
+.zone-seg-opt {
+    position: relative;
+    cursor: pointer;
+}
+
+.zone-seg-opt input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.zone-seg-opt span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: calc(var(--r-md) - 3px);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--mute);
+    transition: background 0.12s, color 0.12s;
+}
+
+.zone-seg-opt span .ic {
+    width: 15px;
+    height: 15px;
+}
+
+.zone-seg-opt input:checked + span {
+    background: var(--surface-card);
+    color: var(--ink);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.zone-seg-opt input:focus-visible + span {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+/* The "found" step: the zone sits above the choices it applies to. */
+.zone-seg + .lede,
+.zone-seg + .warn {
+    margin-top: var(--s-lg);
+}
+
+.add-note {
+    margin-top: var(--s-md);
 }
 
 /* Heading for the visibility step: a clear "who can see this?" prompt. */
@@ -3673,6 +3714,28 @@ html.card-dragging .side-folders-head {
 .toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* A save still being read: the toast stays, with the scan bar's spinner. */
+.toast-wait {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toast-wait::before {
+    content: "";
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(253, 247, 234, 0.3);
+    border-top-color: #fdf7ea;
+    border-radius: 50%;
+    animation: scanbar-turn 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast-wait::before { animation: none; }
 }
 
 /* --- tool card in the modal ----------------------------------------------
@@ -5029,6 +5092,15 @@ a.art-chip-pur:hover { border-color: currentColor; }
     color: var(--text);
 }
 
+textarea.drop-in {
+    display: block;
+    resize: none;
+    line-height: 1.5;
+    min-height: calc(3 * 1.5em);
+    max-height: 40vh;
+    field-sizing: content;
+}
+
 .drop-in:focus { outline: none; }
 
 .drop-in::placeholder { color: var(--faint); }
@@ -5240,12 +5312,6 @@ a.art-chip-pur:hover { border-color: currentColor; }
     font-size: 11px;
     color: var(--muted);
     line-height: 1.9;
-}
-
-.refused-line {
-    font-size: 14px;
-    line-height: 1.7;
-    margin: 0 0 8px;
 }
 
 .hint form, form.hint { margin: 0 0 8px; }
@@ -5764,24 +5830,58 @@ a.art-chip-pur:hover { border-color: currentColor; }
     border-color: var(--ink);
 }
 
-/* Sorting, in the toolbar rather than buried in the filter panel. The button carries
-   the order the catalogue is currently in, so it answers the question without being
-   opened — which is the whole reason it moved out here. */
+/* The results line over the grid: how many cards, and the order they are in. It is
+   the one place the order lives, at every width and in search too, so it is always
+   where you last saw it. The button carries the order in words, so it answers the
+   question without being opened. */
+.resultsline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-sm);
+    margin: var(--s-md) 0 0;
+    min-height: 34px;
+}
+
+.resultsline .hint {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .sortctl {
     position: relative;
     flex: none;
 }
 
 .sort-btn {
-    width: auto;
-    gap: 7px;
-    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
 }
 
-/* Which way the order runs, on the button itself — so it's answered without opening. */
-.sort-dir {
-    font-size: 13px;
-    line-height: 1;
+.sort-btn:hover,
+.sort-btn[aria-expanded="true"] {
+    border-color: var(--hairline);
+    background: var(--surface-card);
+}
+
+.sort-btn .ic {
+    width: 15px;
+    height: 15px;
     color: var(--mute);
 }
 
@@ -5833,15 +5933,6 @@ a.art-chip-pur:hover { border-color: currentColor; }
 .sort-opt[aria-current="true"] {
     font-weight: 600;
     background: var(--surface-sunk);
-}
-
-/* On a phone the menu drops the full width of the screen edge it belongs to. */
-@media (max-width: 768px) {
-    .sort-menu {
-        position: fixed;
-        top: 56px;
-        inset-inline: auto 8px;
-    }
 }
 
 .filters-btn .ic {
@@ -5960,32 +6051,6 @@ a.art-chip-pur:hover { border-color: currentColor; }
 
 /* Filters — as a list, a full-width row, not pills. Icon and label on the
    left, the counter pinned to the right. */
-/* Sorting inside the filter sheet — the phone's copy of it, and only the phone's.
-   On a wide screen the toolbar carries the order out in the open where it can be
-   read without opening anything, so this stays out of the way there. */
-.sheet-sort {
-    display: none;
-}
-
-/* The order joins the filters on the phone, because the top bar has room for two
-   icons beside the centred wordmark, not three. */
-@media (max-width: 768px) {
-    .sheet-sort {
-        display: block;
-    }
-
-    /* Which way round is a different question from which order, so the row that
-       asks it is set apart from the three that answer the first — the same hairline
-       the desktop sort menu puts above its own reverse row. */
-    .sheet-sort .filter-flip {
-        margin-top: 4px;
-        padding-top: 10px;
-        border-top: 1px solid var(--hairline);
-        border-radius: 0;
-        color: var(--mute);
-    }
-}
-
 .sheet .filters {
     display: flex;
     flex-direction: column;

@@ -1,7 +1,7 @@
 """The browser-extension backend: Bearer-token auth and the capture (add) helper.
 
 We test the pieces directly rather than through the ASGI app: the token round-trip on
-auth, and ext_capture against a real file-backed SQLite (so _create_draft's FTS write
+auth, and ext_capture against a real file-backed SQLite (so _link_card's FTS write
 and the separate sessions behave as in production).
 """
 
@@ -138,25 +138,25 @@ async def test_capture_github_without_gitea_is_added_not_dropped(capture_db):
         assert art is not None and art.artifact_type == "page"
 
 
-async def test_reprocess_draft_without_ai_keeps_it_a_draft_with_a_reason(capture_db):
-    # "Rescan with AI" on a draft, but no AI key: it must NOT silently graduate — it stays
-    # a draft, with the reason recorded so the person can see why.
+async def test_rescanning_a_link_card_without_ai_records_why(capture_db):
+    # "Rescan with AI" on a saved link, but no AI key: the card stays as it is, with
+    # the reason recorded so the person can see why nothing changed.
     from vivatlas import web
 
     Local, uid = capture_db
     with Local() as s:
-        aid = web._create_draft(s, uid, "https://example.com/x", "X", "", "captured text")
+        aid = web._link_card(s, uid, "https://example.com/x", "X", "", "captured text")
         s.commit()
 
-    assert await web.reprocess_draft(aid) is True
+    assert await web.reprocess_link_card(aid) is True
     with Local() as s:
         art = s.get(Artifact, aid)
-        assert art.artifact_type == "draft"
+        assert art.artifact_type == "page"
         assert art.summary_error
 
 
-async def test_reprocess_draft_with_ai_promotes_to_a_page(capture_db, monkeypatch):
-    # With a working AI the draft graduates to a real page card carrying the summary.
+async def test_rescanning_a_link_card_with_ai_fills_the_summary(capture_db, monkeypatch):
+    # With a working AI the card gets the summary.
     from vivatlas import web
 
     class FakeModel:
@@ -179,10 +179,10 @@ async def test_reprocess_draft_with_ai_promotes_to_a_page(capture_db, monkeypatc
 
     Local, uid = capture_db
     with Local() as s:
-        aid = web._create_draft(s, uid, "https://example.com/y", "Y", "", "some captured text")
+        aid = web._link_card(s, uid, "https://example.com/y", "Y", "", "some captured text")
         s.commit()
 
-    assert await web.reprocess_draft(aid) is True
+    assert await web.reprocess_link_card(aid) is True
     with Local() as s:
         art = s.get(Artifact, aid)
         assert art.artifact_type == "page"

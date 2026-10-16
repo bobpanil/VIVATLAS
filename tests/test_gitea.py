@@ -105,8 +105,8 @@ async def test_http_error_is_raised_not_swallowed():
 
 
 def test_provider_really_has_all_its_methods():
-    # Once the write methods ended up added inside another function rather than the
-    # class. The program built, the tests passed, but the import failed on a live run.
+    # Once methods ended up added inside another function rather than the class. The
+    # program built, the tests passed, but a live run failed.
     from vivatlas.providers.gitea import GiteaProvider
 
     for name in (
@@ -114,14 +114,32 @@ def test_provider_really_has_all_its_methods():
         "get_head_sha",
         "download_archive",
         "blob_shas",
-        "repo_exists",
-        "create_repo",
-        "put_file",
-        "delete_repo",
         "aclose",
     ):
         assert hasattr(GiteaProvider, name), f"GiteaProvider has no {name}"
         assert callable(getattr(GiteaProvider, name))
+
+
+def test_vivatlas_cannot_write_to_git():
+    """VIVATLAS reads repositories; it never creates, changes, moves or deletes one.
+    That's a rule, not a setting, so the code to do it doesn't exist at all."""
+    import importlib.util
+
+    from vivatlas import web
+    from vivatlas.providers.gitea import GiteaProvider
+    from vivatlas.providers.github import GitHubProvider
+
+    writes = (
+        "create_repo", "put_file", "update_file", "delete_repo",
+        "create_org", "rename_repo", "transfer_repo",
+    )
+    for provider in (GiteaProvider, GitHubProvider):
+        for name in writes:
+            assert not hasattr(provider, name), f"{provider.__name__}.{name} writes to Git"
+    for module in ("vivatlas.import_run", "vivatlas.importer", "vivatlas.remap", "vivatlas.updater"):
+        assert importlib.util.find_spec(module) is None, f"{module} writes to Git"
+    for name in ("plan_import", "execute", "add_plan", "add_run"):
+        assert not hasattr(web, name), f"web.{name} is part of the old Git import"
 
 
 def test_provider_satisfies_the_common_interface():

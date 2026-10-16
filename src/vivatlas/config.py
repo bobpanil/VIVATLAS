@@ -97,8 +97,9 @@ class Settings(BaseSettings):
     # The public HTTPS base URL of this VIVATLAS (e.g. https://vivatlas.example.com),
     # no trailing slash. Only needed to let ChatGPT (or another MCP client) connect
     # over OAuth: it becomes the OAuth issuer/resource identifier, which must be a
-    # stable absolute HTTPS URL known before the first request. Empty → the MCP stays
-    # anonymous (shared cards only), exactly as before.
+    # stable absolute HTTPS URL known before the first request. Empty: there is no
+    # remote MCP endpoint at all (it answers 404), only the local stdio one. Knowing
+    # the address must never be enough to read the catalogue.
     public_url: str = ""
 
     # Extra addresses the remote MCP endpoint answers to, comma-separated, as the

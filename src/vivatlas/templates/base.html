@@ -132,21 +132,17 @@
         {# Only this part scrolls — the sections and folders. #}
         <div class="side-scroll">
         <nav class="side-nav" aria-label="{{ t('nav.sections') }}">
-            {# Top-level views: the whole catalogue, drafts, changes. Folders are
+            {# Top-level views: the whole catalogue, favourites, changes. Folders are
                a separate section below. Types are pills in the header, not here. #}
-            <a class="side-item{% if nav == 'all' and not active_cat and not active_draft and not f.fav %} on{% endif %}" href="/"
+            <a class="side-item{% if nav == 'all' and not active_cat and not f.fav %} on{% endif %}" href="/"
                title="{{ t('nav.catalog') }}">
                 {{ icons.ic('catalogue') }}<span>{{ t('nav.catalog') }}</span><b>{{ counts.artifacts }}</b>
             </a>
-            {# Favourites — between the catalogue and drafts. Per-user; count from
+            {# Favourites — between the catalogue and changes. Per-user; count from
                counts.favorites. Active when the /?fav=1 view is open. #}
             <a class="side-item{% if f.fav %} on{% endif %}" href="/?fav=1"
                title="{{ t('nav.favorites') }}">
                 {{ icons.ic('star') }}<span>{{ t('nav.favorites') }}</span><b>{{ counts.favorites }}</b>
-            </a>
-            <a class="side-item{% if active_draft %} on{% endif %}" href="/?draft=1"
-               title="{{ t('nav.drafts') }}">
-                {{ icons.ic('drafts') }}<span>{{ t('nav.drafts') }}</span><b>{{ counts.drafts }}</b>
             </a>
             <a class="side-item{% if nav == 'changes' %} on{% endif %}" href="/changes" data-modal
                title="{{ t('nav.changes') }}">

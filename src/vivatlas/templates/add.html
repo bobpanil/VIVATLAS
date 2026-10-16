@@ -2,26 +2,39 @@
 {% import "_icons.html" as icons %}
 
 {% block title %}{{ t('add.page_title') }}{% endblock %}
-{% block modal_title %}{% if step == 'found' %}{{ t('add.title.found') }}{% elif step == 'plan' %}{{ t('add.title.plan') }}{% elif step == 'done' %}{{ t('add.title.done') }}{% elif step == 'refused' %}{{ t('add.title.refused') }}{% else %}{{ t('nav.add_tool') }}{% endif %}{% endblock %}
+{% block modal_title %}{% if step == 'found' %}{{ t('add.title.found') }}{% else %}{{ t('nav.add_tool') }}{% endif %}{% endblock %}
 {% block modal_help %}{{ t('add.help') }}{% endblock %}
+
+{# Who sees the card. Private is the default: saving never publishes anything to
+   everyone unless the person picks "Shared"; the last choice is remembered. #}
+{% macro zone_pick(form_id) %}
+<div class="zone-seg" role="radiogroup" aria-label="{{ t('add.zone.aria') }}">
+    <label class="zone-seg-opt">
+        <input type="radio" name="zone" value="private" form="{{ form_id }}" {% if zone != 'shared' %}checked{% endif %}>
+        <span>{{ icons.ic('profile') }}{{ t('add.zone.private') }}</span>
+    </label>
+    <label class="zone-seg-opt">
+        <input type="radio" name="zone" value="shared" form="{{ form_id }}" {% if zone == 'shared' %}checked{% endif %}>
+        <span>{{ icons.ic('users') }}{{ t('add.zone.shared') }}</span>
+    </label>
+</div>
+{% endmacro %}
 
 {% block modal_body %}
 {% if step == 'start' %}
-<p class="lede">{{ t('add.start.lede') }}</p>
-
 {% if error %}<p class="warn">{{ error }}</p>{% endif %}
 
-{# One field for everything: the link is typed or pasted, a phone screenshot sits
-   in the clipboard, not in files. Paste, drag, pick — three paths, one place. #}
+{# One field for everything: a link, a link with a note around it, a name from
+   memory, or a picture pasted, dragged or picked. A link is saved at once; only
+   what has no link in it is looked up first. #}
 <form class="add-form" method="post" action="/add" enctype="multipart/form-data"
       id="addform" onsubmit="working(this)">
     <div class="drop" id="drop">
         <div class="drop-field" id="field">
-            <span class="drop-field-ic" aria-hidden="true">{{ icons.ic('link') }}</span>
-            <input class="drop-in" type="text" name="source" id="src" value="{{ source or '' }}"
-                   autocomplete="off" autocapitalize="off" spellcheck="false"
-                   placeholder="{{ t('add.src.placeholder') }}"
-                   aria-label="{{ t('add.src.aria') }}">
+            <textarea class="drop-in" name="source" id="src" rows="3" dir="auto"
+                      autocomplete="off" autocapitalize="off" spellcheck="false" autofocus
+                      placeholder="{{ t('add.src.placeholder') }}"
+                      aria-label="{{ t('add.src.aria') }}">{{ source or '' }}</textarea>
         </div>
 
         <div class="drop-file" id="chip" hidden>
@@ -37,6 +50,7 @@
 
         <input type="file" name="file" id="file" accept="image/*,video/*" class="vh">
     </div>
+    {{ zone_pick('addform') }}
     <p class="note">{{ t('add.start.note') }}</p>
 </form>
 {% endif %}
@@ -59,6 +73,10 @@
 </ul>
 {% endif %}
 
+{# The zone sits on its own form; each choice below takes it along (form=). #}
+<form id="zoneform" hidden></form>
+{{ zone_pick('zoneform') }}
+
 {% if result.candidates %}
 <p class="lede">{{ t('add.found.choose') }}</p>
 
@@ -75,101 +93,30 @@
         {% if c.stars %}<p class="cand-stars">{{ t('add.found.stars', count='{:,}'.format(c.stars).replace(',', ' ')) }}</p>{% endif %}
         {% if c.description %}<p class="cand-desc">{{ c.description }}</p>{% endif %}
         <p class="legend">{{ c.why }}</p>
-        <form method="post" action="/add/plan" onsubmit="working(this)">
+        {# A card made from the repository's page, read-only. VIVATLAS never copies a
+           repository into Git or changes one: that is a different job. #}
+        <form method="post" action="/add/link" onsubmit="return pick(this)">
             <input type="hidden" name="url" value="https://github.com/{{ c.repo }}">
-            <button class="btn-secondary" type="submit">{{ t('add.found.show_plan') }}</button>
+            <input type="hidden" name="name" value="{{ c.repo }}">
+            <input type="hidden" name="summary" value="{{ c.description or '' }}">
+            <input type="hidden" name="zone" value="">
+            <button class="btn-secondary" type="submit">{{ t('add.found.add_card') }}</button>
         </form>
     </li>
     {% endfor %}
 </ul>
 {% else %}
 <p class="warn">{{ t('add.found.none') }}</p>
-<form method="post" action="/add/draft" onsubmit="working(this)">
+{% endif %}
+
+{# Nothing fits, or there was nothing to find: what was read is a card on its own. #}
+<form method="post" action="/add/note" class="add-note" onsubmit="return pick(this)">
     <input type="hidden" name="source" value="{{ given }}">
     <input type="hidden" name="name" value="{{ result.tool_name or '' }}">
     <input type="hidden" name="summary" value="{{ result.gist or '' }}">
     <input type="hidden" name="heard" value="{{ result.heard or '' }}">
-    <button class="btn-secondary" type="submit">{{ t('add.draft.create') }}</button>
-</form>
-{% endif %}
-{% endif %}
-
-{% if step == 'plan' %}
-<div class="box">
-    <dl class="facts">
-        <dt>{{ t('add.plan.from') }}</dt>
-        <dd>github.com/{{ plan.source.full_repo }}{% if plan.source.path %}/{{ plan.source.path }}{% endif %}</dd>
-        <dt>{{ t('add.plan.creates') }}</dt><dd>{{ plan.target_owner }}/{{ plan.target_name }}</dd>
-        <dt>{{ t('add.plan.files') }}</dt><dd>{{ t('add.plan.files_value', count=plan.files|length, kb='%.0f'|format(plan.total_bytes / 1024)) }}</dd>
-    </dl>
-</div>
-
-<ul class="files">
-    {% for f in plan.files[:8] %}<li>{{ f.path }}</li>{% endfor %}
-    {% if plan.files|length > 8 %}<li class="legend">{{ t('add.plan.more', n=plan.files|length - 8) }}</li>{% endif %}
-</ul>
-
-{% for w in plan.warnings %}<p class="warn">{{ w }}</p>{% endfor %}
-
-<form method="post" action="/add/run" id="runform" onsubmit="working(this)">
-    <input type="hidden" name="url" value="{{ url }}">
-    <input type="hidden" name="to" value="{{ to }}">
-    <label class="fld">
-        <span>{{ t('add.plan.name_label') }}</span>
-        <input type="text" name="name" value="{{ plan.target_name }}">
-    </label>
-    <p class="note">{{ t('add.plan.note') }}</p>
-</form>
-{% endif %}
-
-{% if step == 'done' %}
-<p class="lede">{{ t('add.done.lede') }}</p>
-
-<div class="box">
-    <div class="done-card">
-        {% if card.preview_url %}
-        <img class="done-thumb" src="{{ card.preview_url }}" alt="">
-        {% endif %}
-        <div class="done-card-body">
-            <div class="card-name">{% if card.owner %}<span class="card-owner">{{ card.owner }}/</span>{% endif %}{{ card.name }}</div>
-            <p class="card-sum">{{ card.summary_short or t('add.done.no_summary') }}</p>
-        </div>
-    </div>
-</div>
-
-<form method="post" action="/add/save" id="saveform" onsubmit="working(this)">
-    <input type="hidden" name="artifact_id" value="{{ card.id }}">
-    {# Private is the default: adding something never publishes it to everyone unless
-       the creator deliberately picks "Shared". Matches the browser extension, which
-       also defaults to private. #}
-    <p class="zone-q">{{ t('add.done.zone_q') }}</p>
-    <label class="zone-opt">
-        <input type="radio" name="zone" value="private" checked>
-        <span>{{ t('add.done.zone_private') | safe }}</span>
-    </label>
-    <label class="zone-opt">
-        <input type="radio" name="zone" value="shared">
-        <span>{{ t('add.done.zone_shared') | safe }}</span>
-    </label>
-</form>
-{% endif %}
-
-{% if step == 'refused' %}
-{% for line in message.split('\n') %}
-    {% if 'https://github.com/' in line %}
-    <form method="post" action="/add/plan" class="hint" onsubmit="working(this)">
-        <input type="hidden" name="url" value="{{ line.strip() }}">
-        <button class="btn-secondary" type="submit">{{ line.strip().split('/tree/')[-1].split('/', 1)[-1] }}</button>
-    </form>
-    {% elif line.strip() %}
-    <p class="refused-line">{{ line }}</p>
-    {% endif %}
-{% endfor %}
-
-<p class="lede">{{ t('add.refused.lede') }}</p>
-<form method="post" action="/add/draft" onsubmit="working(this)">
-    <input type="hidden" name="source" value="{{ url }}">
-    <button class="btn-secondary" type="submit">{{ t('add.draft.create') }}</button>
+    <input type="hidden" name="zone" value="">
+    <button class="{{ 'btn-secondary' if result.candidates else 'cta' }}" type="submit">{{ t('add.note.save') }}</button>
 </form>
 {% endif %}
 {% endblock %}
@@ -178,31 +125,30 @@
 <footer class="modal-foot">
     {% if step == 'start' %}
     <a class="btn-secondary foot-left" href="/">{{ t('add.foot.exit') }}</a>
-    <button class="cta" type="submit" form="addform">{{ t('add.foot.parse') }}</button>
-    {% elif step == 'found' %}
-    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.other_source') }}</a>
-    {% elif step == 'plan' %}
-    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.cancel') }}</a>
-    <button class="cta" type="submit" form="runform">{{ t('add.foot.pull') }}</button>
-    {% elif step == 'done' %}
-    <button class="cta" type="submit" form="saveform">{{ t('add.foot.save') }}</button>
-    {% elif step == 'refused' %}
-    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.other_source') }}</a>
+    <button class="cta" type="submit" form="addform">{{ t('add.foot.save') }}</button>
     {% else %}
-    <a class="btn-secondary" href="/">{{ t('add.foot.close') }}</a>
+    <a class="btn-secondary foot-left" href="/add">{{ t('add.foot.other_source') }}</a>
     {% endif %}
 </footer>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// The work runs on the server and takes seconds. Without disabling it, the button gets
-// clicked a second time — and on the last step that's a second import. The button now lives
-// in the footer, outside the form (form=), so we look for it both inside and out.
+// The save takes a moment. Without disabling it, the button gets clicked a second
+// time, and that's a second card. The Save button lives in the footer, outside the
+// form (form=), so we look for it both inside and out.
 function working(form) {
     var b = form.querySelector('button[type="submit"]')
         || document.querySelector('button[type="submit"][form="' + form.id + '"]');
     if (b) { b.disabled = true; b.textContent = {{ t('add.js_working') | tojson }}; }
+}
+
+// A choice on the "found" step carries the zone picked above it.
+function pick(form) {
+    var z = document.querySelector('input[name="zone"][form="zoneform"]:checked');
+    form.querySelector('input[name="zone"]').value = z ? z.value : 'private';
+    working(form);
+    return true;
 }
 
 // One field accepts everything: text, a pasted link, an image from the clipboard,
@@ -210,6 +156,7 @@ function working(form) {
 (function () {
     var drop = document.getElementById('drop');
     if (!drop) return;
+    var form = document.getElementById('addform');
     var file = document.getElementById('file');
     var src = document.getElementById('src');
     var field = document.getElementById('field');
@@ -217,6 +164,14 @@ function working(form) {
     var chipname = document.getElementById('chipname');
     var thumb = document.getElementById('thumb');
     var hint = document.getElementById('hint');
+
+    // Enter saves, as in a search box; Shift+Enter starts a new line of the note.
+    src.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        }
+    });
 
     function attach(f) {
         if (!f) return;

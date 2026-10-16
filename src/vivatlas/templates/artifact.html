@@ -387,6 +387,18 @@ var vivAbsorb = (function () {
     };
 })();
 
+// Asked by live.js when something this person can see has changed (another device,
+// the AI finishing a description): the same swap, but not while the card is being
+// edited or a field or a dropdown on it is in use; false means "later".
+window.vivLiveRefresh = function () {
+    var form = document.querySelector('.art-edit');
+    if (form && !form.hidden) return false;
+    var a = document.activeElement;
+    if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return false;
+    if (document.querySelector('[aria-expanded="true"]')) return false;
+    return vivAbsorb().then(function () { return true; });
+};
+
 // Purpose — saved without leaving the card: the chip up top and the tile behind both
 // follow at once, so it feels like setting a switch rather than filing a form. Bound on
 // document because the section itself gets swapped out by the refresh above.

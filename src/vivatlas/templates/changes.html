@@ -6,6 +6,8 @@
 {% block modal_body %}
 <p class="hint">{{ t('changes.hint') }}</p>
 
+{# Kept current by live.js: a scan or a save elsewhere adds to the feed. #}
+<div data-live="changes">
 <nav class="filters" style="margin: var(--s-md) 0 var(--s-lg)">
     <a class="filter" href="/changes" {% if not kind and not stale_mode %}aria-current="true"{% endif %}>{{ t('changes.filter_all') }} <b>{{ total }}</b></a>
     {% for k, n in counts_by_kind.items() %}
@@ -57,6 +59,7 @@
     {{ t('changes.empty_body') }}
 </div>
 {% endif %}
+</div>
 {% endblock %}
 
 {% block modal_foot %}

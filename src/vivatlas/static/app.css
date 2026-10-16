@@ -1921,7 +1921,51 @@ html:not([data-thememode]) .theme-ic[data-mode="light"] {
         display: block;
     }
 
-    /* Page actions on the right of the bar (Search, Filter). */
+    /* On a narrow phone the centred lockup and three actions (Filter, Changes,
+       Search) don't fit side by side: the lockup moves next to the burger. */
+    @media (max-width: 430px) {
+        .logo-sm {
+            position: static;
+            transform: none;
+        }
+    }
+
+    /* Under ~384px even that doesn't fit at full size: closer gaps, a smaller
+       wordmark and buttons, and on the narrowest phones the globe alone (the
+       drawer still opens on the full logo). */
+    @media (max-width: 383px) {
+        .topbar {
+            gap: var(--s-sm);
+            padding: 0 var(--s-sm);
+        }
+
+        .logo-sm {
+            gap: 6px;
+        }
+
+        .topbar-word {
+            height: 12px;
+        }
+
+        .topbar .tnav-btn {
+            width: 36px;
+        }
+    }
+
+    @media (max-width: 359px) {
+        .topbar-word {
+            display: none;
+        }
+    }
+
+    .topbar .sort-menu {
+        position: fixed;
+        top: 60px;
+        inset-inline-end: 8px;
+        max-width: calc(100vw - 16px);
+    }
+
+    /* Page actions on the right of the bar (Filter, Sort, Changes, Search). */
     .topbar-actions {
         margin-left: auto;
         display: flex;
@@ -3519,10 +3563,16 @@ html.card-dragging .side-folders-head {
     height: 15px;
 }
 
-.zone-seg-opt input:checked + span {
-    background: var(--surface-card);
+.zone-seg-opt:hover input:not(:checked) + span {
     color: var(--ink);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* The picked option is filled, not just a shade lighter: a white chip on the
+   sunk track was barely visible, and this choice decides who sees the card. */
+.zone-seg-opt input:checked + span {
+    background: var(--ink);
+    color: var(--on-ink);
+    font-weight: 600;
 }
 
 .zone-seg-opt input:focus-visible + span {
@@ -3949,6 +3999,10 @@ a.art-chip-pur:hover { border-color: currentColor; }
 @media (prefers-reduced-motion: reduce) {
     .art-fresh { animation: none; }
 }
+
+/* A part of the page live.js keeps current (static/live.js). Only a marker: it adds
+   no box of its own, so the layout is the same as without it. */
+[data-live] { display: contents; }
 
 /* On mobile the footer button is icon-only — swap the icon for the spinner rather
    than showing both, so the busy state reads at a glance. */
@@ -5830,59 +5884,25 @@ textarea.drop-in {
     border-color: var(--ink);
 }
 
-/* The results line over the grid: how many cards, and the order they are in. It is
-   the one place the order lives, at every width and in search too, so it is always
-   where you last saw it. The button carries the order in words, so it answers the
-   question without being opened. */
+/* The line over the grid during a search: how many cards it found. (The
+   catalogue's own count is on the sidebar, so outside a search there is no line.) */
 .resultsline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--s-sm);
     margin: var(--s-md) 0 0;
-    min-height: 34px;
 }
 
 .resultsline .hint {
     margin: 0;
-    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+/* The order: an icon button beside Filter (the toolbar's .filters-btn, the top
+   bar's .tnav-btn), its menu dropping down under it. */
 .sortctl {
     position: relative;
     flex: none;
-}
-
-.sort-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 34px;
-    padding: 0 10px;
-    border: 1px solid transparent;
-    border-radius: var(--r-md);
-    background: none;
-    color: var(--ink);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.sort-btn:hover,
-.sort-btn[aria-expanded="true"] {
-    border-color: var(--hairline);
-    background: var(--surface-card);
-}
-
-.sort-btn .ic {
-    width: 15px;
-    height: 15px;
-    color: var(--mute);
+    display: flex;
 }
 
 /* The reverse row sits apart from the orders: it changes a different thing. */

@@ -1889,14 +1889,14 @@ ADD_ZONE_COOKIE = "vivatlas_add_zone"
 _LINK_IN_TEXT = re.compile(r"(?:https?://|(?<![\w.])(?:www\.|github\.com/))[^\s<>\"']+", re.I)
 
 
-def _zone(value: str) -> str:
+def _add_zone(value: str) -> str:
     # Anything but an explicit "shared" is private: a missing or odd value must
     # never publish a card to everyone.
     return "shared" if value == "shared" else "private"
 
 
 def _add_page(request: Request, step: str, **extra) -> HTMLResponse:
-    zone = _zone(extra.pop("zone", "") or request.cookies.get(ADD_ZONE_COOKIE, ""))
+    zone = _add_zone(extra.pop("zone", "") or request.cookies.get(ADD_ZONE_COOKIE, ""))
     with session_scope() as session:
         user_id = getattr(request.state, "user_id", None)
         return templates.TemplateResponse(
@@ -1971,7 +1971,7 @@ async def add_find(
     """Save what was given. A link (with or without a note around it) is queued
     and the person goes straight back to the catalogue; anything else is read by the
     finder, which suggests what it might be."""
-    zone = _zone(zone or request.cookies.get(ADD_ZONE_COOKIE, ""))
+    zone = _add_zone(zone or request.cookies.get(ADD_ZONE_COOKIE, ""))
     src = source.strip()
     has_file = file is not None and bool(file.filename)
 
@@ -2052,7 +2052,7 @@ async def add_link(
     Nothing is written to Git. VIVATLAS reads repositories and never creates or
     changes one; copying a repository somewhere is a different job for a different
     tool."""
-    return await _queue_save(request, url.strip(), name.strip(), summary.strip(), _zone(zone))
+    return await _queue_save(request, url.strip(), name.strip(), summary.strip(), _add_zone(zone))
 
 
 @router.post("/add/note")
@@ -2067,7 +2067,7 @@ def add_note(
     """Nothing the finder suggested fits: save what it read (the words, the picture's
     text, the reel's speech) as a card of its own."""
     user_id = getattr(request.state, "user_id", None)
-    zone = _zone(zone)
+    zone = _add_zone(zone)
     with session_scope() as session:
         aid = _link_card(
             session, user_id, "", (name or source).strip(), summary.strip(), heard.strip()
@@ -2096,6 +2096,17 @@ def add_status(request: Request, job: str = "") -> JSONResponse:
         if row is None or row.user_id != user_id:
             return JSONResponse({"status": "gone"}, status_code=404)
         return JSONResponse({"status": row.status, "artifact_id": row.artifact_id})
+
+
+@router.get("/live")
+def live_stamp(request: Request) -> JSONResponse:
+    """Whether anything this person can see has changed: open pages poll it while
+    they're on screen and fetch themselves again only when the stamp moves (live.js)."""
+    from vivatlas import live
+
+    with session_scope() as session:
+        v = live.stamp(session, getattr(request.state, "user_id", None))
+    return JSONResponse({"v": v}, headers={"Cache-Control": "no-store"})
 
 
 def _link_card(session, user_id, source_url: str, name: str, summary: str, heard: str) -> int:

@@ -1,9 +1,10 @@
-"""The order the catalogue is in sits in one line over the cards, always.
+"""The order the catalogue is in: a button beside Filter, always there.
 
 It used to be in the toolbar on a wide screen, inside Filters on a phone, and gone
 during a search, so whether it could be seen depended on where you looked from. Now
-it is the same control everywhere, and a search can be put in order too: best match
-by default, or any catalogue order for that search alone.
+it is the same control everywhere (the toolbar, and the top bar on a phone or
+tablet), and a search can be put in order too: best match by default, or any
+catalogue order for that search alone.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -44,10 +45,14 @@ def _fake_search(Local, order):
     return do_search
 
 
-def test_the_order_is_shown_over_the_cards(site):  # noqa: F811
+def test_the_order_is_a_button_beside_filter(site):  # noqa: F811
     client, _Local, _ids = site
     r = client.get("/")
-    assert 'class="resultsline"' in r.text and 'id="sort-btn"' in r.text
+    toolbar = r.text[r.text.index('class="toolbar-right"'):r.text.index('id="filters-btn"')]
+    assert 'id="sort-btn"' in toolbar
+    assert 'id="sort-btn-top"' in r.text        # the phone and tablet top bar
+    # No "Cards: N" line: the sidebar shows that number already.
+    assert 'class="resultsline"' not in r.text
     assert 'class="sheet-sort"' not in r.text  # no second copy inside Filters
     assert "Best match" not in r.text          # only a search has a best match
 
@@ -61,6 +66,7 @@ def test_a_search_shows_the_order_too_best_match_first(site, monkeypatch):  # no
     r = client.get("/?q=thing")
     assert 'id="sort-btn"' in r.text
     assert "Best match" in r.text
+    assert "Found: 3." in r.text                # a search's count stays: it's news
     body = r.text[r.text.index('class="grid'):]
     assert body.index(">bbb<") < body.index(">tool<") < body.index(">aaa<")
 

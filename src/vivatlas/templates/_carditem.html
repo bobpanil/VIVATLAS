@@ -3,8 +3,6 @@
    `it` (card dict from web._card) and `next_path` (where forms return to). #}
 {% import "_icons.html" as icons %}
 {% set mine = it.owner_id and it.owner_id == request.state.user_id %}
-{% set admin_shared = request.state.is_owner and it.shared %}
-{% set can_toggle = mine or admin_shared %}
 <div class="card{% if it.is_new %} is-new{% endif %}" draggable="true" data-id="{{ it.id }}"
      data-zone="{{ it.zone }}">
     {# The card isn't one big link but a container: it holds its own buttons.
@@ -56,9 +54,12 @@
             </span>
             {% endif %}
 
-            {# Right-side actions — public/private, copy, favourite (fav on the far right).
+            {# Right-side actions — public/private (own cards), copy, favourite (fav on the far right).
                The date is not shown here; it lives on the card's own page. #}
-            {% if can_toggle %}
+            {# Sharing is the owner's call, so only the owner gets the switch. Any card
+               here that isn't theirs is shared already (others' private cards never
+               reach this page), so it shows no sign at all. #}
+            {% if mine %}
             <form class="zone-form" method="post" action="/artifact/{{ it.id }}/visibility">
                 <input type="hidden" name="next" value="{{ next_path }}">
                 <button class="zone-btn zone-{{ it.zone }}" type="submit" data-id="{{ it.id }}"
@@ -68,13 +69,6 @@
                     <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
                 </button>
             </form>
-            {% else %}
-            <span class="zone-btn zone-static zone-{{ it.zone }}"
-                  title="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}"
-                  aria-label="{% if it.zone == 'private' %}{{ t('card.zone_private_hint') }}{% else %}{{ t('card.zone_public_hint') }}{% endif %}">
-                <svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.4" rx="1.2"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"/></svg>
-                <svg class="i-globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>
-            </span>
             {% endif %}
 
             {% if it.source_url %}

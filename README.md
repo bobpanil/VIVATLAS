@@ -11,7 +11,7 @@ VIVATLAS is the shelf. Point it at your repositories and the links you clip, and
 It runs on your own machine — a NAS, a spare box, a laptop — it's built for more than one person, and it only ever *reads*. Public repositories in, nothing written back to Git, ever.
 
 <p align="center">
-  <img src="docs/images/vivatlas.gif" alt="Browse the catalogue, search for &quot;rag techniques&quot;, open a card" width="900">
+  <img src="docs/images/vivatlas.gif" alt="Browse the catalogue, search for &quot;whiteboard diagrams&quot;, open a card" width="900">
 </p>
 
 ## What it does for you

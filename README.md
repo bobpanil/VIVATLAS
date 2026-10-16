@@ -14,6 +14,12 @@ It runs on your own machine — a NAS, a spare box, a laptop — it's built for 
   <img src="docs/images/vivatlas.gif" alt="Browse the catalogue, search for &quot;whiteboard diagrams&quot;, open a card" width="900">
 </p>
 
+<p align="center">
+  <a href="https://demo1.bobpanil.com"><b>Try the live demo</b></a>
+</p>
+
+**Try it before you install it.** [demo1.bobpanil.com](https://demo1.bobpanil.com) is a public VIVATLAS. Press **Try it** on the sign-in page for a private account of your own, then browse the catalogue, search it, and add links or notes. The account and everything you add are deleted after 24 hours. The demo runs without AI, so the cards you add are plain and search goes by words, not by meaning. It always runs the newest release.
+
 ## What it does for you
 
 ### Every card has a face

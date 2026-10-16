@@ -35,6 +35,8 @@ from vivatlas.models import Invite, User, UserSession
 log = logging.getLogger(__name__)
 
 COOKIE_NAME = "vivatlas_session"
+# A session lasts this long after it was last used, not after sign-in: a phone opened
+# once a month stays signed in, one left in a drawer for a month signs itself out.
 SESSION_DAYS = 30
 
 # Brute-force. After this many failures in a row the account is locked for this many
@@ -174,9 +176,11 @@ def current_user(session: Session, request: Request) -> User | None:
     # render of any page became a write to the database, and SQLite admits only one
     # writer at a time — that's a needless write for no reason and a needless cause of
     # locks. For "where am I signed in" minute-level precision isn't needed anyway.
+    # The same write renews the session, so the 30 days count from the last use.
     seen = _aware(row.last_seen_at)
     if seen is None or (_now() - seen) > timedelta(minutes=2):
         row.last_seen_at = _now()
+        row.expires_at = _now() + timedelta(days=SESSION_DAYS)
     user = session.get(User, row.user_id)
     if user is None or not user.is_active:
         return None

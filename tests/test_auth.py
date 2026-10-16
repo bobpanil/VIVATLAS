@@ -1,4 +1,8 @@
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
 import pytest
+from fastapi import Response
 
 from vivatlas import auth, security, twofactor
 from vivatlas.config import settings
@@ -155,3 +159,67 @@ def test_unused_count(session):
     codes = twofactor.make_backup_codes(session, u)
     twofactor.use_backup_code(session, u, codes[0])
     assert twofactor.unused_backup_count(u) == twofactor.BACKUP_CODES_COUNT - 1
+
+
+# --- sessions: 30 days from the last use, not from sign-in ---
+
+
+class _Req:
+    """Enough of a Request for auth: cookies, headers, scheme, client ip."""
+
+    def __init__(self, cookies=None):
+        self.cookies = cookies or {}
+        self.headers = {}
+        self.url = SimpleNamespace(scheme="https")
+        self.client = SimpleNamespace(host="1.2.3.4")
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    """auth's own clock, moved by hand: clock.now += timedelta(days=...). It starts at
+    the real time, because the row's last_seen_at default comes from the real clock."""
+    c = SimpleNamespace(now=datetime.now(UTC))
+    monkeypatch.setattr(auth, "_now", lambda: c.now)
+    return c
+
+
+def _signed_in(session):
+    token = auth.open_session(session, make_user(session), _Req(), Response())
+    session.flush()
+    return _Req(cookies={auth.COOKIE_NAME: token})
+
+
+def test_a_session_in_use_outlives_30_days_from_sign_in(session, clock):
+    req = _signed_in(session)
+    for _ in range(4):  # once every three weeks: 84 days after sign-in
+        clock.now += timedelta(days=21)
+        assert auth.current_user(session, req) is not None
+
+
+def test_a_session_unused_for_30_days_ends(session, clock):
+    req = _signed_in(session)
+    clock.now += timedelta(days=29)
+    assert auth.current_user(session, req) is not None
+    clock.now += timedelta(days=auth.SESSION_DAYS, minutes=1)
+    assert auth.current_user(session, req) is None
+
+
+def test_renewal_rides_on_the_last_seen_write(session, clock):
+    # Within two minutes of the last write nothing is written, the expiry included.
+    req = _signed_in(session)
+    clock.now += timedelta(days=1)
+    auth.current_user(session, req)
+    row = session.query(auth.UserSession).one()
+    renewed = auth._aware(row.expires_at)  # SQLite hands the date back without a zone
+    assert renewed == clock.now + timedelta(days=auth.SESSION_DAYS)
+    clock.now += timedelta(minutes=1)
+    auth.current_user(session, req)
+    assert auth._aware(row.expires_at) == renewed
+
+
+def test_a_revoked_session_is_not_renewed_back(session, clock):
+    req = _signed_in(session)
+    row = session.query(auth.UserSession).one()
+    row.revoked_at = clock.now
+    clock.now += timedelta(days=1)
+    assert auth.current_user(session, req) is None

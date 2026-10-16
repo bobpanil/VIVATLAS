@@ -127,6 +127,14 @@ class Settings(BaseSettings):
     # a LAN. Empty keeps uvicorn's own default: loopback only.
     trusted_proxies: str = ""
 
+    # The header that holds the visitor's real address, when the proxy sets one of
+    # its own. Cloudflare APPENDS to an X-Forwarded-For the visitor already sent, so
+    # the first entry there is whatever the visitor typed; CF-Connecting-IP is
+    # Cloudflare's alone. Set "cf-connecting-ip" behind a Cloudflare Tunnel. When
+    # set, a request without it counts as coming from the connection itself.
+    # Empty: the first X-Forwarded-For entry, as before.
+    client_ip_header: str = ""
+
     # How many repositories a scan builds at once. Each card is mostly waiting —
     # on a download and on the AI — so overlapping several fills that idle time and
     # is the difference between a scan taking minutes and taking an hour. The ceiling

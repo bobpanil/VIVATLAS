@@ -375,6 +375,9 @@ def consume_invite(session: Session, inv: Invite, user: User) -> bool:
 
 def client_ip(request: Request) -> str:
     """The visitor's address. Behind a tunnel the real address arrives in a header."""
+    if settings.client_ip_header:
+        own = request.headers.get(settings.client_ip_header, "").strip()
+        return (own or (request.client.host if request.client else ""))[:64]
     fwd = request.headers.get("x-forwarded-for", "")
     if fwd:
         return fwd.split(",")[0].strip()[:64]

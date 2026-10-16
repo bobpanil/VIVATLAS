@@ -13,32 +13,32 @@ services:
       # The fixed account in the Mozilla reviewer notes.
       DEMO_REVIEWER_EMAIL: "demo"
       DEMO_REVIEWER_PASSWORD: "demo"
-      # Only Caddy reaches this container (no port is published), so its
+      # Only cloudflared reaches this container (no port is published), so its
       # X-Forwarded-* headers can be believed.
       TRUSTED_PROXIES: "*"
+      # The visitor's address as Cloudflare saw it. X-Forwarded-For can be faked
+      # through Cloudflare, and the "Try it" limit counts per address.
+      CLIENT_IP_HEADER: "cf-connecting-ip"
       # No AI keys and no PUBLIC_URL on purpose: AI is off, MCP stays closed.
     volumes:
       - data:/data
       - ./links.txt:/seed/links.txt:ro
-    # An e2-micro has 1 GB. Leave room for Caddy and the system.
+    # Public resolvers, never the home network's.
+    dns: [1.1.1.1, 9.9.9.9]
     mem_limit: 640m
 
-  caddy:
-    image: caddy:2.8
+  # Dials out to Cloudflare and brings the visitors in: no port is open on this
+  # machine or the router. The tunnel's public hostname points at
+  # http://vivatlas:8710. Pinned; bump it by hand now and then.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    command: tunnel --no-autoupdate run
     environment:
-      DEMO_HOST: "${DEMO_HOST:?set DEMO_HOST in .env next to this file}"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env next to this file}"
+    dns: [1.1.1.1, 9.9.9.9]
     depends_on:
       - vivatlas
 
 volumes:
   data:
-  caddy_data:
-  caddy_config:

@@ -24,7 +24,7 @@ from vivatlas import changes as ch
 from vivatlas import comments as cm
 from vivatlas import filters as flt
 from vivatlas import reviews as rv
-from vivatlas.ai import build_embedding_model, build_text_model
+from vivatlas.ai import build_embedding_model, build_text_model, search_embedding_model
 from vivatlas.config import settings
 from vivatlas.db import session_scope
 from vivatlas.mcp_oauth import SCOPE
@@ -196,7 +196,7 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
     type: optional filter — design-kit, claude-skill, skill, project
     """
     limit = max(1, min(limit, MAX_LIMIT))
-    model = build_embedding_model()
+    model = search_embedding_model()
     try:
         with session_scope() as session:
             # Without a signed-in user (the local stdio connection) only shared
@@ -220,7 +220,8 @@ async def search_artifacts(query: str, limit: int = 5, type: str = "") -> dict:
                 ],
             }
     finally:
-        await model.aclose()
+        if model:
+            await model.aclose()
 
 
 @mcp.tool()

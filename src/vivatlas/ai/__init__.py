@@ -114,3 +114,13 @@ def build_embedding_model() -> EmbeddingModel:
         model=settings.embedding_model,
         dim=settings.embedding_dim,
     )
+
+
+def search_embedding_model() -> EmbeddingModel | None:
+    """The model for searching by meaning, or None when there is no Google key.
+
+    A server without AI (the public demo, or an install that never added a key)
+    still has word search. Building the model there raises, and used to turn
+    every search into a 500 instead of a search by words.
+    """
+    return build_embedding_model() if settings.google_api_key else None

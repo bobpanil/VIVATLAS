@@ -29,7 +29,7 @@ from vivatlas import comments as cm
 from vivatlas import filters as flt
 from vivatlas import purposes as pur
 from vivatlas import reviews as rv
-from vivatlas.ai import build_embedding_model, build_text_model
+from vivatlas.ai import build_embedding_model, build_text_model, search_embedding_model
 from vivatlas.archive import read_archive
 from vivatlas.config import settings
 from vivatlas.db import session_scope
@@ -244,7 +244,7 @@ async def index(
         purpose=purpose, zone=zone, sort=chosen_sort, dir=chosen_dir,
     )
 
-    model = build_embedding_model() if searching else None
+    model = search_embedding_model() if searching else None
     try:
         with session_scope() as session:
             user_id = getattr(request.state, "user_id", None)

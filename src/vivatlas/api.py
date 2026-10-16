@@ -13,7 +13,7 @@ from sqlalchemy import func, select, update
 from vivatlas import auth, demo, i18n, security
 from vivatlas import filters as flt
 from vivatlas.admin_web import router as admin_router
-from vivatlas.ai import build_embedding_model
+from vivatlas.ai import search_embedding_model
 from vivatlas.auth_web import router as auth_router
 from vivatlas.config import settings
 from vivatlas.db import session_scope
@@ -469,7 +469,7 @@ async def search_endpoint(
     limit: int = 10,
     type: str | None = None,
 ) -> dict:
-    model = build_embedding_model() if mode in (Mode.MEANING, Mode.BOTH) else None
+    model = search_embedding_model() if mode in (Mode.MEANING, Mode.BOTH) else None
     try:
         with session_scope() as session:
             user_id = getattr(request.state, "user_id", None)

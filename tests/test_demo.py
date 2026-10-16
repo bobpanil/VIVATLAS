@@ -325,3 +325,12 @@ def test_bearer_session_of_a_visitor_is_bound_too(local):
         headers={"authorization": f"Bearer {token}", "accept": "application/json"},
     )
     assert r.status_code == 403
+
+
+def test_search_works_without_an_ai_key(client, monkeypatch):
+    # The demo has no AI. Search goes by words then, instead of failing on the
+    # model it can't build.
+    monkeypatch.setattr(settings, "google_api_key", "")
+    _start(client)
+    assert client.get("/", params={"q": "whiteboard"}).status_code == 200
+    assert client.get("/api/search", params={"q": "whiteboard"}).status_code == 200

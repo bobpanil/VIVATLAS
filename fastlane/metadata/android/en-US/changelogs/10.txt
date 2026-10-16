@@ -1,0 +1,1 @@
+On a phone set to another language, the Cancel buttons now match the rest of the app. The server address field starts empty instead of showing an address that only works in the emulator.

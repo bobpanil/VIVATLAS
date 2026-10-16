@@ -3,4 +3,6 @@
     <!-- A debug build installs next to the release one. With the same name the two
          were indistinguishable on the home screen and in the share menu. -->
     <string name="app_name">VIVATLAS dev</string>
+    <!-- The host machine as the Android emulator sees it, where a dev server runs. -->
+    <string name="server_default" translatable="false">http://10.0.2.2:8710</string>
 </resources>

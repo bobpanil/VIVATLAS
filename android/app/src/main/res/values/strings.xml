@@ -5,8 +5,13 @@
     <string name="server_title">VIVATLAS server</string>
     <string name="server_message">Enter the address of your VIVATLAS server.</string>
     <string name="server_hint">http://host:port</string>
-    <string name="server_default">http://10.0.2.2:8710</string>
+    <!-- Empty, so a phone shows the hint instead of an address that can't work
+         there. The debug build fills in the emulator's host. -->
+    <string name="server_default" translatable="false"></string>
     <string name="save">Save</string>
+    <!-- The app's own, not @android:string/cancel: that one follows the system
+         language and sat next to the app's English "Save" and "Add". -->
+    <string name="cancel">Cancel</string>
 
     <string name="err_unreachable">Couldn\'t reach the server. Check the address and that it\'s running.</string>
 

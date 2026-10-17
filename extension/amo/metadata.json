@@ -1,19 +1,32 @@
 {
-  "name": {"en-US": "VIVATLAS Clipper"},
+  "name": {
+    "en-US": "VIVATLAS Clipper"
+  },
   "slug": "vivatlas-clipper",
   "summary": {
     "en-US": "Send the page you are on, or any link, to your own self-hosted VIVATLAS catalogue as a private or public card, and keep browsing."
   },
   "description": {
-    "en-US": "VIVATLAS is a self-hosted catalogue for the skills, agents, MCP servers and other tools you collect from Git repositories and around the web. VIVATLAS Clipper is its toolbar button: one click sends the page you are on to your VIVATLAS server, where it becomes a card with a description and tags.\n\n<b>You need a VIVATLAS server.</b> The clipper talks only to a server you run yourself or have an account on. VIVATLAS is free to self-host with Docker: https://github.com/bobpanil/VIVATLAS\n\n<b>What it does</b>\n• Captures the page you are on: its address, title and readable text.\n• Or sends a link you paste in.\n• Lets you choose for each clip whether the card is private (only you) or public (everyone on your server).\n• Signs you in from your VIVATLAS session in this browser, so there is no separate login. If you are not signed in there, it asks for your email and password, with two-step codes supported.\n• GitHub repositories become cards for the repository; other pages are summarised by your server from the captured text.\n\n<b>Privacy</b>\nThe clipper sends data only to the VIVATLAS server address you enter: the page address, title and text when you press Send, and your email and password when you sign in. No analytics, no tracking, no third-party services. Firefox asks once to allow access to your server's address; the clipper reads the current tab only when you open it there."
+    "en-US": "VIVATLAS is a self-hosted catalogue for the skills, agents, MCP servers and other tools you collect from Git repositories and around the web. **VIVATLAS Clipper** is its toolbar button: one click sends the page you are on to your VIVATLAS server, where it becomes a card with a description and tags.\n\n**You need a VIVATLAS server.** The clipper talks only to a server you run yourself or have an account on. VIVATLAS is free to self-host with Docker: [github.com/bobpanil/VIVATLAS](https://github.com/bobpanil/VIVATLAS)\n\n**Try it without a server.** The public demo gives you a private account for 24 hours:\n\n1. Open [demo1.bobpanil.com](https://demo1.bobpanil.com) and press **Try it** on the sign-in page.\n2. Open the clipper and enter https://demo1.bobpanil.com as the server address.\n3. On any page, press **Add to VIVATLAS**.\n\nThe demo has no AI, so clips there become plain cards from the page's title and text, and they stay private.\n\n**What it does**\n\n- Captures the page you are on: its address, title and readable text.\n- Or sends a link you paste in.\n- Lets you choose for each clip whether the card is *private* (only you) or *public* (everyone on your server).\n- Signs you in from your VIVATLAS session in this browser, so there is no separate login. If you are not signed in there, it asks for your email and password, with two-step codes supported.\n- Turns GitHub repositories into cards for the repository. Other pages are summarised by your server from the captured text.\n\n**Privacy**\n\nThe clipper sends data only to the VIVATLAS server address you enter: the page address, title and text when you press **Add to VIVATLAS**, and your email and password when you sign in. No analytics, no tracking, no third-party services. Firefox asks once to allow access to your server's address. The clipper reads the current tab only when you open it there."
   },
-  "categories": ["bookmarks", "web-development"],
-  "homepage": {"en-US": "https://github.com/bobpanil/VIVATLAS"},
-  "support_url": {"en-US": "https://github.com/bobpanil/VIVATLAS/issues"},
+  "categories": [
+    "bookmarks",
+    "web-development"
+  ],
+  "homepage": {
+    "en-US": "https://github.com/bobpanil/VIVATLAS"
+  },
+  "support_url": {
+    "en-US": "https://github.com/bobpanil/VIVATLAS/issues"
+  },
   "requires_payment": false,
   "version": {
     "license": "Apache-2.0",
-    "compatibility": ["firefox"],
-    "release_notes": {"en-US": "First release on addons.mozilla.org."}
+    "compatibility": [
+      "firefox"
+    ],
+    "release_notes": {
+      "en-US": "First release on addons.mozilla.org."
+    }
   }
 }

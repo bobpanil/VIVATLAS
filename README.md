@@ -50,7 +50,7 @@ Two indexes work together: full-text for words, vectors for meaning. Type in Rus
 
 ### Clip from anywhere
 
-- **Browser extension** (Chrome and friends): the page you're on, or a pasted link, into your catalogue in one click, public or private. → [extension/README.md](extension/README.md)
+- **Browser extension** (Firefox, Chrome and friends): the page you're on, or a pasted link, into your catalogue in one click, public or private. → [extension/README.md](extension/README.md)
 - **Android app**: Share → VIVATLAS from any app. A small sheet shows what you're saving and lets you choose *private* or *public* before it goes. Signs in by scanning a QR from a browser that's already signed in, so a long password never meets a phone keyboard. → [android/README.md](android/README.md)
 - **The web form**: a link, a site, a screenshot or a reel → candidates with stars → pick → a card in your catalogue.
 
@@ -159,7 +159,7 @@ src/vivatlas/
   ext_api.py           JSON API for the browser extension and the Android app (/api/ext)
   templates/, static/  pages and styles (hand-written CSS, no build step)
 
-extension/             Chrome/Chromium extension (Manifest V3)
+extension/             browser extension for Firefox and Chromium (Manifest V3)
 android/               Kotlin WebView shell: share target, QR sign-in
 ```
 

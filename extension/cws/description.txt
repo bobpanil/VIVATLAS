@@ -1,0 +1,30 @@
+VIVATLAS is a self-hosted catalogue for the skills, agents, MCP servers and other tools you collect from Git repositories and around the web. VIVATLAS Clipper is its toolbar button: one click sends the page you are on to your VIVATLAS server, where it becomes a card with a description and tags.
+
+YOU NEED A VIVATLAS SERVER
+The clipper talks only to a server you run yourself or have an account on. VIVATLAS is free to self-host with Docker: https://github.com/bobpanil/VIVATLAS
+
+TRY IT WITHOUT A SERVER
+The public demo gives you a private account for 24 hours:
+1. Open https://demo1.bobpanil.com and press Try it on the sign-in page.
+2. Open the clipper and enter https://demo1.bobpanil.com as the server address.
+3. On any page, press Add to VIVATLAS.
+The demo has no AI, so clips there become plain cards from the page's title and text, and they stay private.
+
+WHAT IT DOES
+• Captures the page you are on: its address, title and readable text.
+• Or sends a link you paste in.
+• Lets you choose for each clip whether the card is private (only you) or public (everyone on your server).
+• Signs you in from your VIVATLAS session in this browser, so there is no separate login. If you are not signed in there, it asks for your email and password, with two-step codes supported.
+• Turns GitHub repositories into cards for the repository. Other pages are summarised by your server from the captured text.
+
+THE SCREENSHOTS
+1. One click sends the page you are on to your own VIVATLAS, as a private or public card.
+2. The clip goes into your catalogue while you keep browsing.
+3. Your catalogue: every tool you have collected, with a picture, a description and tags.
+4. Open a card to see what it is, how it works, its tags and its folders.
+5. Sign in once with your VIVATLAS account, or let the clipper use your browser session.
+
+PRIVACY
+The clipper sends data only to the VIVATLAS server address you enter: the page address, title and text when you press Add to VIVATLAS, and your email and password when you sign in. No analytics, no tracking, no third-party services. Chrome asks once to allow access to your server's address. The clipper reads the current tab only when you open it there.
+
+Open source under Apache-2.0.

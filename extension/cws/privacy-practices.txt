@@ -1,0 +1,42 @@
+SINGLE PURPOSE
+
+Send the page the user is on, or a link they paste, to their own VIVATLAS server (a self-hosted catalogue), where it becomes a private or public card.
+
+
+PERMISSION JUSTIFICATIONS
+
+storage:
+Keeps the user's VIVATLAS server address, session token, email, display name and default visibility (private or public) for new cards, so they do not have to enter them again each time.
+
+activeTab:
+Reads the address and title of the tab the user is on, only when they open the clipper on it, so it can be sent to their VIVATLAS server.
+
+scripting:
+Runs a small function in the current tab, only when the user opens the clipper on it, to read the page's readable text. Their VIVATLAS server uses that text to describe the page on its card. Nothing is injected into pages in the background.
+
+cookies:
+Reads the session cookie of the user's own VIVATLAS server, so a user already signed in on its website is signed in to the clipper too. When they sign in through the clipper it sets that cookie, so the website stays signed in as the same person. It touches no other site's cookies.
+
+Host permission:
+The clipper works with any VIVATLAS server, self-hosted at an address only the user knows, so the host access is optional (optional_host_permissions) and requested at runtime for the one address the user types in. It is used to call that server's API and to read its session cookie. The clipper asks for no other site.
+
+Remote code:
+No, I am not using remote code. All JavaScript is in the package; there is no build step, bundler, minifier or code loaded from anywhere else.
+
+
+DATA USAGE
+
+What user data does the extension collect? Tick:
+- Personally identifiable information: the user's email address, sent to their own VIVATLAS server to sign in.
+- Authentication information: the email, password and two-step code, sent only to the user's VIVATLAS server to sign in (the password is not stored), and the session token kept in the extension's storage.
+- Web history: the address and title of a page, only when the user presses Add to VIVATLAS on it.
+- Website content: the readable text of that page, at the same moment.
+
+Leave the rest unticked: health, financial and payment information, personal communications, location, user activity (clicks, keystrokes, mouse movement).
+
+All data goes only to the VIVATLAS server the user chose, which they run or have an account on. The developer receives none of it.
+
+Certify all three:
+- I do not sell or transfer user data to third parties, outside of the approved use cases.
+- I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
+- I do not use or transfer user data to determine creditworthiness or for lending purposes.

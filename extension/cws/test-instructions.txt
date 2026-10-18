@@ -1,0 +1,8 @@
+Uses the public VIVATLAS demo server with the account above. No 2FA.
+
+1. Click the toolbar button, enter {server}, press Continue.
+2. Allow access to that address when Chrome asks. If the popup closes, reopen it.
+3. Sign in with the username and password above.
+4. On any web page, open the clipper and press Add to VIVATLAS. The clip appears on {server}.
+
+Host access is optional, asked only for that one server. No remote code, no analytics.

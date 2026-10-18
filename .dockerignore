@@ -28,3 +28,5 @@ docs/
 extension/assets/*.png
 extension/assets/favicon1.svg
 extension/icons/svg.svg
+# Store listings (texts and 1 MB of screenshots), not needed by the server.
+extension/cws/

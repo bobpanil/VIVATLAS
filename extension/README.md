@@ -33,7 +33,13 @@ The gear in the top-right holds the things you set once and forget:
 
 ## Install
 
-**Easiest — from VIVATLAS.** Open your VIVATLAS, go to **Settings → Browser extension**,
+**From the Chrome Web Store** (Chrome, Edge, Brave and other Chromium browsers):
+[![Add to Chrome](https://img.shields.io/chrome-web-store/v/imemfjgeiikkijmeghblppcdoijejmfp?label=Add%20to%20Chrome&logo=googlechrome&logoColor=white&color=f7a501)](https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp)
+Open the clipper once, enter your server's address and allow access to it. The sign-in
+is picked up from your VIVATLAS session in that browser. Firefox is listed on
+addons.mozilla.org once Mozilla has reviewed it; until then use the steps below.
+
+**From VIVATLAS, pre-wired to your server.** Open your VIVATLAS, go to **Settings → Browser extension**,
 and use the **Chrome/Edge** or **Firefox** download. That build is pre-wired to your
 server (no "enter server" step) and signs in from your browser session (no extension
 login) — the page walks you through the one-time load.

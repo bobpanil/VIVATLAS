@@ -50,7 +50,10 @@ Two indexes work together: full-text for words, vectors for meaning. Type in Rus
 
 ### Clip from anywhere
 
-- **Browser extension** (Firefox, Chrome and friends): the page you're on, or a pasted link, into your catalogue in one click, public or private. → [extension/README.md](extension/README.md)
+- **Browser extension** (Chrome, Edge, Brave, Firefox): the page you're on, or a pasted link, into your catalogue in one click, public or private. → [extension/README.md](extension/README.md)
+
+  <a href="https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp"><img src="extension/icons/icon48.png" alt="" width="24" height="24" align="center"></a>
+  [![Add to Chrome](https://img.shields.io/chrome-web-store/v/imemfjgeiikkijmeghblppcdoijejmfp?label=Add%20to%20Chrome&logo=googlechrome&logoColor=white&color=f7a501)](https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp)
 - **Android app**: Share → VIVATLAS from any app. A small sheet shows what you're saving and lets you choose *private* or *public* before it goes. Signs in by scanning a QR from a browser that's already signed in, so a long password never meets a phone keyboard. → [android/README.md](android/README.md)
 - **The web form**: a link, a site, a screenshot or a reel → candidates with stars → pick → a card in your catalogue.
 

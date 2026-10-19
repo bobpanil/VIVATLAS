@@ -4891,6 +4891,10 @@ a.art-chip-pur:hover { border-color: currentColor; }
     word-break: break-all;
 }
 .ext-copy { flex: none; }
+.ext-store { display: inline-flex; align-items: center; gap: 10px; margin-top: 10px; text-decoration: none; }
+.ext-store img { border-radius: 6px; }
+.ext-alt { margin-top: var(--s-md, 16px); font-size: 14px; }
+.ext-alt summary { cursor: pointer; color: var(--mute); }
 
 /* Section messages (error/success) — also full width, above the section grid. */
 .setpanel > .warn,

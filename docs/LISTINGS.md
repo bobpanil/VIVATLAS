@@ -58,7 +58,7 @@ are. Each block is written to be posted as-is; change the voice if it isn't your
   in at submission from `AMO_REVIEWER_*`. Bump `version` in `extension/manifest.json` and
   the release notes in `metadata.json` for each upload.
 
-- **Chrome Web Store**: `scripts/chrome-extension.sh` packs `dist/chrome/` (the same
+- **Chrome Web Store**: live at https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp (linked from the README and Settings). `scripts/chrome-extension.sh` packs `dist/chrome/` (the same
   files, without the Firefox-only manifest block). Upload it in the developer dashboard;
   `extension/cws/README.md` lists every field, with the texts to paste and the images
   in `extension/cws/`. Bump `version` in `extension/manifest.json` for each upload.

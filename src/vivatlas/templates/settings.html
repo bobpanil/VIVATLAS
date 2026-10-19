@@ -272,13 +272,32 @@
     {{ sechead(t('settings.ext_title'), t('settings.ext_tip')) }}
     <p class="legend">{{ t('settings.ext_intro') }}</p>
 
-    {% if extension_available %}
-    {# No "enter server / sign in" step: the download is wired to this server and the
-       clipper adopts your browser's VIVATLAS session automatically. #}
     <p class="set-on">{{ t('settings.ext_auto') }}</p>
 
     <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.ext_chrome') }}</h3></div>
+    <a class="cta ext-store" href="{{ chrome_store_url }}" target="_blank" rel="noopener">
+        <img src="/static/clipper-icon.png" alt="" width="24" height="24">
+        <span>{{ t('settings.ext_store_btn') }}</span>
+    </a>
+    <p class="note">{{ t('settings.ext_store_note') }}</p>
     <ol class="ext-steps">
+        <li>{{ t('settings.ext_store_add') }}</li>
+        <li>
+            <span class="ext-step-text">{{ t('settings.ext_store_server') }}</span>
+            <span class="ext-copyrow">
+                <code>{{ server_url }}</code>
+                <button type="button" class="btn-secondary ext-copy" data-copy="{{ server_url }}"
+                        data-done="{{ t('settings.ext_copied') }}"
+                        onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
+            </span>
+        </li>
+        <li>{{ t('settings.ext_store_allow') }}</li>
+    </ol>
+
+    {% if extension_available %}
+    <details class="ext-alt">
+        <summary>{{ t('settings.ext_alt_summary') }}</summary>
+        <ol class="ext-steps">
         <li>
             <span class="ext-step-text">{{ t('settings.ext_step_download') }}</span>
             <a class="cta ext-dl" href="/settings/extension.zip" download>{{ t('settings.ext_download_btn') }}</a>
@@ -296,6 +315,7 @@
         <li>{{ t('settings.ext_step_devmode') }}</li>
         <li>{{ t('settings.ext_step_load') }}</li>
     </ol>
+    </details>
 
     <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.ext_firefox') }}</h3></div>
     <ol class="ext-steps">

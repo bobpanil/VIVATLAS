@@ -127,6 +127,10 @@ def _extension_dir() -> Path | None:
     return None
 
 
+# The clipper's listing on the Chrome Web Store (also reached from Edge and Brave).
+CHROME_STORE_URL = "https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp"
+
+
 def _ext_config_js(server_url: str) -> str:
     """config.js pre-wired to this server (json.dumps handles quoting/escaping)."""
     return (
@@ -247,6 +251,7 @@ def _security_page(
         # whatever host this request came in on.
         server_url=runtime_settings.site_url(session) or str(request.base_url).rstrip("/"),
         extension_available=_extension_dir() is not None,
+        chrome_store_url=CHROME_STORE_URL,
         # ChatGPT / MCP connector: the URL to paste, and the apps currently authorized.
         mcp_enabled=bool(settings.public_url),
         mcp_url=(settings.public_url.rstrip("/") + "/mcp-server/mcp") if settings.public_url else "",

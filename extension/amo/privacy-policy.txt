@@ -17,4 +17,4 @@ What it does not do:
 
 What happens to the data on the server is up to whoever runs that server. VIVATLAS stores a clip as a card in the space you chose: private (only you) or public (everyone on that server).
 
-Questions: https://github.com/bobpanil/VIVATLAS/issues
+Questions: support@bobpanil.com, or https://github.com/bobpanil/VIVATLAS/issues

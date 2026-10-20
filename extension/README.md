@@ -35,19 +35,20 @@ The gear in the top-right holds the things you set once and forget:
 
 **From the Chrome Web Store** (Chrome, Edge, Brave and other Chromium browsers):
 [![Add to Chrome](https://img.shields.io/chrome-web-store/v/imemfjgeiikkijmeghblppcdoijejmfp?label=Add%20to%20Chrome&logo=googlechrome&logoColor=white&color=f7a501)](https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp)
-Open the clipper once, enter your server's address and allow access to it. The sign-in
-is picked up from your VIVATLAS session in that browser. Firefox is listed on
-addons.mozilla.org once Mozilla has reviewed it; until then use the steps below.
 
-**From VIVATLAS, pre-wired to your server.** Open your VIVATLAS, go to **Settings → Browser extension**,
-and use the **Chrome/Edge** or **Firefox** download. That build is pre-wired to your
-server (no "enter server" step) and signs in from your browser session (no extension
-login) — the page walks you through the one-time load.
+**From Firefox Add-ons:**
+[![Add to Firefox](https://img.shields.io/amo/v/vivatlas-clipper?label=Add%20to%20Firefox&logo=firefoxbrowser&logoColor=white&color=ff7139)](https://addons.mozilla.org/firefox/addon/vivatlas-clipper/)
+
+Open the clipper once, enter your server's address and allow access to it. The sign-in
+is picked up from your VIVATLAS session in that browser. **Settings → Browser extension**
+in VIVATLAS links to both stores and shows the address to enter.
+
+**From a source checkout** (for working on the clipper itself):
 
 **Chrome / Edge / Brave (unpacked):**
 
 1. Open `chrome://extensions`, turn on **Developer mode** (top right).
-2. Click **Load unpacked** and pick the unzipped `vivatlas-clipper` folder.
+2. Click **Load unpacked** and pick this `extension/` folder.
 
 **Firefox (temporary add-on):**
 

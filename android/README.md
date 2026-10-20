@@ -15,6 +15,8 @@
 > For the phone, set the server URL to the host's **LAN IP** (`http://<host-lan-ip>:8710`),
 > and run the server with `--host 0.0.0.0`.
 
+**Install:** [![Get it on F-Droid](https://img.shields.io/f-droid/v/com.vivatlas.app?label=Get%20it%20on%20F-Droid&logo=fdroid&logoColor=white&color=1976d2)](https://f-droid.org/packages/com.vivatlas.app/), or the APK from the [latest release](https://github.com/bobpanil/VIVATLAS/releases).
+
 **Licence:** the app in this directory is [Apache-2.0](LICENSE) — free software, so it
 can be built and distributed by F-Droid and friends. The server it talks to stays under
 the repository's [Business Source License](../LICENSE); the two are separate works.

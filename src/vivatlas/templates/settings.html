@@ -294,51 +294,26 @@
         <li>{{ t('settings.ext_store_allow') }}</li>
     </ol>
 
-    {% if extension_available %}
-    <details class="ext-alt">
-        <summary>{{ t('settings.ext_alt_summary') }}</summary>
-        <ol class="ext-steps">
-        <li>
-            <span class="ext-step-text">{{ t('settings.ext_step_download') }}</span>
-            <a class="cta ext-dl" href="/settings/extension.zip" download>{{ t('settings.ext_download_btn') }}</a>
-        </li>
-        <li>{{ t('settings.ext_step_unzip') }}</li>
-        <li>
-            <span class="ext-step-text">{{ t('settings.ext_step_open') }}</span>
-            <span class="ext-copyrow">
-                <code>chrome://extensions</code>
-                <button type="button" class="btn-secondary ext-copy" data-copy="chrome://extensions"
-                        data-done="{{ t('settings.ext_copied') }}"
-                        onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
-            </span>
-        </li>
-        <li>{{ t('settings.ext_step_devmode') }}</li>
-        <li>{{ t('settings.ext_step_load') }}</li>
-    </ol>
-    </details>
-
     <div class="sec-head" style="margin-top: var(--s-lg)"><h3>{{ t('settings.ext_firefox') }}</h3></div>
+    <a class="cta ext-store" href="{{ firefox_addon_url }}" target="_blank" rel="noopener">
+        <img src="/static/clipper-icon.png" alt="" width="24" height="24">
+        <span>{{ t('settings.ext_ff_store_btn') }}</span>
+    </a>
+    <p class="note">{{ t('settings.ext_ff_store_note') }}</p>
     <ol class="ext-steps">
+        <li>{{ t('settings.ext_ff_store_add') }}</li>
         <li>
-            <span class="ext-step-text">{{ t('settings.ext_step_download') }}</span>
-            <a class="cta ext-dl" href="/settings/extension.zip?browser=firefox" download>{{ t('settings.ext_ff_download_btn') }}</a>
-        </li>
-        <li>{{ t('settings.ext_step_unzip') }}</li>
-        <li>
-            <span class="ext-step-text">{{ t('settings.ext_ff_step_open') }}</span>
+            <span class="ext-step-text">{{ t('settings.ext_store_server') }}</span>
             <span class="ext-copyrow">
-                <code>about:debugging#/runtime/this-firefox</code>
-                <button type="button" class="btn-secondary ext-copy" data-copy="about:debugging#/runtime/this-firefox"
+                <code>{{ server_url }}</code>
+                <button type="button" class="btn-secondary ext-copy" data-copy="{{ server_url }}"
                         data-done="{{ t('settings.ext_copied') }}"
                         onclick="if(navigator.clipboard){navigator.clipboard.writeText(this.dataset.copy);var w=this.textContent;this.textContent=this.dataset.done;var b=this;setTimeout(function(){b.textContent=w;},1200);}">{{ t('settings.ext_copy') }}</button>
             </span>
         </li>
-        <li>{{ t('settings.ext_ff_step_load') }}</li>
+        <li>{{ t('settings.ext_ff_store_allow') }}</li>
     </ol>
-    <p class="note">{{ t('settings.ext_ff_note') }}</p>
-    {% else %}
-    <p class="warn">{{ t('settings.ext_unavailable') }}</p>
-    {% endif %}
+
 </div>
 </section>
 

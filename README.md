@@ -54,10 +54,11 @@ Two indexes work together: full-text for words, vectors for meaning. Type in Rus
 
   <a href="https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp"><img src="extension/icons/icon48.png" alt="" width="24" height="24" align="center"></a>
   [![Add to Chrome](https://img.shields.io/chrome-web-store/v/imemfjgeiikkijmeghblppcdoijejmfp?label=Add%20to%20Chrome&logo=googlechrome&logoColor=white&color=f7a501)](https://chromewebstore.google.com/detail/vivatlas-clipper/imemfjgeiikkijmeghblppcdoijejmfp)
+  [![Add to Firefox](https://img.shields.io/amo/v/vivatlas-clipper?label=Add%20to%20Firefox&logo=firefoxbrowser&logoColor=white&color=ff7139)](https://addons.mozilla.org/firefox/addon/vivatlas-clipper/)
 - **Android app**: Share → VIVATLAS from any app. A small sheet shows what you're saving and lets you choose *private* or *public* before it goes. Signs in by scanning a QR from a browser that's already signed in, so a long password never meets a phone keyboard. → [android/README.md](android/README.md)
 - **The web form**: a link, a site, a screenshot or a reel → candidates with stars → pick → a card in your catalogue.
 
-**Installing the Android app:** grab `vivatlas-android-<version>.apk` from the [latest release](https://github.com/bobpanil/VIVATLAS/releases) — or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) and it updates itself. Releases are signed with one key for the life of the app, so each installs over the last.
+**Installing the Android app:** [![Get it on F-Droid](https://img.shields.io/f-droid/v/com.vivatlas.app?label=Get%20it%20on%20F-Droid&logo=fdroid&logoColor=white&color=1976d2)](https://f-droid.org/packages/com.vivatlas.app/) from [F-Droid](https://f-droid.org/packages/com.vivatlas.app/), which keeps it updated. Or grab `vivatlas-android-<version>.apk` from the [latest release](https://github.com/bobpanil/VIVATLAS/releases), or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) and it updates itself. Releases are signed with one key for the life of the app, so each installs over the last.
 
 <p align="center">
   <img src="docs/images/phone.webp" alt="The Android app: the share sheet asking Private or Public, and the filter panel with sorting folded in" width="720">

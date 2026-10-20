@@ -44,12 +44,13 @@ are. Each block is written to be posted as-is; change the voice if it isn't your
 - **IzzyOnDroid** — request a listing (apt.izzysoft.de/fdroid, or their issue tracker)
   with the repo URL; they take the signed APK from the GitHub Release and the texts
   from `fastlane/`. Days.
-- **F-Droid** — `android/fdroid/com.vivatlas.app.yml` is the ready, linted submission;
-  `android/fdroid/README.md` has the four steps. Weeks. Expect the *NonFreeNet* badge.
+- **F-Droid**: live at https://f-droid.org/packages/com.vivatlas.app/ (linked from the README). Built from `android-v*` tags by F-Droid's
+  own server; the recipe is `android/fdroid/com.vivatlas.app.yml`, the steps
+  `android/fdroid/README.md`. Expect the *NonFreeNet* badge.
 
 ## Browser extension
 
-- **Firefox Add-ons (AMO)**: listed as `vivatlas-clipper` (add-on id
+- **Firefox Add-ons (AMO)**: live at https://addons.mozilla.org/firefox/addon/vivatlas-clipper/ (linked from the README and Settings), listed as `vivatlas-clipper` (add-on id
   `vivatlas-clipper@vivatlas.app`). `scripts/firefox-addon.sh build` lints and packs
   `dist/firefox/`; `scripts/firefox-addon.sh sign` submits it as a listed version. The
   listing text is `extension/amo/metadata.json`, the privacy policy
